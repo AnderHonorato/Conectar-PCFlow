@@ -10,7 +10,7 @@ public sealed class MolduraSessaoWindow : Window
     {
         WindowStyle = WindowStyle.None;
         AllowsTransparency = true;
-        Background = Brushes.Transparent;
+        Background = System.Windows.Media.Brushes.Transparent;
         Topmost = true;
         ShowInTaskbar = false;
         ResizeMode = ResizeMode.NoResize;
@@ -21,9 +21,9 @@ public sealed class MolduraSessaoWindow : Window
         Height = SystemParameters.VirtualScreenHeight;
         Content = new Border
         {
-            BorderBrush = new SolidColorBrush(Color.FromRgb(242, 170, 46)),
+            BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(242, 170, 46)),
             BorderThickness = new Thickness(4),
-            Background = Brushes.Transparent
+            Background = System.Windows.Media.Brushes.Transparent
         };
     }
 }
