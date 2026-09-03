@@ -1,0 +1,45 @@
+name: Build PCFlow
+
+on:
+  push:
+    branches: [main, "feat/**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Restaurar
+        run: dotnet restore PCFlow.sln
+      - name: Compilar
+        run: dotnet build PCFlow.sln -c Release --no-restore
+      - name: Publicar Windows portátil
+        run: dotnet publish windows/PCFlow.Windows/PCFlow.Windows.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o release/windows
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PCFlow-Windows-x64
+          path: release/windows
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+      - name: Compilar APK Debug
+        run: gradle -p android :app:assembleDebug --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PCFlow-Android-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
