@@ -1,12 +1,16 @@
 package com.ander.pcflow
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -18,15 +22,22 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import org.json.JSONObject
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 
-private val Fundo = Color(0xFF10141A)
+private val Fundo = Color(0xFF0F1318)
 private val Painel = Color(0xFF171C23)
 private val Borda = Color(0xFF343B45)
 private val Dourado = Color(0xFFF2AA2E)
@@ -45,9 +56,14 @@ class MainActivity : ComponentActivity() {
 private fun TemaPcFlow(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = darkColorScheme(
-            background = Fundo, surface = Painel, primary = Dourado,
-            secondary = Turquesa, onBackground = Color(0xFFF4F6F8), onSurface = Color(0xFFF4F6F8)
-        ), content = content
+            background = Fundo,
+            surface = Painel,
+            primary = Dourado,
+            secondary = Turquesa,
+            onBackground = Color(0xFFF4F6F8),
+            onSurface = Color(0xFFF4F6F8)
+        ),
+        content = content
     )
 }
 
@@ -55,239 +71,390 @@ private fun TemaPcFlow(content: @Composable () -> Unit) {
 private fun AppPcFlow() {
     val estado by SessaoPcFlow.estado.collectAsStateWithLifecycle()
     val pcs by SessaoPcFlow.pcs.collectAsStateWithLifecycle()
-    var pcParaParear by remember { mutableStateOf<PcEncontrado?>(null) }
+    var pcParaConectar by remember { mutableStateOf<PcEncontrado?>(null) }
     var pin by remember { mutableStateOf("") }
+    var senha by remember { mutableStateOf("") }
 
     val permissaoNotif = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    val scanner = rememberLauncherForActivityResult(ScanContract()) { resultado ->
+        val conteudo = resultado.contents ?: return@rememberLauncherForActivityResult
+        val lido = lerQrPcFlow(conteudo) ?: return@rememberLauncherForActivityResult
+        pcParaConectar = lido.first
+        pin = lido.second.orEmpty()
+    }
+
     LaunchedEffect(Unit) {
         if (Build.VERSION.SDK_INT >= 33) permissaoNotif.launch(Manifest.permission.POST_NOTIFICATIONS)
         SessaoPcFlow.descobrir()
     }
 
-    Surface(modifier = Modifier.fillMaxSize(), color = Fundo) {
+    Surface(Modifier.fillMaxSize(), color = Fundo) {
         if (estado.estado == EstadoConexao.CONECTADO && estado.pc != null) {
-            TelaControle(estado.pc!!)
+            TelaRemota(estado)
         } else {
-            TelaConectar(pcs, estado,
-                conectar = { pc -> pcParaParear = pc },
-                atualizar = SessaoPcFlow::descobrir
+            TelaConectar(
+                pcs = pcs,
+                estado = estado,
+                conectar = { pc -> pcParaConectar = pc; pin = ""; senha = "" },
+                atualizar = SessaoPcFlow::descobrir,
+                escanearQr = {
+                    val opcoes = ScanOptions()
+                        .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                        .setPrompt("Aponte para o QR Code exibido no PCFlow do computador")
+                        .setBeepEnabled(false)
+                        .setOrientationLocked(false)
+                    scanner.launch(opcoes)
+                }
             )
         }
     }
 
-    if (pcParaParear != null) {
+    if (pcParaConectar != null) {
         AlertDialog(
-            onDismissRequest = { pcParaParear = null },
+            onDismissRequest = { pcParaConectar = null },
             containerColor = Painel,
-            title = { Text("Conectar a ${pcParaParear!!.nome}") },
+            title = { Text("Conectar a ${pcParaConectar!!.nome}") },
             text = {
                 Column {
-                    Text("Se este celular já foi autorizado, deixe o código vazio. No primeiro acesso, digite o PIN exibido no PC.", color = TextoSecundario)
-                    Spacer(Modifier.height(16.dp))
-                    OutlinedTextField(value = pin, onValueChange = { pin = it.filter(Char::isDigit).take(6) }, label = { Text("Código de 6 dígitos") }, singleLine = true)
+                    Text("O computador exibirá uma solicitação para aceitar. Se o PC tiver acesso não supervisionado, informe a senha para entrar sem confirmação.", color = TextoSecundario)
+                    Spacer(Modifier.height(14.dp))
+                    OutlinedTextField(
+                        value = pin,
+                        onValueChange = { pin = it.filter(Char::isDigit).take(6) },
+                        label = { Text("Código de pareamento (opcional)") },
+                        singleLine = true
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = senha,
+                        onValueChange = { senha = it },
+                        label = { Text("Senha não supervisionada (opcional)") },
+                        singleLine = true
+                    )
                 }
             },
             confirmButton = {
                 Button(onClick = {
-                    SessaoPcFlow.conectar(pcParaParear!!, pin.ifBlank { null })
-                    pcParaParear = null
+                    SessaoPcFlow.conectar(pcParaConectar!!, pin.ifBlank { null }, senha.ifBlank { null })
+                    pcParaConectar = null
                     pin = ""
-                }) { Text("Conectar") }
+                    senha = ""
+                }) { Text("Solicitar acesso") }
             },
-            dismissButton = { TextButton(onClick = { pcParaParear = null }) { Text("Cancelar") } }
+            dismissButton = { TextButton(onClick = { pcParaConectar = null }) { Text("Cancelar") } }
         )
     }
 }
 
 @Composable
-private fun TelaConectar(pcs: List<PcEncontrado>, estado: EstadoSessao, conectar: (PcEncontrado) -> Unit, atualizar: () -> Unit) {
-    Column(Modifier.fillMaxSize().padding(24.dp)) {
-        Spacer(Modifier.height(16.dp))
-        Text("PCFlow", fontSize = 28.sp, fontWeight = FontWeight.SemiBold)
-        Text("Controle seu computador pela rede local", color = TextoSecundario, modifier = Modifier.padding(top = 4.dp))
-        Spacer(Modifier.height(34.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("Computadores disponíveis", fontSize = 18.sp)
-            TextButton(onClick = atualizar) { Text("Atualizar", color = Dourado) }
-        }
-        Spacer(Modifier.height(8.dp))
-        if (pcs.isEmpty()) {
-            BorderCard {
-                Text("Procurando PCFlow na sua rede…", color = TextoSecundario)
-                Spacer(Modifier.height(8.dp))
-                Text("Deixe o aplicativo do Windows aberto ou minimizado na bandeja.", color = TextoSecundario, fontSize = 13.sp)
-            }
-        } else {
-            pcs.forEach { pc ->
-                BorderCard(Modifier.clickable { conectar(pc) }) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconeMonitor()
-                        Spacer(Modifier.width(16.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(pc.nome, fontSize = 17.sp, fontWeight = FontWeight.Medium)
-                            Text("${pc.host}:${pc.porta}", color = TextoSecundario, fontSize = 13.sp)
-                        }
-                        Text("Conectar", color = Dourado)
-                    }
-                }
-                Spacer(Modifier.height(10.dp))
-            }
-        }
-        if (estado.estado == EstadoConexao.ERRO) {
-            Text(estado.mensagem, color = Color(0xFFFF8A80), modifier = Modifier.padding(top = 18.dp))
-        }
-        Spacer(Modifier.weight(1f))
-        Text("Sem conta · sem nuvem · LAN por padrão", color = TextoSecundario, fontSize = 12.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
-    }
-}
+private fun TelaConectar(
+    pcs: List<PcEncontrado>,
+    estado: EstadoSessao,
+    conectar: (PcEncontrado) -> Unit,
+    atualizar: () -> Unit,
+    escanearQr: () -> Unit
+) {
+    var buscaId by remember { mutableStateOf("") }
+    val idLimpo = buscaId.filter(Char::isDigit)
+    val exibidos = if (idLimpo.isBlank()) pcs else pcs.filter { it.maquinaId.contains(idLimpo) }
 
-@Composable
-private fun TelaControle(pc: PcEncontrado) {
-    var aba by remember { mutableIntStateOf(0) }
-    Column(Modifier.fillMaxSize().padding(horizontal = 18.dp)) {
-        Spacer(Modifier.height(18.dp))
+    Column(Modifier.fillMaxSize().padding(horizontal = 22.dp)) {
+        Spacer(Modifier.height(24.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconeMonitor()
             Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(pc.nome, fontSize = 18.sp, fontWeight = FontWeight.Medium)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(8.dp).background(Turquesa, RoundedCornerShape(50)))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Conectado", color = Turquesa, fontSize = 13.sp)
-                }
-            }
-            TextButton(onClick = SessaoPcFlow::desconectar) { Text("Sair", color = TextoSecundario) }
-        }
-        Spacer(Modifier.height(18.dp))
-        Box(Modifier.weight(1f)) {
-            when (aba) {
-                0 -> Touchpad()
-                1 -> TecladoRemoto()
-                else -> Comandos()
+            Column {
+                Text("PCFlow", fontSize = 28.sp, fontWeight = FontWeight.SemiBold)
+                Text("Acesso remoto seguro na sua rede", color = TextoSecundario, fontSize = 13.sp)
             }
         }
-        Navegacao(aba) { aba = it }
-        Spacer(Modifier.height(16.dp))
-    }
-}
 
-@Composable
-private fun Touchpad() {
-    Column(Modifier.fillMaxSize()) {
-        Box(
-            Modifier.weight(1f).fillMaxWidth()
-                .background(Color(0xFF12171D), RoundedCornerShape(30.dp))
-                .border(1.dp, Color(0xFF725322), RoundedCornerShape(30.dp))
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onTap = { SessaoPcFlow.enviar("mouse_click") { put("botao", "left") } },
-                        onDoubleTap = { repeat(2) { SessaoPcFlow.enviar("mouse_click") { put("botao", "left") } } }
-                    )
-                }
-                .pointerInput(Unit) {
-                    detectDragGestures { change, dragAmount ->
-                        change.consume()
-                        SessaoPcFlow.enviar("mouse_move") {
-                            put("x", dragAmount.x * 1.35f)
-                            put("y", dragAmount.y * 1.35f)
+        Spacer(Modifier.height(28.dp))
+        OutlinedTextField(
+            value = buscaId,
+            onValueChange = { buscaId = it.filter(Char::isDigit).take(9) },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("ID do computador") },
+            placeholder = { Text("000 000 000") },
+            singleLine = true
+        )
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = atualizar, modifier = Modifier.weight(1f), border = BorderStroke(1.dp, Borda)) { Text("Buscar na rede", color = Dourado) }
+            Button(onClick = escanearQr, modifier = Modifier.weight(1f)) { Text("Escanear QR") }
+        }
+
+        Spacer(Modifier.height(24.dp))
+        Text("Computadores encontrados", fontSize = 18.sp)
+        Spacer(Modifier.height(10.dp))
+
+        if (exibidos.isEmpty()) {
+            BorderCard {
+                Text(if (idLimpo.isBlank()) "Procurando computadores PCFlow…" else "Esse ID ainda não apareceu nesta rede.", color = TextoSecundario)
+                Spacer(Modifier.height(7.dp))
+                Text("O PC precisa estar ligado, com o PCFlow ativo e na mesma rede local.", color = TextoSecundario, fontSize = 12.sp)
+            }
+        } else {
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                exibidos.forEach { pc ->
+                    BorderCard(Modifier.clickable { conectar(pc) }) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconeMonitor()
+                            Spacer(Modifier.width(14.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(pc.nome, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                                Text(formatarId(pc.maquinaId), color = Dourado, fontSize = 14.sp)
+                                Text("${pc.host} · ${pc.monitores} monitor(es)", color = TextoSecundario, fontSize = 11.sp)
+                            }
+                            Text("Conectar", color = Dourado, fontSize = 13.sp)
                         }
                     }
-                },
-            contentAlignment = Alignment.BottomCenter
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(bottom = 34.dp)) {
-                Text("Toque para clicar", color = Dourado, fontSize = 16.sp)
-                Text("Arraste para mover o ponteiro", color = TextoSecundario, fontSize = 12.sp, modifier = Modifier.padding(top = 5.dp))
+                    Spacer(Modifier.height(9.dp))
+                }
             }
         }
-        Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            BotaoAcao("Esquerdo", Modifier.weight(1f)) { SessaoPcFlow.enviar("mouse_click") { put("botao", "left") } }
-            BotaoAcao("Scroll +", Modifier.weight(1f)) { SessaoPcFlow.enviar("scroll") { put("delta", 120) } }
-            BotaoAcao("Direito", Modifier.weight(1f)) { SessaoPcFlow.enviar("mouse_click") { put("botao", "right") } }
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-            TextButton(onClick = { SessaoPcFlow.enviar("scroll") { put("delta", -120) } }) { Text("Scroll para baixo", color = TextoSecundario) }
-        }
-    }
-}
 
-@Composable
-private fun TecladoRemoto() {
-    var texto by remember { mutableStateOf("") }
-    Column(Modifier.fillMaxSize()) {
-        Text("Teclado remoto", fontSize = 22.sp, fontWeight = FontWeight.Medium)
-        Text("Digite no celular e envie para a janela ativa do PC.", color = TextoSecundario, modifier = Modifier.padding(top = 6.dp, bottom = 18.dp))
-        OutlinedTextField(
-            value = texto, onValueChange = { texto = it }, modifier = Modifier.fillMaxWidth(), minLines = 4,
-            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences), label = { Text("Texto para enviar") }
-        )
-        Button(onClick = {
-            if (texto.isNotEmpty()) SessaoPcFlow.enviar("texto") { put("texto", texto) }
-            texto = ""
-        }, modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) { Text("Enviar texto") }
-        Spacer(Modifier.height(20.dp))
-        val teclas = listOf("ESC", "TAB", "ENTER", "BACKSPACE", "DELETE", "LEFT", "UP", "DOWN", "RIGHT")
-        teclas.chunked(3).forEach { linha ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                linha.forEach { tecla -> BotaoAcao(tecla, Modifier.weight(1f)) { SessaoPcFlow.enviar("tecla") { put("tecla", tecla) } } }
-                repeat(3 - linha.size) { Spacer(Modifier.weight(1f)) }
-            }
+        if (estado.estado == EstadoConexao.CONECTANDO) {
+            LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 12.dp))
+            Text(estado.mensagem, color = Dourado, modifier = Modifier.padding(top = 8.dp), fontSize = 13.sp)
         }
-    }
-}
-
-@Composable
-private fun Comandos() {
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        Text("Mídia", fontSize = 20.sp, fontWeight = FontWeight.Medium)
-        Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Anterior" to "previous", "Play / Pause" to "playpause", "Próxima" to "next").forEach { (rotulo, acao) ->
-                BotaoAcao(rotulo, Modifier.weight(1f)) { SessaoPcFlow.enviar("media") { put("acao", acao) } }
-            }
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Vol -" to "volumedown", "Mudo" to "mute", "Vol +" to "volumeup").forEach { (rotulo, acao) ->
-                BotaoAcao(rotulo, Modifier.weight(1f)) { SessaoPcFlow.enviar("media") { put("acao", acao) } }
-            }
-        }
-        Spacer(Modifier.height(28.dp))
-        Text("Energia", fontSize = 20.sp, fontWeight = FontWeight.Medium)
-        val energia = listOf("Bloquear" to "lock", "Monitor off" to "monitoroff", "Suspender" to "sleep", "Hibernar" to "hibernate", "Reiniciar" to "restart", "Desligar" to "shutdown")
-        energia.chunked(2).forEach { linha ->
-            Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                linha.forEach { (rotulo, acao) -> BotaoAcao(rotulo, Modifier.weight(1f)) { SessaoPcFlow.enviar("power") { put("acao", acao) } } }
-            }
+        if (estado.estado == EstadoConexao.ERRO) {
+            Text(estado.mensagem, color = Color(0xFFFF8A80), modifier = Modifier.padding(top = 14.dp))
         }
         Spacer(Modifier.height(16.dp))
-        Text("Ações de energia são executadas imediatamente pelo Windows. Use com cuidado.", color = TextoSecundario, fontSize = 12.sp)
+        Text("TLS com pinagem · conexão restrita à LAN", color = TextoSecundario, fontSize = 11.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
+        Spacer(Modifier.height(14.dp))
     }
 }
 
 @Composable
-private fun Navegacao(aba: Int, selecionar: (Int) -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().background(Color(0xFF171C23), RoundedCornerShape(28.dp)).border(1.dp, Borda, RoundedCornerShape(28.dp)).padding(6.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        listOf("Touchpad", "Teclado", "Comandos").forEachIndexed { indice, titulo ->
-            TextButton(onClick = { selecionar(indice) }, modifier = Modifier.weight(1f)) {
-                Text(titulo, color = if (aba == indice) Dourado else TextoSecundario)
+private fun TelaRemota(estado: EstadoSessao) {
+    val pc = requireNotNull(estado.pc)
+    val quadro by SessaoPcFlow.quadro.collectAsStateWithLifecycle()
+    val monitorAtual by SessaoPcFlow.monitorAtual.collectAsStateWithLifecycle()
+    val clipboardRemoto by SessaoPcFlow.clipboardRemoto.collectAsStateWithLifecycle()
+    val contexto = LocalContext.current
+    var tamanhoArea by remember { mutableStateOf(IntSize.Zero) }
+    var dialogo by remember { mutableStateOf<String?>(null) }
+
+    Box(Modifier.fillMaxSize().background(Color.Black)) {
+        val bitmap = quadro
+        Box(
+            Modifier.fillMaxSize()
+                .onSizeChanged { tamanhoArea = it }
+                .pointerInput(bitmap, tamanhoArea, monitorAtual, estado.permissoes.entrada) {
+                    if (bitmap == null || !estado.permissoes.entrada) return@pointerInput
+                    detectTapGestures(
+                        onTap = { pos -> enviarPosicao(pos, tamanhoArea, bitmap.width, bitmap.height, monitorAtual, "left") },
+                        onDoubleTap = { pos ->
+                            val p = mapear(pos, tamanhoArea, bitmap.width, bitmap.height) ?: return@detectTapGestures
+                            SessaoPcFlow.enviar("mouse_abs") { put("x", p.first); put("y", p.second); put("monitor", monitorAtual) }
+                            repeat(2) { SessaoPcFlow.enviar("mouse_click") { put("botao", "left") } }
+                        },
+                        onLongPress = { pos -> enviarPosicao(pos, tamanhoArea, bitmap.width, bitmap.height, monitorAtual, "right") }
+                    )
+                }
+                .pointerInput(bitmap, tamanhoArea, monitorAtual, estado.permissoes.entrada) {
+                    if (bitmap == null || !estado.permissoes.entrada) return@pointerInput
+                    detectDragGestures(
+                        onDragStart = { pos ->
+                            val p = mapear(pos, tamanhoArea, bitmap.width, bitmap.height) ?: return@detectDragGestures
+                            SessaoPcFlow.enviar("mouse_abs") { put("x", p.first); put("y", p.second); put("monitor", monitorAtual) }
+                            SessaoPcFlow.enviar("mouse_down") { put("botao", "left") }
+                        },
+                        onDragEnd = { SessaoPcFlow.enviar("mouse_up") { put("botao", "left") } },
+                        onDragCancel = { SessaoPcFlow.enviar("mouse_up") { put("botao", "left") } },
+                        onDrag = { change, _ ->
+                            val p = mapear(change.position, tamanhoArea, bitmap.width, bitmap.height) ?: return@detectDragGestures
+                            change.consume()
+                            SessaoPcFlow.enviar("mouse_abs") { put("x", p.first); put("y", p.second); put("monitor", monitorAtual) }
+                        }
+                    )
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            if (bitmap != null) {
+                Image(bitmap = bitmap.asImageBitmap(), contentDescription = "Tela remota", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+            } else {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator(color = Dourado)
+                    Text("Recebendo tela…", color = TextoSecundario, modifier = Modifier.padding(top = 12.dp))
+                }
+            }
+        }
+
+        Surface(
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = 10.dp),
+            color = Color(0xD9161B22),
+            shape = RoundedCornerShape(18.dp),
+            border = BorderStroke(1.dp, Borda)
+        ) {
+            Row(Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(8.dp).background(Turquesa, RoundedCornerShape(50)))
+                Spacer(Modifier.width(7.dp))
+                Column {
+                    Text(pc.nome, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                    Text("${formatarId(pc.maquinaId)} · Monitor ${monitorAtual + 1}/${estado.quantidadeMonitores}", color = TextoSecundario, fontSize = 10.sp)
+                }
+            }
+        }
+
+        Column(
+            modifier = Modifier.align(Alignment.CenterEnd).padding(end = 10.dp)
+                .background(Color(0xE5161B22), RoundedCornerShape(24.dp))
+                .border(1.dp, Borda, RoundedCornerShape(24.dp)).padding(5.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Ferramenta("Teclado") { dialogo = "teclado" }
+            Ferramenta("Monitor") {
+                val proximo = (monitorAtual + 1) % estado.quantidadeMonitores.coerceAtLeast(1)
+                SessaoPcFlow.alterarMonitor(proximo)
+            }
+            Ferramenta("Clipboard") { SessaoPcFlow.solicitarClipboard(); dialogo = "clipboard" }
+            Ferramenta("Scroll +") { SessaoPcFlow.enviar("scroll") { put("delta", 240) } }
+            Ferramenta("Scroll -") { SessaoPcFlow.enviar("scroll") { put("delta", -240) } }
+            Ferramenta("Comandos") { dialogo = "comandos" }
+            Ferramenta("Sair", destaque = true) { SessaoPcFlow.desconectar() }
+        }
+
+        if (!estado.permissoes.entrada) {
+            Surface(Modifier.align(Alignment.BottomCenter).padding(bottom = 18.dp), color = Color(0xDD3A2222), shape = RoundedCornerShape(15.dp)) {
+                Text("Sessão em modo somente visualização", modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp), fontSize = 12.sp)
+            }
+        }
+    }
+
+    when (dialogo) {
+        "teclado" -> DialogoTeclado { dialogo = null }
+        "comandos" -> DialogoComandos(estado.permissoes.energia) { dialogo = null }
+        "clipboard" -> DialogoClipboard(contexto, clipboardRemoto) { dialogo = null }
+    }
+}
+
+@Composable
+private fun Ferramenta(texto: String, destaque: Boolean = false, acao: () -> Unit) {
+    TextButton(onClick = acao, contentPadding = PaddingValues(horizontal = 9.dp, vertical = 7.dp)) {
+        Text(texto, color = if (destaque) Color(0xFFFF8A65) else Color.White, fontSize = 10.sp)
+    }
+}
+
+@Composable
+private fun DialogoTeclado(fechar: () -> Unit) {
+    var texto by remember { mutableStateOf("") }
+    Dialog(onDismissRequest = fechar) {
+        Surface(color = Painel, shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, Borda)) {
+            Column(Modifier.padding(18.dp)) {
+                Text("Teclado remoto", fontSize = 20.sp)
+                OutlinedTextField(
+                    value = texto,
+                    onValueChange = { texto = it },
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                    minLines = 3,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                    label = { Text("Texto") }
+                )
+                Button(onClick = {
+                    if (texto.isNotEmpty()) SessaoPcFlow.enviar("texto") { put("texto", texto) }
+                    texto = ""
+                }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text("Enviar texto") }
+                val teclas = listOf("ESC", "TAB", "ENTER", "BACKSPACE", "DELETE", "LEFT", "UP", "DOWN", "RIGHT")
+                teclas.chunked(3).forEach { linha ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        linha.forEach { tecla ->
+                            OutlinedButton(onClick = { SessaoPcFlow.enviar("tecla") { put("tecla", tecla) } }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(6.dp)) { Text(tecla, fontSize = 10.sp) }
+                        }
+                        repeat(3 - linha.size) { Spacer(Modifier.weight(1f)) }
+                    }
+                }
+                TextButton(onClick = fechar, modifier = Modifier.align(Alignment.End)) { Text("Fechar") }
             }
         }
     }
 }
 
 @Composable
-private fun BotaoAcao(texto: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    OutlinedButton(onClick = onClick, modifier = modifier.padding(vertical = 4.dp), border = BorderStroke(1.dp, Borda), shape = RoundedCornerShape(16.dp)) {
-        Text(texto, color = Color(0xFFF4F6F8), fontSize = 12.sp)
+private fun DialogoComandos(energiaPermitida: Boolean, fechar: () -> Unit) {
+    Dialog(onDismissRequest = fechar) {
+        Surface(color = Painel, shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, Borda)) {
+            Column(Modifier.padding(18.dp)) {
+                Text("Comandos", fontSize = 20.sp)
+                Text("Mídia", color = TextoSecundario, modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
+                listOf("Anterior" to "previous", "Play / Pause" to "playpause", "Próxima" to "next", "Volume -" to "volumedown", "Mudo" to "mute", "Volume +" to "volumeup").chunked(3).forEach { linha ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                        linha.forEach { (rotulo, acao) -> OutlinedButton(onClick = { SessaoPcFlow.enviar("media") { put("acao", acao) } }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(5.dp)) { Text(rotulo, fontSize = 9.sp) } }
+                    }
+                }
+                if (energiaPermitida) {
+                    Text("Sistema", color = TextoSecundario, modifier = Modifier.padding(top = 14.dp, bottom = 4.dp))
+                    listOf("Bloquear" to "lock", "Suspender" to "sleep", "Reiniciar" to "restart", "Desligar" to "shutdown").chunked(2).forEach { linha ->
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                            linha.forEach { (rotulo, acao) -> OutlinedButton(onClick = { SessaoPcFlow.enviar("power") { put("acao", acao) } }, modifier = Modifier.weight(1f)) { Text(rotulo, fontSize = 10.sp) } }
+                        }
+                    }
+                }
+                TextButton(onClick = fechar, modifier = Modifier.align(Alignment.End)) { Text("Fechar") }
+            }
+        }
     }
 }
+
+@Composable
+private fun DialogoClipboard(contexto: Context, remoto: String, fechar: () -> Unit) {
+    val clipboard = remember { contexto.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager }
+    Dialog(onDismissRequest = fechar) {
+        Surface(color = Painel, shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, Borda)) {
+            Column(Modifier.padding(18.dp)) {
+                Text("Área de transferência", fontSize = 20.sp)
+                Text(remoto.ifBlank { "Nenhum texto recebido ainda." }, color = TextoSecundario, modifier = Modifier.padding(vertical = 12.dp).heightIn(max = 180.dp).verticalScroll(rememberScrollState()))
+                Button(onClick = {
+                    clipboard.setPrimaryClip(ClipData.newPlainText("PCFlow", remoto))
+                }, modifier = Modifier.fillMaxWidth()) { Text("Copiar do PC para o celular") }
+                OutlinedButton(onClick = {
+                    val texto = clipboard.primaryClip?.getItemAt(0)?.coerceToText(contexto)?.toString().orEmpty()
+                    if (texto.isNotEmpty()) SessaoPcFlow.enviarClipboard(texto)
+                }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp)) { Text("Enviar clipboard do celular ao PC") }
+                TextButton(onClick = fechar, modifier = Modifier.align(Alignment.End)) { Text("Fechar") }
+            }
+        }
+    }
+}
+
+private fun enviarPosicao(pos: Offset, area: IntSize, largura: Int, altura: Int, monitor: Int, botao: String) {
+    val p = mapear(pos, area, largura, altura) ?: return
+    SessaoPcFlow.enviar("mouse_abs") { put("x", p.first); put("y", p.second); put("monitor", monitor) }
+    SessaoPcFlow.enviar("mouse_click") { put("botao", botao) }
+}
+
+private fun mapear(pos: Offset, area: IntSize, larguraImagem: Int, alturaImagem: Int): Pair<Double, Double>? {
+    if (area.width <= 0 || area.height <= 0 || larguraImagem <= 0 || alturaImagem <= 0) return null
+    val escala = minOf(area.width.toFloat() / larguraImagem, area.height.toFloat() / alturaImagem)
+    val larguraRender = larguraImagem * escala
+    val alturaRender = alturaImagem * escala
+    val esquerda = (area.width - larguraRender) / 2f
+    val topo = (area.height - alturaRender) / 2f
+    if (pos.x < esquerda || pos.x > esquerda + larguraRender || pos.y < topo || pos.y > topo + alturaRender) return null
+    val x = ((pos.x - esquerda) / larguraRender).coerceIn(0f, 1f).toDouble()
+    val y = ((pos.y - topo) / alturaRender).coerceIn(0f, 1f).toDouble()
+    return x to y
+}
+
+private fun lerQrPcFlow(texto: String): Pair<PcEncontrado, String?>? {
+    return try {
+        val uri = Uri.parse(texto)
+        if (uri.scheme != "pcflow" || uri.host != "connect") return null
+        val host = uri.getQueryParameter("host") ?: return null
+        val porta = uri.getQueryParameter("port")?.toIntOrNull() ?: 45456
+        val id = uri.getQueryParameter("id") ?: ""
+        val tls = uri.getQueryParameter("tls") ?: return null
+        val pin = uri.getQueryParameter("pin")
+        PcEncontrado(nome = "PCFlow $id", host = host, porta = porta, portaTela = 45457, maquinaId = id, tls = tls) to pin
+    } catch (_: Exception) { null }
+}
+
+private fun formatarId(id: String): String = if (id.length == 9) "${id.substring(0,3)} ${id.substring(3,6)} ${id.substring(6,9)}" else id
 
 @Composable
 private fun BorderCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    Column(modifier.fillMaxWidth().background(Painel, RoundedCornerShape(18.dp)).border(1.dp, Borda, RoundedCornerShape(18.dp)).padding(18.dp), content = content)
+    Column(modifier.fillMaxWidth().background(Painel, RoundedCornerShape(18.dp)).border(1.dp, Borda, RoundedCornerShape(18.dp)).padding(17.dp), content = content)
 }
 
 @Composable

@@ -16,7 +16,10 @@ public static class ExecutorComandos
         switch (m.Tipo)
         {
             case "mouse_move": EntradaWindows.Mover(m.X, m.Y); break;
+            case "mouse_abs": EntradaWindows.MoverAbsoluto(m.X, m.Y, m.Monitor); break;
             case "mouse_click": EntradaWindows.Clique(m.Botao ?? "left"); break;
+            case "mouse_down": EntradaWindows.BotaoBaixar(m.Botao ?? "left"); break;
+            case "mouse_up": EntradaWindows.BotaoSoltar(m.Botao ?? "left"); break;
             case "scroll": EntradaWindows.Scroll(m.Delta); break;
             case "texto": if (!string.IsNullOrEmpty(m.Texto)) EntradaWindows.Texto(m.Texto); break;
             case "tecla": ExecutarTecla(m.Tecla); break;
@@ -30,9 +33,12 @@ public static class ExecutorComandos
         var vk = tecla?.ToUpperInvariant() switch
         {
             "ENTER" => (ushort)0x0D, "ESC" => (ushort)0x1B, "TAB" => (ushort)0x09,
-            "BACKSPACE" => (ushort)0x08, "DELETE" => (ushort)0x2E,
+            "BACKSPACE" => (ushort)0x08, "DELETE" => (ushort)0x2E, "SPACE" => (ushort)0x20,
             "LEFT" => (ushort)0x25, "UP" => (ushort)0x26, "RIGHT" => (ushort)0x27, "DOWN" => (ushort)0x28,
             "HOME" => (ushort)0x24, "END" => (ushort)0x23, "PAGEUP" => (ushort)0x21, "PAGEDOWN" => (ushort)0x22,
+            "F1" => (ushort)0x70, "F2" => (ushort)0x71, "F3" => (ushort)0x72, "F4" => (ushort)0x73,
+            "F5" => (ushort)0x74, "F6" => (ushort)0x75, "F7" => (ushort)0x76, "F8" => (ushort)0x77,
+            "F9" => (ushort)0x78, "F10" => (ushort)0x79, "F11" => (ushort)0x7A, "F12" => (ushort)0x7B,
             _ => (ushort)0
         };
         if (vk != 0) EntradaWindows.Tecla(vk);
