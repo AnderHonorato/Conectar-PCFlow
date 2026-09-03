@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using Forms = System.Windows.Forms;
+using WpfButton = System.Windows.Controls.Button;
 using WpfMessageBox = System.Windows.MessageBox;
 
 namespace PCFlow.Windows;
@@ -121,7 +122,7 @@ public partial class MainWindow : Window
 
     private void AlternarBloqueio_Click(object sender, RoutedEventArgs e)
     {
-        var id = (sender as Button)?.Tag?.ToString();
+        var id = (sender as WpfButton)?.Tag?.ToString();
         var dispositivo = _servidor.Configuracao.Dispositivos.FirstOrDefault(d => d.Id == id);
         if (dispositivo is null) return;
         dispositivo.Bloqueado = !dispositivo.Bloqueado;
@@ -132,7 +133,7 @@ public partial class MainWindow : Window
 
     private void RevogarDispositivo_Click(object sender, RoutedEventArgs e)
     {
-        var id = (sender as Button)?.Tag?.ToString();
+        var id = (sender as WpfButton)?.Tag?.ToString();
         var dispositivo = _servidor.Configuracao.Dispositivos.FirstOrDefault(d => d.Id == id);
         if (dispositivo is null) return;
         var confirmar = WpfMessageBox.Show(this,
