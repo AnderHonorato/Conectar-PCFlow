@@ -45,6 +45,7 @@ object SessaoPcFlow {
     private var writer: BufferedWriter? = null
     private var streamSocket: SSLSocket? = null
     private var streamJob: Job? = null
+    private var heartbeatJob: Job? = null
     private var contexto: Context? = null
     private val conectando = AtomicBoolean(false)
     @Volatile private var desconexaoManual = false
@@ -102,10 +103,11 @@ object SessaoPcFlow {
 
     private fun conectarInterno(pc: PcEncontrado, pin: String? = null, senha: String? = null) {
         if (!conectando.compareAndSet(false, true)) return
-        _estado.value = EstadoSessao(EstadoConexao.CONECTANDO, pc, "Aguardando conexão e aceite no PC…")
+        _estado.value = EstadoSessao(EstadoConexao.CONECTANDO, pc, "Conectando ao PCFlow…")
         escopo.launch {
             try {
                 desconectarSockets()
+                pararHeartbeat()
                 val novoSocket = abrirTls(pc, pc.porta)
                 novoSocket.soTimeout = 120_000
                 val novoWriter = BufferedWriter(OutputStreamWriter(novoSocket.getOutputStream(), Charsets.UTF_8))
@@ -127,7 +129,9 @@ object SessaoPcFlow {
                 if (!senha.isNullOrBlank()) ola.put("senha", senha)
                 escreverLinha(ola)
 
-                val resposta = reader.readLine() ?: error("Servidor não respondeu")
+                _estado.value = EstadoSessao(EstadoConexao.CONECTANDO, pc, if (!pin.isNullOrBlank()) "Validando código…" else if (!senha.isNullOrBlank()) "Validando senha…" else "Aguardando aceite no computador…")
+
+                val resposta = reader.readLine() ?: throw EOFException("O computador fechou a conexão antes de responder")
                 val json = JSONObject(resposta)
                 if (json.optString("tipo") != "conectado") error(json.optString("mensagem", "Conexão recusada"))
 
@@ -148,32 +152,51 @@ object SessaoPcFlow {
                 _monitorAtual.value = 0
                 _estado.value = EstadoSessao(EstadoConexao.CONECTADO, pc, "Conectado", sessaoId, monitores, permissoes)
                 contexto?.let { ServicoConexao.iniciar(it) }
+                iniciarHeartbeat()
                 if (permissoes.tela) iniciarStream(pc, sessaoId, 0)
 
                 while (novoSocket.isConnected && !novoSocket.isClosed) {
-                    val linha = reader.readLine() ?: break
+                    val linha = reader.readLine() ?: throw EOFException("O computador encerrou a sessão")
                     if (linha.isBlank()) continue
                     val evento = JSONObject(linha)
                     when (evento.optString("tipo")) {
                         "clipboard" -> _clipboardRemoto.value = evento.optString("texto", "")
+                        "pong" -> Unit
                     }
                 }
-                if (_estado.value.pc == pc) _estado.value = EstadoSessao(EstadoConexao.DESCONECTADO, pc, "Conexão encerrada")
             } catch (e: Exception) {
-                _estado.value = EstadoSessao(EstadoConexao.ERRO, pc, mensagemAmigavel(e))
+                if (!desconexaoManual) _estado.value = EstadoSessao(EstadoConexao.ERRO, pc, mensagemAmigavel(e))
             } finally {
                 conectando.set(false)
+                pararHeartbeat()
                 pararStream()
+                desconectarSockets()
                 if (!desconexaoManual && ultimoPc == pc) agendarReconexao(pc)
             }
         }
+    }
+
+    private fun iniciarHeartbeat() {
+        heartbeatJob?.cancel()
+        heartbeatJob = escopo.launch {
+            while (isActive && _estado.value.estado == EstadoConexao.CONECTADO) {
+                delay(15_000)
+                try { escreverLinha(JSONObject().put("tipo", "ping").put("t", System.currentTimeMillis())) }
+                catch (_: Exception) { break }
+            }
+        }
+    }
+
+    private fun pararHeartbeat() {
+        heartbeatJob?.cancel()
+        heartbeatJob = null
     }
 
     fun enviar(tipo: String, preencher: JSONObject.() -> Unit = {}) {
         if (_estado.value.estado != EstadoConexao.CONECTADO) return
         escopo.launch {
             try { escreverLinha(JSONObject().put("tipo", tipo).apply(preencher)) }
-            catch (_: Exception) { _estado.value = _estado.value.copy(estado = EstadoConexao.ERRO, mensagem = "Conexão perdida") }
+            catch (_: Exception) { if (!desconexaoManual) _estado.value = _estado.value.copy(estado = EstadoConexao.ERRO, mensagem = "Conexão perdida. Tentando reconectar…") }
         }
     }
 
@@ -288,7 +311,7 @@ object SessaoPcFlow {
                     val resposta = JSONObject(lerLinhaRaw(input) ?: error("Sem confirmação"))
                     verificarResposta(resposta)
                 }
-                _arquivos.value = _arquivos.value.copy(carregando = false, mensagem = "${nome} enviado")
+                _arquivos.value = _arquivos.value.copy(carregando = false, mensagem = "$nome enviado")
                 listarArquivos(pasta)
             } catch (e: Exception) {
                 _arquivos.value = _arquivos.value.copy(carregando = false, mensagem = "Envio: ${e.message}")
@@ -337,6 +360,7 @@ object SessaoPcFlow {
         desconexaoManual = true
         ultimoPc = null
         escopo.launch {
+            pararHeartbeat()
             pararStream()
             desconectarSockets()
             _quadro.value = null
@@ -390,7 +414,7 @@ object SessaoPcFlow {
         escopo.launch {
             delay(atraso)
             if (!desconexaoManual && ultimoPc == pc && _estado.value.estado != EstadoConexao.CONECTADO) {
-                _estado.value = EstadoSessao(EstadoConexao.CONECTANDO, pc, "Reconectando…")
+                _estado.value = EstadoSessao(EstadoConexao.CONECTANDO, pc, "Reconectando automaticamente…")
                 conectarInterno(pc, null, null)
             }
         }
@@ -419,6 +443,7 @@ object SessaoPcFlow {
         val ssl = contextoSsl.socketFactory.createSocket() as SSLSocket
         ssl.connect(InetSocketAddress(pc.host, porta), 5000)
         ssl.tcpNoDelay = true
+        ssl.keepAlive = true
         ssl.startHandshake()
         val cert = ssl.session.peerCertificates.firstOrNull() as? X509Certificate ?: error("Certificado remoto ausente")
         val atual = MessageDigest.getInstance("SHA-256").digest(cert.encoded).joinToString("") { "%02x".format(it.toInt() and 0xff) }
@@ -485,8 +510,10 @@ object SessaoPcFlow {
 
     private fun mensagemAmigavel(e: Exception): String = when (e) {
         is SSLHandshakeException -> e.message ?: "Falha de segurança TLS"
-        is ConnectException -> "Não foi possível alcançar o PC. Confirme a mesma rede Wi‑Fi/LAN."
-        is SocketTimeoutException -> "Tempo esgotado aguardando o aceite no computador."
+        is EOFException -> "O PC encerrou a conexão. Feche qualquer versão antiga do PCFlow na bandeja do Windows, abra a versão mais recente e tente novamente."
+        is ConnectException -> "Não foi possível alcançar o PC. Confirme que o PCFlow está ativo e que ambos estão na mesma rede Wi‑Fi/LAN."
+        is SocketTimeoutException -> "Tempo esgotado. Aceite a solicitação no computador ou tente conectar usando o QR/código exibido no PCFlow."
+        is SSLException -> if (e.message?.contains("closed", ignoreCase = true) == true) "A conexão segura foi fechada pelo PC. Reinicie o PCFlow do Windows e tente novamente." else e.message ?: "Falha de segurança TLS"
         else -> e.message ?: "Falha ao conectar"
     }
 
