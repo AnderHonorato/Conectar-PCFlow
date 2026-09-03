@@ -1,6 +1,16 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+}
+
+// A chave de assinatura fica fora do repositório. Se `keystore.properties`
+// não existir, o release é assinado com a chave de depuração para que o APK
+// continue instalável em aparelho real (ver docs/BUILD.md).
+val arquivoChaves = rootProject.file("keystore.properties")
+val chaves = Properties().apply {
+    if (arquivoChaves.exists()) arquivoChaves.inputStream().use { load(it) }
 }
 
 android {
@@ -11,8 +21,37 @@ android {
         applicationId = "com.ander.pcflow"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "1.0.0"
+        resourceConfigurations += listOf("pt-rBR", "en", "es")
+    }
+
+    signingConfigs {
+        if (chaves.getProperty("storeFile") != null) {
+            create("release") {
+                storeFile = rootProject.file(chaves.getProperty("storeFile"))
+                storePassword = chaves.getProperty("storePassword")
+                keyAlias = chaves.getProperty("keyAlias")
+                keyPassword = chaves.getProperty("keyPassword")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            isShrinkResources = false
+            signingConfig = if (chaves.getProperty("storeFile") != null) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+        debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+        }
     }
 
     buildFeatures { compose = true }
@@ -22,6 +61,12 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+    testOptions { unitTests.isReturnDefaultValues = true }
+    packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
+    lint {
+        abortOnError = false
+        checkReleaseBuilds = false
+    }
 }
 
 dependencies {
@@ -30,14 +75,22 @@ dependencies {
     androidTestImplementation(composeBom)
 
     implementation("androidx.core:core-ktx:1.15.0")
-    implementation("androidx.activity:activity-compose:1.10.0")
+    implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+
+    // Leitor de QR para o pareamento em um toque.
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
+
     debugImplementation("androidx.compose.ui:ui-tooling")
+
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
 }

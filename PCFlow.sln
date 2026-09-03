@@ -2,7 +2,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PCFlow.Core", "windows\PCFlow.Core\PCFlow.Core.csproj", "{6C1D9F3E-2A54-4B1E-9E77-8B2F4C0A1D22}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PCFlow.Windows", "windows\PCFlow.Windows\PCFlow.Windows.csproj", "{A6B6D3A2-7D5B-4F54-8E5E-DBA9F32610B1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PCFlow.Core.Tests", "windows\PCFlow.Core.Tests\PCFlow.Core.Tests.csproj", "{3E9B7A11-64C8-4D0A-A5B3-77C1E2F5A908}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -10,9 +14,20 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{6C1D9F3E-2A54-4B1E-9E77-8B2F4C0A1D22}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6C1D9F3E-2A54-4B1E-9E77-8B2F4C0A1D22}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6C1D9F3E-2A54-4B1E-9E77-8B2F4C0A1D22}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6C1D9F3E-2A54-4B1E-9E77-8B2F4C0A1D22}.Release|Any CPU.Build.0 = Release|Any CPU
 		{A6B6D3A2-7D5B-4F54-8E5E-DBA9F32610B1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{A6B6D3A2-7D5B-4F54-8E5E-DBA9F32610B1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A6B6D3A2-7D5B-4F54-8E5E-DBA9F32610B1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A6B6D3A2-7D5B-4F54-8E5E-DBA9F32610B1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3E9B7A11-64C8-4D0A-A5B3-77C1E2F5A908}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3E9B7A11-64C8-4D0A-A5B3-77C1E2F5A908}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3E9B7A11-64C8-4D0A-A5B3-77C1E2F5A908}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3E9B7A11-64C8-4D0A-A5B3-77C1E2F5A908}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
 	EndGlobalSection
 EndGlobal

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- O token de pareamento não sai do aparelho: nada de backup na nuvem. -->
+    <exclude domain="sharedpref" path="pcflow.xml"/>
+</full-backup-content>

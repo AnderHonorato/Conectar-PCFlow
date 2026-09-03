@@ -8,8 +8,26 @@
     <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>PCFlow</AssemblyName>
     <RootNamespace>PCFlow.Windows</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <Product>PCFlow</Product>
+    <Company>PCFlow</Company>
+    <Description>Controle o PC pelo celular na rede local.</Description>
+    <SatelliteResourceLanguages>pt-BR;en</SatelliteResourceLanguages>
+    <!-- Permite compilar (não executar) este projeto em Linux/CI. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <!-- WFAC010: o analisador do WinForms pede que o DPI venha de código, mas o WPF
+         precisa da declaração no manifesto para nascer com PerMonitorV2. -->
+    <NoWarn>$(NoWarn);WFAC010</NoWarn>
   </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="QRCoder" Version="1.6.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PCFlow.Core\PCFlow.Core.csproj" />
   </ItemGroup>
 </Project>

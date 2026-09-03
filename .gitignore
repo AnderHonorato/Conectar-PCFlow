@@ -16,3 +16,9 @@ local.properties
 .idea/
 .vscode/
 .DS_Store
+
+# Segredos de assinatura (nunca versionar)
+keystore.properties
+
+# Saída de release local
+/release/
