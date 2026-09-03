@@ -51,16 +51,27 @@ public sealed class ServidorPcFlow : IAsyncDisposable
     public Task IniciarAsync()
     {
         if (Ativo) return Task.CompletedTask;
-        Ativo = true;
-        _tcpControle = new TcpListener(IPAddress.Any, PortaControle);
-        _tcpTela = new TcpListener(IPAddress.Any, PortaTela);
-        _tcpControle.Start();
-        _tcpTela.Start();
-        _udp = new UdpClient(PortaDescoberta) { EnableBroadcast = true };
-        _tarefaControle = AceitarControleAsync(_cts.Token);
-        _tarefaTela = AceitarTelaAsync(_cts.Token);
-        _tarefaUdp = ResponderDescobertaAsync(_cts.Token);
-        StatusAlterado?.Invoke("Servidor ativo");
+        try
+        {
+            _tcpControle = new TcpListener(IPAddress.Any, PortaControle);
+            _tcpTela = new TcpListener(IPAddress.Any, PortaTela);
+            _tcpControle.Start();
+            _tcpTela.Start();
+            _udp = new UdpClient(PortaDescoberta) { EnableBroadcast = true };
+            Ativo = true;
+            _tarefaControle = AceitarControleAsync(_cts.Token);
+            _tarefaTela = AceitarTelaAsync(_cts.Token);
+            _tarefaUdp = ResponderDescobertaAsync(_cts.Token);
+            StatusAlterado?.Invoke("Servidor ativo");
+        }
+        catch (SocketException ex) when (ex.SocketErrorCode == SocketError.AddressAlreadyInUse)
+        {
+            Ativo = false;
+            _tcpControle?.Stop();
+            _tcpTela?.Stop();
+            _udp?.Dispose();
+            StatusAlterado?.Invoke("Outra instância do PCFlow já está ativa. Saia pelo ícone da bandeja e abra esta versão novamente.");
+        }
         return Task.CompletedTask;
     }
 
@@ -113,8 +124,13 @@ public sealed class ServidorPcFlow : IAsyncDisposable
         using (cliente)
         {
             var remoto = (cliente.Client.RemoteEndPoint as IPEndPoint)?.Address;
-            if (remoto is null || !EhRedeLocal(remoto)) return;
+            if (remoto is null || !EhRedeLocal(remoto))
+            {
+                StatusAlterado?.Invoke("Conexão recusada: origem fora da rede local");
+                return;
+            }
             cliente.NoDelay = true;
+            cliente.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
 
             using var ssl = new SslStream(cliente.GetStream(), false);
             try
@@ -126,7 +142,11 @@ public sealed class ServidorPcFlow : IAsyncDisposable
                     EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13
                 }, ct);
             }
-            catch { return; }
+            catch (Exception ex)
+            {
+                StatusAlterado?.Invoke($"Falha TLS com {remoto}: {ex.Message}");
+                return;
+            }
 
             MensagemRede? ola;
             try
@@ -134,35 +154,54 @@ public sealed class ServidorPcFlow : IAsyncDisposable
                 var linha = await LerLinhaAsync(ssl, ct);
                 ola = linha is null ? null : JsonSerializer.Deserialize<MensagemRede>(linha, _json);
             }
-            catch { return; }
+            catch (Exception ex)
+            {
+                StatusAlterado?.Invoke($"Falha no início da sessão: {ex.Message}");
+                return;
+            }
 
-            if (ola is null || ola.Tipo != "ola" || string.IsNullOrWhiteSpace(ola.DispositivoId)) return;
+            if (ola is null || ola.Tipo != "ola" || string.IsNullOrWhiteSpace(ola.DispositivoId))
+            {
+                await EscreverJsonAsync(ssl, new { tipo = "erro", mensagem = "Solicitação de conexão inválida" }, ct);
+                return;
+            }
             if (!string.IsNullOrWhiteSpace(ola.MaquinaId) && ola.MaquinaId != MaquinaId)
             {
                 await EscreverJsonAsync(ssl, new { tipo = "erro", mensagem = "ID da máquina não corresponde" }, ct);
                 return;
             }
-            if (!string.IsNullOrWhiteSpace(ola.Pin) && ola.Pin.Replace(" ", "") != CodigoPareamento)
+
+            var informouPin = !string.IsNullOrWhiteSpace(ola.Pin);
+            var pinValido = informouPin && ola.Pin!.Replace(" ", "") == CodigoPareamento;
+            if (informouPin && !pinValido)
             {
-                await EscreverJsonAsync(ssl, new { tipo = "erro", mensagem = "Código de pareamento inválido" }, ct);
+                await EscreverJsonAsync(ssl, new { tipo = "erro", mensagem = "Código de pareamento inválido ou expirado" }, ct);
                 return;
             }
 
             var conhecido = _configuracao.Dispositivos.FirstOrDefault(d => d.Id == ola.DispositivoId);
             if (conhecido?.Bloqueado == true)
             {
-                await EscreverJsonAsync(ssl, new { tipo = "erro", mensagem = "Dispositivo bloqueado" }, ct);
+                await EscreverJsonAsync(ssl, new { tipo = "erro", mensagem = "Dispositivo bloqueado neste computador" }, ct);
                 return;
             }
 
             var tokenValido = conhecido is not null && TokenIgual(conhecido.Token, ola.Token);
             var acessoNaoSupervisionado = SegurancaSenha.Verificar(ola.Senha ?? "", _configuracao.SenhaSalt, _configuracao.SenhaHash);
-            var aceito = acessoNaoSupervisionado || await SolicitarPermissaoInterativaAsync(
-                new SolicitacaoConexao(ola.DispositivoId, ola.Nome ?? "Android", remoto.ToString(), tokenValido));
+
+            // QR Code ou PIN válido já são uma confirmação local de posse do código exibido no PC.
+            // Solicitação por ID/descoberta continua exigindo aceite, a menos que a senha não supervisionada seja válida.
+            var aceito = pinValido || acessoNaoSupervisionado;
+            if (!aceito)
+            {
+                StatusAlterado?.Invoke($"Solicitação de {ola.Nome ?? "Android"} aguardando aceite");
+                aceito = await SolicitarPermissaoInterativaAsync(
+                    new SolicitacaoConexao(ola.DispositivoId, ola.Nome ?? "Android", remoto.ToString(), tokenValido));
+            }
 
             if (!aceito)
             {
-                await EscreverJsonAsync(ssl, new { tipo = "erro", mensagem = "Conexão recusada no computador" }, ct);
+                await EscreverJsonAsync(ssl, new { tipo = "erro", mensagem = "Conexão recusada ou solicitação não aceita no computador" }, ct);
                 return;
             }
 
@@ -171,13 +210,14 @@ public sealed class ServidorPcFlow : IAsyncDisposable
                 conhecido ??= new DispositivoAutorizado { Id = ola.DispositivoId, Nome = ola.Nome ?? "Android" };
                 conhecido.Nome = ola.Nome ?? conhecido.Nome;
                 conhecido.Token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+                conhecido.Bloqueado = false;
                 conhecido.UltimaConexao = DateTime.UtcNow;
                 if (!_configuracao.Dispositivos.Contains(conhecido)) _configuracao.Dispositivos.Add(conhecido);
             }
             else conhecido.UltimaConexao = DateTime.UtcNow;
 
             _armazenamento.Salvar(_configuracao);
-            CodigoPareamento = GerarPin();
+            if (pinValido) CodigoPareamento = GerarPin();
             DispositivosAlterados?.Invoke();
 
             var sessaoId = Convert.ToHexString(RandomNumberGenerator.GetBytes(24)).ToLowerInvariant();
@@ -197,7 +237,14 @@ public sealed class ServidorPcFlow : IAsyncDisposable
                 maquinaId = MaquinaId,
                 portaTela = PortaTela,
                 monitores = CapturaTela.DescreverMonitores(),
-                permissoes = new { tela = sessao.PermitirTela, entrada = sessao.PermitirEntrada, clipboard = sessao.PermitirClipboard, energia = sessao.PermitirEnergia, arquivos = sessao.PermitirArquivos }
+                permissoes = new
+                {
+                    tela = sessao.PermitirTela,
+                    entrada = sessao.PermitirEntrada,
+                    clipboard = sessao.PermitirClipboard,
+                    energia = sessao.PermitirEnergia,
+                    arquivos = sessao.PermitirArquivos
+                }
             }, ct);
 
             try
@@ -225,6 +272,11 @@ public sealed class ServidorPcFlow : IAsyncDisposable
 
     private async Task ProcessarMensagemAsync(SessaoAtiva sessao, MensagemRede m, SslStream ssl, CancellationToken ct)
     {
+        if (m.Tipo == "ping")
+        {
+            await EscreverJsonAsync(ssl, new { tipo = "pong", t = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }, ct);
+            return;
+        }
         if (m.Tipo == "clipboard_get" && sessao.PermitirClipboard)
         {
             await EscreverJsonAsync(ssl, new { tipo = "clipboard", texto = ClipboardPcFlow.LerTexto() }, ct);
@@ -304,7 +356,7 @@ public sealed class ServidorPcFlow : IAsyncDisposable
             }
             catch (OperationCanceledException) { }
             catch (IOException) { }
-            catch { }
+            catch (Exception ex) { StatusAlterado?.Invoke($"Tela remota: {ex.Message}"); }
         }
     }
 
