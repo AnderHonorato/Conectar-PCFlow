@@ -63,9 +63,22 @@ public static class EntradaWindows
     }
 
     public static void Tecla(ushort vk)
-        => Enviar(
-            new INPUT { type = INPUT_KEYBOARD, U = new InputUnion { ki = new KEYBDINPUT { wVk = vk } } },
-            new INPUT { type = INPUT_KEYBOARD, U = new InputUnion { ki = new KEYBDINPUT { wVk = vk, dwFlags = KEYEVENTF_KEYUP } } });
+        => Enviar(TeclaInput(vk, false), TeclaInput(vk, true));
+
+    public static void TeclaBaixar(ushort vk) => Enviar(TeclaInput(vk, false));
+    public static void TeclaSoltar(ushort vk) => Enviar(TeclaInput(vk, true));
+
+    public static void Combo(params ushort[] teclas)
+    {
+        if (teclas.Length == 0) return;
+        var inputs = new List<INPUT>(teclas.Length * 2);
+        foreach (var tecla in teclas) inputs.Add(TeclaInput(tecla, false));
+        for (var i = teclas.Length - 1; i >= 0; i--) inputs.Add(TeclaInput(teclas[i], true));
+        Enviar(inputs.ToArray());
+    }
+
+    private static INPUT TeclaInput(ushort vk, bool soltar)
+        => new() { type = INPUT_KEYBOARD, U = new InputUnion { ki = new KEYBDINPUT { wVk = vk, dwFlags = soltar ? KEYEVENTF_KEYUP : 0 } } };
 
     private static (uint down, uint up) FlagsBotao(string botao) => botao.ToLowerInvariant() switch
     {
