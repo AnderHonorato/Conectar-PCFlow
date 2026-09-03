@@ -1,7 +1,10 @@
 using PCFlow.Windows.Core;
 using System.ComponentModel;
+using System.Diagnostics;
+using System.Net.NetworkInformation;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using Forms = System.Windows.Forms;
 using WpfButton = System.Windows.Controls.Button;
 using WpfMessageBox = System.Windows.MessageBox;
@@ -39,6 +42,7 @@ public partial class MainWindow : Window
             await _servidorArquivos.IniciarAsync();
             CarregarConfiguracaoNaTela();
             AtualizarTela();
+            AtualizarDiagnostico();
         };
     }
 
@@ -99,6 +103,7 @@ public partial class MainWindow : Window
         c.DescobertaRede = CheckDescoberta.IsChecked == true;
         c.MolduraSessao = CheckMoldura.IsChecked == true;
         _servidor.SalvarConfiguracao();
+        AtualizarDiagnostico();
         WpfMessageBox.Show(this, "Configurações salvas.", "PCFlow", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
@@ -146,6 +151,103 @@ public partial class MainWindow : Window
         TextoStatus.Text = $"Acesso de {dispositivo.Nome} revogado";
     }
 
+    private void NavegarMenu_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not WpfButton botao) return;
+        MarcarMenuSelecionado(botao);
+        switch (botao.Tag?.ToString())
+        {
+            case "visao":
+                ScrollPrincipal.ScrollToTop();
+                SecaoVisaoGeral.BringIntoView();
+                break;
+            case "remoto":
+                SecaoAcessoRemoto.BringIntoView();
+                break;
+            case "dispositivos":
+                TituloDispositivos.BringIntoView();
+                break;
+            case "seguranca":
+                ScrollSeguranca.ScrollToTop();
+                ComboAcesso.Focus();
+                PainelSeguranca.BorderBrush = FindResource("Destaque") as Brush ?? Brushes.Goldenrod;
+                break;
+            case "recursos":
+                SecaoRecursos.BringIntoView();
+                AtualizarDiagnostico();
+                break;
+        }
+    }
+
+    private void MarcarMenuSelecionado(WpfButton selecionado)
+    {
+        var menus = new[] { MenuVisaoGeral, MenuAcessoRemoto, MenuDispositivos, MenuSeguranca, MenuRecursos };
+        var destaque = FindResource("Destaque") as Brush ?? Brushes.Goldenrod;
+        var texto = new SolidColorBrush(Color.FromRgb(246, 247, 249));
+        var borda = new SolidColorBrush(Color.FromRgb(59, 65, 74));
+        foreach (var menu in menus)
+        {
+            menu.Foreground = menu == selecionado ? destaque : texto;
+            menu.BorderBrush = menu == selecionado ? new SolidColorBrush(Color.FromRgb(108, 83, 35)) : borda;
+        }
+        if (selecionado != MenuSeguranca)
+            PainelSeguranca.BorderBrush = new SolidColorBrush(Color.FromRgb(42, 48, 56));
+    }
+
+    private void CopiarId_Click(object sender, RoutedEventArgs e)
+    {
+        System.Windows.Clipboard.SetText(_servidor.MaquinaId);
+        TextoStatus.Text = "ID copiado";
+    }
+
+    private void CopiarEndereco_Click(object sender, RoutedEventArgs e)
+    {
+        System.Windows.Clipboard.SetText($"{_servidor.EnderecoLocal}:{ServidorPcFlow.PortaControle}");
+        TextoStatus.Text = "Endereço copiado";
+    }
+
+    private void CopiarPin_Click(object sender, RoutedEventArgs e)
+    {
+        System.Windows.Clipboard.SetText(_servidor.CodigoPareamento);
+        TextoStatus.Text = "Código copiado";
+    }
+
+    private void AbrirDownloads_Click(object sender, RoutedEventArgs e)
+    {
+        var downloads = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+        Directory.CreateDirectory(downloads);
+        Process.Start(new ProcessStartInfo("explorer.exe", downloads) { UseShellExecute = true });
+    }
+
+    private void Diagnostico_Click(object sender, RoutedEventArgs e) => AtualizarDiagnostico();
+
+    private void Atualizar_Click(object sender, RoutedEventArgs e)
+    {
+        AtualizarTela();
+        CarregarConfiguracaoNaTela();
+        AtualizarDiagnostico();
+        TextoStatus.Text = _servidor.Pausado ? "Servidor pausado" : "Servidor ativo";
+    }
+
+    private void AtualizarDiagnostico()
+    {
+        try
+        {
+            var ip = IPGlobalProperties.GetIPGlobalProperties();
+            var tcp = ip.GetActiveTcpListeners().Select(x => x.Port).ToHashSet();
+            var udp = ip.GetActiveUdpListeners().Select(x => x.Port).ToHashSet();
+            var controle = tcp.Contains(ServidorPcFlow.PortaControle) ? "OK" : "FECHADA";
+            var tela = tcp.Contains(ServidorPcFlow.PortaTela) ? "OK" : "FECHADA";
+            var arquivos = tcp.Contains(45458) ? "OK" : "FECHADA";
+            var descoberta = udp.Contains(ServidorPcFlow.PortaDescoberta) ? "OK" : "FECHADA";
+            TextoDiagnostico.Text = $"Servidor: {(_servidor.Ativo ? (_servidor.Pausado ? "pausado" : "ativo") : "inativo")} · Controle {ServidorPcFlow.PortaControle}: {controle} · Tela {ServidorPcFlow.PortaTela}: {tela} · Arquivos 45458: {arquivos} · Descoberta UDP {ServidorPcFlow.PortaDescoberta}: {descoberta}";
+        }
+        catch (Exception ex)
+        {
+            TextoDiagnostico.Text = $"Não foi possível concluir o diagnóstico: {ex.Message}";
+        }
+    }
+
     private void AtualizarMoldura(int sessoes)
     {
         if (sessoes > 0 && _servidor.Configuracao.MolduraSessao)
@@ -184,12 +286,20 @@ public partial class MainWindow : Window
     }
 
     private void Minimizar_Click(object sender, RoutedEventArgs e) => Hide();
-    private void Pausar_Click(object sender, RoutedEventArgs e) { _servidor.AlternarPausa(); BotaoPausar.Content = _servidor.Pausado ? "▶" : "Ⅱ"; }
-    private void NovoCodigo_Click(object sender, RoutedEventArgs e) { _servidor.GerarNovoCodigo(); AtualizarTela(); }
+    private void Pausar_Click(object sender, RoutedEventArgs e)
+    {
+        _servidor.AlternarPausa();
+        BotaoPausar.Content = _servidor.Pausado ? "▶" : "Ⅱ";
+        TextoStatus.Text = _servidor.Pausado ? "Servidor pausado" : "Servidor ativo";
+        AtualizarDiagnostico();
+    }
+    private void NovoCodigo_Click(object sender, RoutedEventArgs e) { _servidor.GerarNovoCodigo(); AtualizarTela(); TextoStatus.Text = "Novo código gerado"; }
+    private async void Encerrar_Click(object sender, RoutedEventArgs e) => await EncerrarAsync();
     private void Restaurar() { Show(); WindowState = WindowState.Normal; Activate(); }
 
     private async Task EncerrarAsync()
     {
+        if (_encerrando) return;
         _encerrando = true;
         _moldura?.Close();
         _tray.Visible = false;
