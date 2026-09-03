@@ -1,10 +1,10 @@
 using PCFlow.Windows.Core;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Net.NetworkInformation;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
 using Forms = System.Windows.Forms;
 using WpfButton = System.Windows.Controls.Button;
 using WpfMessageBox = System.Windows.MessageBox;
@@ -170,7 +170,7 @@ public partial class MainWindow : Window
             case "seguranca":
                 ScrollSeguranca.ScrollToTop();
                 ComboAcesso.Focus();
-                PainelSeguranca.BorderBrush = FindResource("Destaque") as Brush ?? Brushes.Goldenrod;
+                PainelSeguranca.BorderBrush = FindResource("Destaque") as System.Windows.Media.Brush ?? System.Windows.Media.Brushes.Goldenrod;
                 break;
             case "recursos":
                 SecaoRecursos.BringIntoView();
@@ -182,16 +182,16 @@ public partial class MainWindow : Window
     private void MarcarMenuSelecionado(WpfButton selecionado)
     {
         var menus = new[] { MenuVisaoGeral, MenuAcessoRemoto, MenuDispositivos, MenuSeguranca, MenuRecursos };
-        var destaque = FindResource("Destaque") as Brush ?? Brushes.Goldenrod;
-        var texto = new SolidColorBrush(Color.FromRgb(246, 247, 249));
-        var borda = new SolidColorBrush(Color.FromRgb(59, 65, 74));
+        var destaque = FindResource("Destaque") as System.Windows.Media.Brush ?? System.Windows.Media.Brushes.Goldenrod;
+        var texto = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(246, 247, 249));
+        var borda = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(59, 65, 74));
         foreach (var menu in menus)
         {
             menu.Foreground = menu == selecionado ? destaque : texto;
-            menu.BorderBrush = menu == selecionado ? new SolidColorBrush(Color.FromRgb(108, 83, 35)) : borda;
+            menu.BorderBrush = menu == selecionado ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(108, 83, 35)) : borda;
         }
         if (selecionado != MenuSeguranca)
-            PainelSeguranca.BorderBrush = new SolidColorBrush(Color.FromRgb(42, 48, 56));
+            PainelSeguranca.BorderBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(42, 48, 56));
     }
 
     private void CopiarId_Click(object sender, RoutedEventArgs e)
