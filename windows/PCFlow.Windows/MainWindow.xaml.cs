@@ -60,7 +60,7 @@ public partial class MainWindow : Window
             _tray.Visible = false;
             _tray.Dispose();
             _servidor.DisposeAsync().AsTask().GetAwaiter().GetResult();
-            Application.Current.Shutdown();
+            System.Windows.Application.Current.Shutdown();
         }
         base.OnClosing(e);
     }
@@ -87,6 +87,6 @@ public partial class MainWindow : Window
         _tray.Visible = false;
         _tray.Dispose();
         await _servidor.DisposeAsync();
-        Dispatcher.Invoke(() => Application.Current.Shutdown());
+        Dispatcher.Invoke(() => System.Windows.Application.Current.Shutdown());
     }
 }
