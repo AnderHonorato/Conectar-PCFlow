@@ -26,37 +26,53 @@
             <Grid Margin="16"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                 <StackPanel Orientation="Horizontal" Margin="6,10,0,30"><Border Width="31" Height="23" BorderBrush="{StaticResource Destaque}" BorderThickness="2" CornerRadius="4"/><TextBlock Text="PCFlow" FontSize="20" Margin="12,0,0,0" VerticalAlignment="Center"/></StackPanel>
                 <StackPanel Grid.Row="1">
-                    <Button Content="Visão geral" Foreground="{StaticResource Destaque}" BorderBrush="#6C5323" HorizontalContentAlignment="Left"/>
-                    <Button Content="Acesso remoto" HorizontalContentAlignment="Left"/>
-                    <Button Content="Dispositivos" HorizontalContentAlignment="Left"/>
-                    <Button Content="Segurança" HorizontalContentAlignment="Left"/>
-                    <Button Content="Recursos" HorizontalContentAlignment="Left"/>
+                    <Button x:Name="MenuVisaoGeral" Content="Visão geral" Tag="visao" Click="NavegarMenu_Click" Foreground="{StaticResource Destaque}" BorderBrush="#6C5323" HorizontalContentAlignment="Left"/>
+                    <Button x:Name="MenuAcessoRemoto" Content="Acesso remoto" Tag="remoto" Click="NavegarMenu_Click" HorizontalContentAlignment="Left"/>
+                    <Button x:Name="MenuDispositivos" Content="Dispositivos" Tag="dispositivos" Click="NavegarMenu_Click" HorizontalContentAlignment="Left"/>
+                    <Button x:Name="MenuSeguranca" Content="Segurança" Tag="seguranca" Click="NavegarMenu_Click" HorizontalContentAlignment="Left"/>
+                    <Button x:Name="MenuRecursos" Content="Recursos" Tag="recursos" Click="NavegarMenu_Click" HorizontalContentAlignment="Left"/>
                 </StackPanel>
-                <Button Grid.Row="2" Content="Minimizar para a bandeja" Click="Minimizar_Click"/>
+                <StackPanel Grid.Row="2">
+                    <Button Content="Minimizar para a bandeja" Click="Minimizar_Click"/>
+                    <Button Content="Encerrar PCFlow" Click="Encerrar_Click" Foreground="#FF8A80" BorderBrush="#6A3535"/>
+                </StackPanel>
             </Grid>
         </Border>
 
-        <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer x:Name="ScrollPrincipal" Grid.Column="1" VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="36,34,36,30">
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Left"><TextBlock Text="Seu PC está pronto" FontSize="34" FontWeight="Light"/><StackPanel Orientation="Horizontal" Margin="0,8,0,0"><Ellipse Width="10" Height="10" Fill="{StaticResource Sucesso}" Margin="0,0,8,0"/><TextBlock x:Name="TextoStatus" Text="Servidor ativo" Foreground="{StaticResource Sucesso}" FontSize="16"/></StackPanel></StackPanel>
-                    <Button x:Name="BotaoPausar" DockPanel.Dock="Right" Content="Ⅱ" FontSize="22" Foreground="{StaticResource Destaque}" Click="Pausar_Click"/>
+                    <Button x:Name="BotaoPausar" DockPanel.Dock="Right" Content="Ⅱ" FontSize="22" Foreground="{StaticResource Destaque}" Click="Pausar_Click" ToolTip="Pausar ou retomar conexões"/>
                 </DockPanel>
 
-                <Border Background="#151A21" BorderBrush="#3A3327" BorderThickness="1" CornerRadius="22" Padding="24" Margin="0,34,0,18">
+                <Border x:Name="SecaoVisaoGeral" Background="#151A21" BorderBrush="#3A3327" BorderThickness="1" CornerRadius="22" Padding="24" Margin="0,34,0,18">
                     <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                        <StackPanel><TextBlock Text="Seu endereço PCFlow" Foreground="#8E96A0"/><TextBlock x:Name="TextoMaquinaId" FontSize="40" FontFamily="Consolas" Foreground="{StaticResource Destaque}" Margin="0,5,0,4"/><TextBlock x:Name="TextoEndereco" Foreground="#A7AFB8"/></StackPanel>
+                        <StackPanel><TextBlock Text="Seu endereço PCFlow" Foreground="#8E96A0"/><TextBlock x:Name="TextoMaquinaId" FontSize="40" FontFamily="Consolas" Foreground="{StaticResource Destaque}" Margin="0,5,0,4"/><TextBlock x:Name="TextoEndereco" Foreground="#A7AFB8"/>
+                            <WrapPanel Margin="0,14,0,0"><Button Content="Copiar ID" Click="CopiarId_Click" Padding="10,7"/><Button Content="Copiar endereço" Click="CopiarEndereco_Click" Padding="10,7"/><Button Content="Copiar código" Click="CopiarPin_Click" Padding="10,7"/></WrapPanel>
+                        </StackPanel>
                         <Border Grid.Column="1" Width="74" Height="56" BorderBrush="{StaticResource Destaque}" BorderThickness="3" CornerRadius="8" VerticalAlignment="Center">
                             <Grid><Border Width="18" Height="4" Background="{StaticResource Destaque}" CornerRadius="2" VerticalAlignment="Bottom" Margin="0,0,0,-12"/></Grid>
                         </Border>
                     </Grid>
                 </Border>
 
-                <Border Background="#151A21" BorderBrush="#303842" BorderThickness="1" CornerRadius="22" Padding="24" Margin="0,0,0,18">
-                    <StackPanel><TextBlock Text="Controle remoto visual" FontSize="21"/><TextBlock Text="O Android recebe a tela do PC em tempo real e envia toque, arraste, clique, scroll e teclado. A transmissão usa TLS com pinagem da identidade desta máquina e só aceita endereços da rede local." Foreground="#A6ADB6" TextWrapping="Wrap" Margin="0,8,0,0"/></StackPanel>
+                <Border x:Name="SecaoAcessoRemoto" Background="#151A21" BorderBrush="#303842" BorderThickness="1" CornerRadius="22" Padding="24" Margin="0,0,0,18">
+                    <StackPanel><TextBlock Text="Controle remoto visual" FontSize="21"/><TextBlock Text="O Android recebe a tela do PC em tempo real e envia toque, arraste, clique, scroll e teclado. A transmissão usa TLS com pinagem da identidade desta máquina e só aceita endereços da rede local." Foreground="#A6ADB6" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                        <WrapPanel Margin="0,14,0,0"><Button Content="Ir para segurança" Tag="seguranca" Click="NavegarMenu_Click"/><Button Content="Atualizar QR/código" Click="NovoCodigo_Click"/></WrapPanel>
+                    </StackPanel>
                 </Border>
 
-                <DockPanel Margin="0,18,0,12">
+                <Border x:Name="SecaoRecursos" Background="#151A21" BorderBrush="#303842" BorderThickness="1" CornerRadius="22" Padding="24" Margin="0,0,0,18">
+                    <StackPanel>
+                        <TextBlock Text="Recursos do PC" FontSize="21"/>
+                        <TextBlock Text="Ferramentas locais úteis para confirmar que esta versão está pronta para receber o celular." Foreground="#A6ADB6" TextWrapping="Wrap" Margin="0,8,0,12"/>
+                        <WrapPanel><Button Content="Diagnóstico" Click="Diagnostico_Click"/><Button Content="Abrir Downloads" Click="AbrirDownloads_Click"/><Button Content="Atualizar informações" Click="Atualizar_Click"/></WrapPanel>
+                        <TextBlock x:Name="TextoDiagnostico" Text="Clique em Diagnóstico para conferir as portas e o estado do servidor." Foreground="#8E96A0" TextWrapping="Wrap" Margin="4,10,0,0"/>
+                    </StackPanel>
+                </Border>
+
+                <DockPanel x:Name="TituloDispositivos" Margin="0,18,0,12">
                     <TextBlock DockPanel.Dock="Left" Text="Dispositivos conhecidos" FontSize="19"/>
                     <TextBlock DockPanel.Dock="Right" Text="Bloqueie ou revogue acessos salvos" Foreground="#8E96A0" FontSize="11" VerticalAlignment="Center"/>
                 </DockPanel>
@@ -91,8 +107,8 @@
             </StackPanel>
         </ScrollViewer>
 
-        <Border Grid.Column="2" Background="#12171D" BorderBrush="#2A3038" BorderThickness="1,0,0,0">
-            <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="26,30">
+        <Border x:Name="PainelSeguranca" Grid.Column="2" Background="#12171D" BorderBrush="#2A3038" BorderThickness="1,0,0,0">
+            <ScrollViewer x:Name="ScrollSeguranca" VerticalScrollBarVisibility="Auto"><StackPanel Margin="26,30">
                 <TextBlock Text="Conectar celular" FontSize="22"/>
                 <TextBlock Text="Escaneie o QR no Android ou use o ID desta máquina. Toda conexão interativa precisa ser aceita no PC, exceto quando uma senha de acesso não supervisionado é usada." TextWrapping="Wrap" Foreground="#AAB1BA" Margin="0,9,0,18"/>
                 <Border Background="#F5F7FA" CornerRadius="16" Padding="10"><Image x:Name="ImagemQr" Width="210" Height="210" Stretch="Uniform"/></Border>
