@@ -10,6 +10,7 @@ namespace PCFlow.Windows;
 public partial class MainWindow : Window
 {
     private readonly ServidorPcFlow _servidor = new();
+    private readonly ServidorArquivosPcFlow _servidorArquivos = new();
     private readonly Forms.NotifyIcon _tray;
     private MolduraSessaoWindow? _moldura;
     private bool _encerrando;
@@ -26,11 +27,18 @@ public partial class MainWindow : Window
         };
         _tray.DoubleClick += (_, _) => Restaurar();
         _servidor.StatusAlterado += status => Dispatcher.Invoke(() => TextoStatus.Text = status);
+        _servidorArquivos.Status += status => Dispatcher.Invoke(() => TextoStatus.Text = status);
         _servidor.DispositivosAlterados += () => Dispatcher.Invoke(AtualizarTela);
         _servidor.SessoesAlteradas += quantidade => Dispatcher.Invoke(() => AtualizarMoldura(quantidade));
         _servidor.SolicitarAceiteAsync = SolicitarAceiteAsync;
         _servidor.JanelaVisivel = () => Dispatcher.Invoke(() => IsVisible && WindowState != WindowState.Minimized);
-        Loaded += async (_, _) => { await _servidor.IniciarAsync(); CarregarConfiguracaoNaTela(); AtualizarTela(); };
+        Loaded += async (_, _) =>
+        {
+            await _servidor.IniciarAsync();
+            await _servidorArquivos.IniciarAsync();
+            CarregarConfiguracaoNaTela();
+            AtualizarTela();
+        };
     }
 
     private Forms.ContextMenuStrip CriarMenuTray()
@@ -141,6 +149,7 @@ public partial class MainWindow : Window
             _encerrando = true;
             _tray.Visible = false;
             _tray.Dispose();
+            _servidorArquivos.DisposeAsync().AsTask().GetAwaiter().GetResult();
             _servidor.DisposeAsync().AsTask().GetAwaiter().GetResult();
             System.Windows.Application.Current.Shutdown();
         }
@@ -158,6 +167,7 @@ public partial class MainWindow : Window
         _moldura?.Close();
         _tray.Visible = false;
         _tray.Dispose();
+        await _servidorArquivos.DisposeAsync();
         await _servidor.DisposeAsync();
         Dispatcher.Invoke(() => System.Windows.Application.Current.Shutdown());
     }
