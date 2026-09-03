@@ -18,6 +18,8 @@ jobs:
         run: dotnet restore PCFlow.sln
       - name: Compilar
         run: dotnet build PCFlow.sln -c Release --no-restore
+      - name: Testar handshake TLS real no Windows
+        run: dotnet run --project windows/PCFlow.TlsSmoke/PCFlow.TlsSmoke.csproj -c Release
       - name: Publicar Windows portátil e autônomo
         run: dotnet publish windows/PCFlow.Windows/PCFlow.Windows.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o release/windows
       - uses: actions/upload-artifact@v4
