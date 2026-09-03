@@ -310,6 +310,7 @@ private fun TelaRemota(estado: EstadoSessao) {
                 SessaoPcFlow.alterarMonitor(proximo)
             }
             Ferramenta("Clipboard") { SessaoPcFlow.solicitarClipboard(); dialogo = "clipboard" }
+            if (estado.permissoes.arquivos) Ferramenta("Arquivos") { dialogo = "arquivos" }
             Ferramenta("Scroll +") { SessaoPcFlow.enviar("scroll") { put("delta", 240) } }
             Ferramenta("Scroll -") { SessaoPcFlow.enviar("scroll") { put("delta", -240) } }
             Ferramenta("Comandos") { dialogo = "comandos" }
@@ -327,6 +328,7 @@ private fun TelaRemota(estado: EstadoSessao) {
         "teclado" -> DialogoTeclado { dialogo = null }
         "comandos" -> DialogoComandos(estado.permissoes.energia) { dialogo = null }
         "clipboard" -> DialogoClipboard(contexto, clipboardRemoto) { dialogo = null }
+        "arquivos" -> DialogoArquivosRemotos { dialogo = null }
     }
 }
 
@@ -446,7 +448,7 @@ private fun lerQrPcFlow(texto: String): Pair<PcEncontrado, String?>? {
         val id = uri.getQueryParameter("id") ?: ""
         val tls = uri.getQueryParameter("tls") ?: return null
         val pin = uri.getQueryParameter("pin")
-        PcEncontrado(nome = "PCFlow $id", host = host, porta = porta, portaTela = 45457, maquinaId = id, tls = tls) to pin
+        PcEncontrado(nome = "PCFlow $id", host = host, porta = porta, portaTela = 45457, portaArquivos = 45458, maquinaId = id, tls = tls) to pin
     } catch (_: Exception) { null }
 }
 
