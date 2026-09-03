@@ -1,8 +1,14 @@
 package com.ander.pcflow
 
+import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
+import android.provider.OpenableColumns
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,6 +38,8 @@ object SessaoPcFlow {
     val clipboardRemoto: StateFlow<String> = _clipboardRemoto.asStateFlow()
     private val _monitorAtual = MutableStateFlow(0)
     val monitorAtual: StateFlow<Int> = _monitorAtual.asStateFlow()
+    private val _arquivos = MutableStateFlow(EstadoArquivos())
+    val arquivos: StateFlow<EstadoArquivos> = _arquivos.asStateFlow()
 
     private var socket: SSLSocket? = null
     private var writer: BufferedWriter? = null
@@ -53,10 +61,7 @@ object SessaoPcFlow {
                     udp.broadcast = true
                     udp.soTimeout = 250
                     val dados = "PCFLOW_DISCOVER_V2".toByteArray()
-                    val destinos = listOf("255.255.255.255")
-                    destinos.forEach { host ->
-                        runCatching { udp.send(DatagramPacket(dados, dados.size, InetAddress.getByName(host), PORTA_DESCOBERTA)) }
-                    }
+                    runCatching { udp.send(DatagramPacket(dados, dados.size, InetAddress.getByName("255.255.255.255"), PORTA_DESCOBERTA)) }
                     val inicio = System.currentTimeMillis()
                     while (System.currentTimeMillis() - inicio < TEMPO_DESCOBERTA_MS) {
                         try {
@@ -71,6 +76,7 @@ object SessaoPcFlow {
                                     host = host,
                                     porta = json.optInt("porta", 45456),
                                     portaTela = json.optInt("portaTela", 45457),
+                                    portaArquivos = json.optInt("portaArquivos", 45458),
                                     maquinaId = json.optString("maquinaId", ""),
                                     tls = json.optString("tls", ""),
                                     monitores = json.optInt("monitores", 1).coerceAtLeast(1)
@@ -108,10 +114,8 @@ object SessaoPcFlow {
                 writer = novoWriter
 
                 val prefs = prefs()
-                val id = prefs.getString("dispositivo_id", null) ?: UUID.randomUUID().toString().also {
-                    prefs.edit().putString("dispositivo_id", it).apply()
-                }
-                val chaveToken = "token_${pc.maquinaId.ifBlank { pc.host }}"
+                val id = obterDispositivoId()
+                val chaveToken = chaveToken(pc)
                 val token = prefs.getString(chaveToken, null)
                 val ola = JSONObject()
                     .put("tipo", "ola")
@@ -186,6 +190,149 @@ object SessaoPcFlow {
     fun solicitarClipboard() = enviar("clipboard_get")
     fun enviarClipboard(texto: String) = enviar("clipboard_set") { put("texto", texto) }
 
+    fun listarArquivos(caminho: String = "") {
+        if (!_estado.value.permissoes.arquivos) return
+        _arquivos.value = _arquivos.value.copy(carregando = true, mensagem = "")
+        escopo.launch {
+            try {
+                usarCanalArquivos { input, output ->
+                    escreverLinhaRaw(output, JSONObject().put("tipo", "listar").put("caminho", caminho))
+                    val resposta = JSONObject(lerLinhaRaw(input) ?: error("Sem resposta"))
+                    verificarResposta(resposta)
+                    val lista = resposta.optJSONArray("itens")
+                    val itens = buildList {
+                        if (lista != null) for (i in 0 until lista.length()) {
+                            val item = lista.getJSONObject(i)
+                            add(ArquivoRemoto(
+                                nome = item.optString("nome"),
+                                caminho = item.optString("caminho"),
+                                pasta = item.optBoolean("pasta"),
+                                tamanho = item.optLong("tamanho"),
+                                modificado = item.optString("modificado"),
+                                raiz = item.optBoolean("raiz")
+                            ))
+                        }
+                    }
+                    _arquivos.value = EstadoArquivos(
+                        carregando = false,
+                        caminho = resposta.optString("caminho", caminho),
+                        pai = resposta.optString("pai", ""),
+                        itens = itens
+                    )
+                }
+            } catch (e: Exception) {
+                _arquivos.value = _arquivos.value.copy(carregando = false, mensagem = "Arquivos: ${e.message}")
+            }
+        }
+    }
+
+    fun criarPasta(nome: String) {
+        val atual = _arquivos.value.caminho
+        if (atual.isBlank() || nome.isBlank()) return
+        val destino = combinarRemoto(atual, nome.trim())
+        operarArquivo(JSONObject().put("tipo", "mkdir").put("caminho", destino)) { listarArquivos(atual) }
+    }
+
+    fun apagarArquivo(item: ArquivoRemoto) {
+        val atual = _arquivos.value.caminho
+        operarArquivo(JSONObject().put("tipo", "apagar").put("caminho", item.caminho)) { listarArquivos(atual) }
+    }
+
+    fun baixarArquivo(context: Context, item: ArquivoRemoto) {
+        if (item.pasta) return
+        _arquivos.value = _arquivos.value.copy(carregando = true, mensagem = "Baixando ${item.nome}…")
+        escopo.launch {
+            try {
+                usarCanalArquivos { input, output ->
+                    escreverLinhaRaw(output, JSONObject().put("tipo", "baixar").put("caminho", item.caminho))
+                    val cabecalho = JSONObject(lerLinhaRaw(input) ?: error("Sem resposta"))
+                    verificarResposta(cabecalho)
+                    if (cabecalho.optString("tipo") != "arquivo") error("Resposta de arquivo inválida")
+                    val tamanho = cabecalho.getLong("tamanho")
+                    val (saida, descricao) = criarSaidaDownload(context, cabecalho.optString("nome", item.nome))
+                    saida.use { destino ->
+                        var restante = tamanho
+                        val buffer = ByteArray(128 * 1024)
+                        while (restante > 0) {
+                            val lidos = input.read(buffer, 0, minOf(buffer.size.toLong(), restante).toInt())
+                            if (lidos <= 0) error("Transferência interrompida")
+                            destino.write(buffer, 0, lidos)
+                            restante -= lidos
+                        }
+                    }
+                    _arquivos.value = _arquivos.value.copy(carregando = false, mensagem = "Salvo em $descricao")
+                }
+            } catch (e: Exception) {
+                _arquivos.value = _arquivos.value.copy(carregando = false, mensagem = "Download: ${e.message}")
+            }
+        }
+    }
+
+    fun enviarArquivo(context: Context, uri: Uri) {
+        val pasta = _arquivos.value.caminho
+        if (pasta.isBlank()) return
+        _arquivos.value = _arquivos.value.copy(carregando = true, mensagem = "Preparando envio…")
+        escopo.launch {
+            var temporario: File? = null
+            try {
+                val nome = obterNomeArquivo(context, uri)
+                temporario = File.createTempFile("pcflow-upload-", ".tmp", context.cacheDir)
+                context.contentResolver.openInputStream(uri)?.use { entrada ->
+                    temporario.outputStream().use { saida -> entrada.copyTo(saida, 128 * 1024) }
+                } ?: error("Não foi possível ler o arquivo")
+
+                usarCanalArquivos { input, output ->
+                    escreverLinhaRaw(output, JSONObject().put("tipo", "enviar").put("caminho", pasta).put("nome", nome).put("tamanho", temporario.length()))
+                    temporario.inputStream().use { arquivo -> arquivo.copyTo(output, 128 * 1024) }
+                    output.flush()
+                    val resposta = JSONObject(lerLinhaRaw(input) ?: error("Sem confirmação"))
+                    verificarResposta(resposta)
+                }
+                _arquivos.value = _arquivos.value.copy(carregando = false, mensagem = "${nome} enviado")
+                listarArquivos(pasta)
+            } catch (e: Exception) {
+                _arquivos.value = _arquivos.value.copy(carregando = false, mensagem = "Envio: ${e.message}")
+            } finally {
+                temporario?.delete()
+            }
+        }
+    }
+
+    private fun operarArquivo(comando: JSONObject, sucesso: () -> Unit) {
+        _arquivos.value = _arquivos.value.copy(carregando = true, mensagem = "")
+        escopo.launch {
+            try {
+                usarCanalArquivos { input, output ->
+                    escreverLinhaRaw(output, comando)
+                    verificarResposta(JSONObject(lerLinhaRaw(input) ?: error("Sem resposta")))
+                }
+                sucesso()
+            } catch (e: Exception) {
+                _arquivos.value = _arquivos.value.copy(carregando = false, mensagem = "Arquivos: ${e.message}")
+            }
+        }
+    }
+
+    private suspend fun usarCanalArquivos(bloco: suspend (InputStream, OutputStream) -> Unit) {
+        val pc = _estado.value.pc ?: error("Sem computador conectado")
+        val token = prefs().getString(chaveToken(pc), null) ?: error("Autorização não encontrada")
+        val id = obterDispositivoId()
+        val s = abrirTls(pc, pc.portaArquivos)
+        s.soTimeout = 60_000
+        s.use {
+            val input = BufferedInputStream(s.getInputStream(), 128 * 1024)
+            val output = BufferedOutputStream(s.getOutputStream(), 128 * 1024)
+            escreverLinhaRaw(output, JSONObject().put("tipo", "arquivos_ola").put("dispositivoId", id).put("maquinaId", pc.maquinaId).put("token", token))
+            val auth = JSONObject(lerLinhaRaw(input) ?: error("Servidor de arquivos não respondeu"))
+            verificarResposta(auth)
+            bloco(input, output)
+        }
+    }
+
+    private fun verificarResposta(json: JSONObject) {
+        if (json.optString("tipo") == "erro") error(json.optString("mensagem", "Operação recusada"))
+    }
+
     fun desconectar() {
         desconexaoManual = true
         ultimoPc = null
@@ -193,6 +340,7 @@ object SessaoPcFlow {
             pararStream()
             desconectarSockets()
             _quadro.value = null
+            _arquivos.value = EstadoArquivos()
             _estado.value = EstadoSessao()
             contexto?.let { ServicoConexao.parar(it) }
         }
@@ -273,12 +421,66 @@ object SessaoPcFlow {
         ssl.tcpNoDelay = true
         ssl.startHandshake()
         val cert = ssl.session.peerCertificates.firstOrNull() as? X509Certificate ?: error("Certificado remoto ausente")
-        val atual = MessageDigest.getInstance("SHA-256").digest(cert.encoded).joinToString("") { "%02x".format(it) }
+        val atual = MessageDigest.getInstance("SHA-256").digest(cert.encoded).joinToString("") { "%02x".format(it.toInt() and 0xff) }
         if (!atual.equals(pc.tls.replace(":", ""), ignoreCase = true)) {
             ssl.close()
             throw SSLHandshakeException("A identidade deste PC mudou. Conexão bloqueada por segurança.")
         }
         return ssl
+    }
+
+    private fun obterDispositivoId(): String {
+        val p = prefs()
+        return p.getString("dispositivo_id", null) ?: UUID.randomUUID().toString().also {
+            p.edit().putString("dispositivo_id", it).apply()
+        }
+    }
+
+    private fun chaveToken(pc: PcEncontrado) = "token_${pc.maquinaId.ifBlank { pc.host }}"
+
+    private fun combinarRemoto(pasta: String, nome: String): String = when {
+        pasta.endsWith("\\") || pasta.endsWith("/") -> pasta + nome
+        else -> "$pasta\\$nome"
+    }
+
+    private fun obterNomeArquivo(context: Context, uri: Uri): String {
+        var nome: String? = null
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) nome = cursor.getString(0)
+        }
+        return nome?.takeIf { it.isNotBlank() } ?: "arquivo-${System.currentTimeMillis()}"
+    }
+
+    private fun criarSaidaDownload(context: Context, nome: String): Pair<OutputStream, String> {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val values = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, nome)
+                put(MediaStore.MediaColumns.MIME_TYPE, "application/octet-stream")
+                put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/PCFlow")
+            }
+            val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values) ?: error("Não foi possível criar o download")
+            val output = context.contentResolver.openOutputStream(uri) ?: error("Não foi possível abrir o download")
+            return output to "Downloads/PCFlow/$nome"
+        }
+        val pasta = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "PCFlow").apply { mkdirs() }
+        val arquivo = File(pasta, nome)
+        return arquivo.outputStream() to arquivo.absolutePath
+    }
+
+    private fun escreverLinhaRaw(output: OutputStream, json: JSONObject) {
+        output.write((json.toString() + "\n").toByteArray(Charsets.UTF_8))
+        output.flush()
+    }
+
+    private fun lerLinhaRaw(input: InputStream): String? {
+        val ms = ByteArrayOutputStream()
+        while (ms.size() < 256 * 1024) {
+            val b = input.read()
+            if (b < 0) return if (ms.size() == 0) null else ms.toString(Charsets.UTF_8.name())
+            if (b == '\n'.code) return ms.toString(Charsets.UTF_8.name())
+            if (b != '\r'.code) ms.write(b)
+        }
+        error("Mensagem muito grande")
     }
 
     private fun mensagemAmigavel(e: Exception): String = when (e) {
