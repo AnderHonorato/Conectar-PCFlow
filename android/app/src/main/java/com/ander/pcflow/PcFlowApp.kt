@@ -55,7 +55,7 @@ private val Texto2 = Color(0xFF9DA5B0)
 private val Perigo = Color(0xFFFF7A70)
 
 private enum class Aba { TOUCHPAD, GAMES, LAYOUTS, UTILITIES, MORE }
-private enum class Painel { NONE, MEDIA, POWER, PPT, WEB, TECLADO, REMOTE, FILES, CLIPBOARD }
+private enum class PainelMenu { NONE, MEDIA, POWER, PPT, WEB, TECLADO, REMOTE, FILES, CLIPBOARD }
 private enum class Ico { MONITOR, MOUSE, GAME, GRID, TOOLS, MORE, PLAY, POWER, PPT, WEB, KEYBOARD, FILE, CLIP, CAMERA, TASK, PHONE }
 
 @Composable
@@ -253,7 +253,7 @@ private fun TelaConectar(
 @Composable
 private fun TelaControle(estado: EstadoSessao) {
     var aba by remember { mutableStateOf(Aba.TOUCHPAD) }
-    var painel by remember { mutableStateOf(Painel.NONE) }
+    var painel by remember { mutableStateOf(PainelMenu.NONE) }
     val pc = requireNotNull(estado.pc)
 
     Column(Modifier.fillMaxSize().background(Fundo)) {
@@ -285,28 +285,28 @@ private fun TelaControle(estado: EstadoSessao) {
     }
 
     when (painel) {
-        Painel.MEDIA -> DialogoMedia { painel = Painel.NONE }
-        Painel.POWER -> DialogoPower(estado.permissoes.energia) { painel = Painel.NONE }
-        Painel.PPT -> DialogoPpt { painel = Painel.NONE }
-        Painel.WEB -> DialogoWeb { painel = Painel.NONE }
-        Painel.TECLADO -> DialogoTeclado { painel = Painel.NONE }
-        Painel.REMOTE -> RemoteDesktop(estado) { painel = Painel.NONE }
-        Painel.FILES -> if (estado.permissoes.arquivos) DialogoArquivosRemotos { painel = Painel.NONE }
-        Painel.CLIPBOARD -> DialogoClipboard { painel = Painel.NONE }
-        Painel.NONE -> Unit
+        PainelMenu.MEDIA -> DialogoMedia { painel = PainelMenu.NONE }
+        PainelMenu.POWER -> DialogoPower(estado.permissoes.energia) { painel = PainelMenu.NONE }
+        PainelMenu.PPT -> DialogoPpt { painel = PainelMenu.NONE }
+        PainelMenu.WEB -> DialogoWeb { painel = PainelMenu.NONE }
+        PainelMenu.TECLADO -> DialogoTeclado { painel = PainelMenu.NONE }
+        PainelMenu.REMOTE -> RemoteDesktop(estado) { painel = PainelMenu.NONE }
+        PainelMenu.FILES -> if (estado.permissoes.arquivos) DialogoArquivosRemotos { painel = PainelMenu.NONE }
+        PainelMenu.CLIPBOARD -> DialogoClipboard { painel = PainelMenu.NONE }
+        PainelMenu.NONE -> Unit
     }
 }
 
 @Composable
-private fun BarraTopo(estado: EstadoSessao, abrir: (Painel) -> Unit) {
+private fun BarraTopo(estado: EstadoSessao, abrir: (PainelMenu) -> Unit) {
     Row(Modifier.fillMaxWidth().background(Color(0xFF24272D)).horizontalScroll(rememberScrollState()).padding(5.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-        Topo("Media", Ico.PLAY) { abrir(Painel.MEDIA) }
-        Topo("Power", Ico.POWER) { abrir(Painel.POWER) }
-        Topo("PPT", Ico.PPT) { abrir(Painel.PPT) }
-        Topo("Web", Ico.WEB) { abrir(Painel.WEB) }
-        Topo("Teclado", Ico.KEYBOARD) { abrir(Painel.TECLADO) }
-        if (estado.permissoes.tela) Topo("Desktop", Ico.MONITOR) { abrir(Painel.REMOTE) }
-        if (estado.permissoes.arquivos) Topo("Arquivos", Ico.FILE) { abrir(Painel.FILES) }
+        Topo("Media", Ico.PLAY) { abrir(PainelMenu.MEDIA) }
+        Topo("Power", Ico.POWER) { abrir(PainelMenu.POWER) }
+        Topo("PPT", Ico.PPT) { abrir(PainelMenu.PPT) }
+        Topo("Web", Ico.WEB) { abrir(PainelMenu.WEB) }
+        Topo("Teclado", Ico.KEYBOARD) { abrir(PainelMenu.TECLADO) }
+        if (estado.permissoes.tela) Topo("Desktop", Ico.MONITOR) { abrir(PainelMenu.REMOTE) }
+        if (estado.permissoes.arquivos) Topo("Arquivos", Ico.FILE) { abrir(PainelMenu.FILES) }
     }
 }
 
@@ -404,14 +404,14 @@ private fun GameKey(tecla: String, rotulo: String = tecla) {
 }
 
 @Composable
-private fun Layouts(abrir: (Painel) -> Unit) {
+private fun Layouts(abrir: (PainelMenu) -> Unit) {
     Column(Modifier.fillMaxSize().padding(18.dp)) {
         Text("Layouts", fontSize = 22.sp, fontWeight = FontWeight.Medium)
         Text("Modos prontos para cada tarefa", color = Texto2, fontSize = 12.sp, modifier = Modifier.padding(bottom = 14.dp))
         LayoutCard("Touchpad", "Mouse e scroll", Ico.MOUSE) { }
-        LayoutCard("Apresentação", "PowerPoint / LibreOffice", Ico.PPT) { abrir(Painel.PPT) }
-        LayoutCard("Navegador", "Abas e navegação web", Ico.WEB) { abrir(Painel.WEB) }
-        LayoutCard("Remote Desktop", "Controle visual da tela", Ico.MONITOR) { abrir(Painel.REMOTE) }
+        LayoutCard("Apresentação", "PowerPoint / LibreOffice", Ico.PPT) { abrir(PainelMenu.PPT) }
+        LayoutCard("Navegador", "Abas e navegação web", Ico.WEB) { abrir(PainelMenu.WEB) }
+        LayoutCard("Remote Desktop", "Controle visual da tela", Ico.MONITOR) { abrir(PainelMenu.REMOTE) }
     }
 }
 
@@ -427,18 +427,18 @@ private fun LayoutCard(titulo: String, subtitulo: String, ico: Ico, click: () ->
 }
 
 @Composable
-private fun Utilities(estado: EstadoSessao, abrir: (Painel) -> Unit) {
+private fun Utilities(estado: EstadoSessao, abrir: (PainelMenu) -> Unit) {
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("Utilities", fontSize = 23.sp)
         Spacer(Modifier.height(16.dp))
         UtilityRow(
-            Util("Remote Desktop", Ico.MONITOR, estado.permissoes.tela) { abrir(Painel.REMOTE) },
-            Util("File Explorer", Ico.FILE, estado.permissoes.arquivos) { abrir(Painel.FILES) },
+            Util("Remote Desktop", Ico.MONITOR, estado.permissoes.tela) { abrir(PainelMenu.REMOTE) },
+            Util("File Explorer", Ico.FILE, estado.permissoes.arquivos) { abrir(PainelMenu.FILES) },
             Util("Task Manager", Ico.TASK, true) { tecla("TASK_MANAGER") }
         )
         UtilityRow(
-            Util("Data Cable", Ico.PHONE, estado.permissoes.arquivos) { abrir(Painel.FILES) },
-            Util("Clipboard", Ico.CLIP, estado.permissoes.clipboard) { abrir(Painel.CLIPBOARD) },
+            Util("Data Cable", Ico.PHONE, estado.permissoes.arquivos) { abrir(PainelMenu.FILES) },
+            Util("Clipboard", Ico.CLIP, estado.permissoes.clipboard) { abrir(PainelMenu.CLIPBOARD) },
             Util("Explorer", Ico.FILE, true) { tecla("WIN_E") }
         )
         Text("Em desenvolvimento", color = Texto2, fontSize = 11.sp, modifier = Modifier.padding(top = 10.dp, bottom = 8.dp))
@@ -474,11 +474,11 @@ private fun UtilityRow(vararg itens: Util) {
 }
 
 @Composable
-private fun Mais(estado: EstadoSessao, abrir: (Painel) -> Unit) {
+private fun Mais(estado: EstadoSessao, abrir: (PainelMenu) -> Unit) {
     val monitor by SessaoPcFlow.monitorAtual.collectAsStateWithLifecycle()
     Column(Modifier.fillMaxSize().padding(18.dp).verticalScroll(rememberScrollState())) {
         Text("More", fontSize = 23.sp)
-        MoreItem("Clipboard", "Sincronizar texto") { abrir(Painel.CLIPBOARD) }
+        MoreItem("Clipboard", "Sincronizar texto") { abrir(PainelMenu.CLIPBOARD) }
         MoreItem("Trocar monitor", "Monitor ${monitor + 1} de ${estado.quantidadeMonitores}") { SessaoPcFlow.alterarMonitor((monitor + 1) % estado.quantidadeMonitores.coerceAtLeast(1)) }
         MoreItem("Mostrar desktop", "Win + D") { tecla("SHOW_DESKTOP") }
         MoreItem("Alternar janela", "Alt + Tab") { tecla("ALT_TAB") }
