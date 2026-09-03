@@ -1,9 +1,9 @@
 using PCFlow.Windows.Core;
 using System.ComponentModel;
-using System.Net;
 using System.Windows;
 using System.Windows.Controls;
 using Forms = System.Windows.Forms;
+using WpfMessageBox = System.Windows.MessageBox;
 
 namespace PCFlow.Windows;
 
@@ -48,7 +48,7 @@ public partial class MainWindow : Window
             Restaurar();
             _tray.ShowBalloonTip(1500, "Solicitação de acesso", $"{solicitacao.Nome} quer controlar este computador.", Forms.ToolTipIcon.Info);
             var conhecido = solicitacao.DispositivoConhecido ? "Dispositivo já conhecido." : "Novo dispositivo.";
-            return MessageBox.Show(this,
+            return WpfMessageBox.Show(this,
                 $"{solicitacao.Nome} ({solicitacao.EnderecoIp}) quer iniciar uma sessão remota.\n\n{conhecido}\n\nPermitir acesso?",
                 "PCFlow — Solicitação de conexão", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) == MessageBoxResult.Yes;
         }).Task;
@@ -90,25 +90,25 @@ public partial class MainWindow : Window
         c.DescobertaRede = CheckDescoberta.IsChecked == true;
         c.MolduraSessao = CheckMoldura.IsChecked == true;
         _servidor.SalvarConfiguracao();
-        MessageBox.Show(this, "Configurações salvas.", "PCFlow", MessageBoxButton.OK, MessageBoxImage.Information);
+        WpfMessageBox.Show(this, "Configurações salvas.", "PCFlow", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
     private void DefinirSenha_Click(object sender, RoutedEventArgs e)
     {
         if (!_servidor.DefinirSenhaNaoSupervisionada(CampoSenha.Password))
         {
-            MessageBox.Show(this, "Use uma senha com pelo menos 8 caracteres.", "PCFlow", MessageBoxButton.OK, MessageBoxImage.Warning);
+            WpfMessageBox.Show(this, "Use uma senha com pelo menos 8 caracteres.", "PCFlow", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
         CampoSenha.Clear();
-        MessageBox.Show(this, "Acesso não supervisionado ativado com senha.", "PCFlow", MessageBoxButton.OK, MessageBoxImage.Information);
+        WpfMessageBox.Show(this, "Acesso não supervisionado ativado com senha.", "PCFlow", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
     private void RemoverSenha_Click(object sender, RoutedEventArgs e)
     {
         _servidor.RemoverSenhaNaoSupervisionada();
         CampoSenha.Clear();
-        MessageBox.Show(this, "Senha removida. Conexões voltarão a depender das regras de acesso interativo.", "PCFlow", MessageBoxButton.OK, MessageBoxImage.Information);
+        WpfMessageBox.Show(this, "Senha removida. Conexões voltarão a depender das regras de acesso interativo.", "PCFlow", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
     private void AtualizarMoldura(int sessoes)
