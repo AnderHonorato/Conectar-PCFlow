@@ -119,6 +119,32 @@ public partial class MainWindow : Window
         WpfMessageBox.Show(this, "Senha removida. Conexões voltarão a depender das regras de acesso interativo.", "PCFlow", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
+    private void AlternarBloqueio_Click(object sender, RoutedEventArgs e)
+    {
+        var id = (sender as Button)?.Tag?.ToString();
+        var dispositivo = _servidor.Configuracao.Dispositivos.FirstOrDefault(d => d.Id == id);
+        if (dispositivo is null) return;
+        dispositivo.Bloqueado = !dispositivo.Bloqueado;
+        _servidor.SalvarConfiguracao();
+        AtualizarTela();
+        TextoStatus.Text = dispositivo.Bloqueado ? $"{dispositivo.Nome} bloqueado" : $"{dispositivo.Nome} liberado";
+    }
+
+    private void RevogarDispositivo_Click(object sender, RoutedEventArgs e)
+    {
+        var id = (sender as Button)?.Tag?.ToString();
+        var dispositivo = _servidor.Configuracao.Dispositivos.FirstOrDefault(d => d.Id == id);
+        if (dispositivo is null) return;
+        var confirmar = WpfMessageBox.Show(this,
+            $"Revogar o acesso salvo de {dispositivo.Nome}?\n\nO dispositivo precisará ser autorizado novamente em uma próxima conexão.",
+            "PCFlow — Revogar dispositivo", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+        if (confirmar != MessageBoxResult.Yes) return;
+        _servidor.Configuracao.Dispositivos.Remove(dispositivo);
+        _servidor.SalvarConfiguracao();
+        AtualizarTela();
+        TextoStatus.Text = $"Acesso de {dispositivo.Nome} revogado";
+    }
+
     private void AtualizarMoldura(int sessoes)
     {
         if (sessoes > 0 && _servidor.Configuracao.MolduraSessao)
