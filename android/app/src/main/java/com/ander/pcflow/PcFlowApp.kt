@@ -33,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -42,20 +43,20 @@ import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import org.json.JSONObject
 
-private val Fundo = Color(0xFF0B0E12)
-private val Fundo2 = Color(0xFF0F1319)
+private val Fundo = Color(0xFF080B0F)
+private val Fundo2 = Color(0xFF10141A)
 private val Painel = Color(0xFF151A22)
-private val Painel2 = Color(0xFF1A2029)
-private val Borda = Color(0xFF353C47)
-private val Ouro = Color(0xFFF2AA2E)
-private val OuroSuave = Color(0x33F2AA2E)
-private val Ciano = Color(0xFF18D2C6)
-private val Texto2 = Color(0xFF9BA3AE)
-private val Perigo = Color(0xFFFF776D)
+private val Painel2 = Color(0xFF1B212A)
+private val Borda = Color(0xFF363D48)
+private val Ouro = Color(0xFFF4AD2F)
+private val Ouro20 = Color(0x33F4AD2F)
+private val Ciano = Color(0xFF17D0C4)
+private val Texto2 = Color(0xFF9DA5B0)
+private val Perigo = Color(0xFFFF7A70)
 
-private enum class AbaPrincipal { TOUCHPAD, GAMES, LAYOUTS, UTILITIES, MORE }
-private enum class PainelRapido { NONE, MEDIA, POWER, PPT, WEB, KEYBOARD, REMOTE, FILES, CLIPBOARD }
-private enum class IconePc { MONITOR, MOUSE, GAME, GRID, TOOLS, MORE, MEDIA, POWER, PPT, WEB, KEYBOARD, REMOTE, FILE, TASK, CAMERA, PHONE, CLIPBOARD, SCREEN, HOME, BACK, PLAY }
+private enum class Aba { TOUCHPAD, GAMES, LAYOUTS, UTILITIES, MORE }
+private enum class Painel { NONE, MEDIA, POWER, PPT, WEB, TECLADO, REMOTE, FILES, CLIPBOARD }
+private enum class Ico { MONITOR, MOUSE, GAME, GRID, TOOLS, MORE, PLAY, POWER, PPT, WEB, KEYBOARD, FILE, CLIP, CAMERA, TASK, PHONE }
 
 @Composable
 fun PcFlowApp() {
@@ -65,49 +66,48 @@ fun PcFlowApp() {
             surface = Painel,
             primary = Ouro,
             secondary = Ciano,
-            onBackground = Color(0xFFF5F7FA),
-            onSurface = Color(0xFFF5F7FA)
+            onBackground = Color.White,
+            onSurface = Color.White
         )
-    ) {
-        RootPcFlow()
-    }
+    ) { RootPcFlow() }
 }
 
 @Composable
 private fun RootPcFlow() {
     val estado by SessaoPcFlow.estado.collectAsStateWithLifecycle()
     val pcs by SessaoPcFlow.pcs.collectAsStateWithLifecycle()
-    var pcSelecionado by remember { mutableStateOf<PcEncontrado?>(null) }
+    var selecionado by remember { mutableStateOf<PcEncontrado?>(null) }
     var pin by remember { mutableStateOf("") }
     var senha by remember { mutableStateOf("") }
 
-    val permissaoNotificacao = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
-    val scanner = rememberLauncherForActivityResult(ScanContract()) { resultado ->
-        val conteudo = resultado.contents ?: return@rememberLauncherForActivityResult
-        val lido = lerQrPcFlowNovo(conteudo) ?: return@rememberLauncherForActivityResult
-        pcSelecionado = lido.first
-        pin = lido.second.orEmpty()
+    val notificacao = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    val scanner = rememberLauncherForActivityResult(ScanContract()) { r ->
+        val lido = r.contents?.let(::lerQrPcFlow)
+        if (lido != null) {
+            selecionado = lido.first
+            pin = lido.second.orEmpty()
+        }
     }
 
     LaunchedEffect(Unit) {
-        if (Build.VERSION.SDK_INT >= 33) permissaoNotificacao.launch(Manifest.permission.POST_NOTIFICATIONS)
+        if (Build.VERSION.SDK_INT >= 33) notificacao.launch(Manifest.permission.POST_NOTIFICATIONS)
         SessaoPcFlow.descobrir()
     }
 
     Surface(Modifier.fillMaxSize(), color = Fundo) {
         if (estado.estado == EstadoConexao.CONECTADO && estado.pc != null) {
-            ControlePrincipal(estado)
+            TelaControle(estado)
         } else {
-            TelaConexaoNova(
+            TelaConectar(
                 pcs = pcs,
                 estado = estado,
-                conectar = { pc -> pcSelecionado = pc; pin = ""; senha = "" },
                 atualizar = SessaoPcFlow::descobrir,
+                conectar = { selecionado = it; pin = ""; senha = "" },
                 escanear = {
                     scanner.launch(
                         ScanOptions()
                             .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                            .setPrompt("Aponte para o QR Code exibido no PCFlow do computador")
+                            .setPrompt("Aponte para o QR Code do PCFlow no computador")
                             .setBeepEnabled(false)
                             .setOrientationLocked(false)
                     )
@@ -116,301 +116,227 @@ private fun RootPcFlow() {
         }
     }
 
-    if (pcSelecionado != null) {
-        DialogoConectar(
-            pc = pcSelecionado!!,
-            pin = pin,
-            senha = senha,
-            onPin = { pin = it.filter(Char::isDigit).take(6) },
-            onSenha = { senha = it },
-            fechar = { pcSelecionado = null },
-            conectar = {
-                SessaoPcFlow.conectar(pcSelecionado!!, pin.ifBlank { null }, senha.ifBlank { null })
-                pcSelecionado = null
-                pin = ""
-                senha = ""
-            }
+    selecionado?.let { pc ->
+        AlertDialog(
+            onDismissRequest = { selecionado = null },
+            containerColor = Painel,
+            shape = RoundedCornerShape(22.dp),
+            title = {
+                Column {
+                    Text("Conectar a ${pc.nome}")
+                    Text(formatarId(pc.maquinaId), color = Ouro, fontSize = 14.sp)
+                }
+            },
+            text = {
+                Column {
+                    Text("Sem código ou senha, a solicitação aparece no PC para ser aceita. Você também pode usar o QR/código ou a senha de acesso não supervisionado.", color = Texto2, fontSize = 12.sp)
+                    OutlinedTextField(
+                        value = pin,
+                        onValueChange = { pin = it.filter(Char::isDigit).take(6) },
+                        modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
+                        label = { Text("Código de 6 dígitos") },
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = senha,
+                        onValueChange = { senha = it },
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        label = { Text("Senha não supervisionada") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    SessaoPcFlow.conectar(pc, pin.ifBlank { null }, senha.ifBlank { null })
+                    selecionado = null
+                }) { Text("Conectar") }
+            },
+            dismissButton = { TextButton(onClick = { selecionado = null }) { Text("Cancelar") } }
         )
     }
 }
 
 @Composable
-private fun TelaConexaoNova(
+private fun TelaConectar(
     pcs: List<PcEncontrado>,
     estado: EstadoSessao,
-    conectar: (PcEncontrado) -> Unit,
     atualizar: () -> Unit,
+    conectar: (PcEncontrado) -> Unit,
     escanear: () -> Unit
 ) {
     var busca by remember { mutableStateOf("") }
     val filtro = busca.filter(Char::isDigit)
-    val exibidos = if (filtro.isBlank()) pcs else pcs.filter { it.maquinaId.contains(filtro) }
+    val encontrados = if (filtro.isBlank()) pcs else pcs.filter { it.maquinaId.contains(filtro) }
 
-    Column(Modifier.fillMaxSize().background(Fundo).padding(horizontal = 20.dp)) {
-        Spacer(Modifier.height(20.dp))
+    Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
+        Spacer(Modifier.height(18.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconeLinha(IconePc.MONITOR, Ouro, 48.dp)
+            Icone(Ico.MONITOR, Ouro, 50.dp)
             Spacer(Modifier.width(12.dp))
             Column {
                 Text("PCFlow", fontSize = 34.sp, fontWeight = FontWeight.SemiBold)
-                Text("Controle seu PC sem complicação", color = Texto2, fontSize = 13.sp)
+                Text("Controle remoto seguro na sua rede", color = Texto2, fontSize = 13.sp)
             }
         }
 
         Spacer(Modifier.height(28.dp))
-        Surface(color = Painel, shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, Borda)) {
-            Column(Modifier.padding(15.dp)) {
-                Text("Conectar a um computador", fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                OutlinedTextField(
-                    value = busca,
-                    onValueChange = { busca = it.filter(Char::isDigit).take(9) },
-                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-                    placeholder = { Text("ID do computador · 000 000 000") },
-                    singleLine = true
-                )
-                Row(Modifier.fillMaxWidth().padding(top = 9.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = atualizar, modifier = Modifier.weight(1f), border = BorderStroke(1.dp, Borda), shape = RoundedCornerShape(15.dp)) {
-                        Text("Buscar na rede", color = Ouro)
-                    }
-                    Button(onClick = escanear, modifier = Modifier.weight(1f), shape = RoundedCornerShape(15.dp)) {
-                        Text("Escanear QR")
-                    }
-                }
+        OutlinedTextField(
+            value = busca,
+            onValueChange = { busca = it.filter(Char::isDigit).take(9) },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("ID do computador") },
+            singleLine = true,
+            shape = RoundedCornerShape(13.dp)
+        )
+        Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedButton(onClick = atualizar, modifier = Modifier.weight(1f).height(52.dp), border = BorderStroke(1.dp, Borda), shape = RoundedCornerShape(26.dp)) {
+                Text("Buscar na rede", color = Ouro)
             }
+            Button(onClick = escanear, modifier = Modifier.weight(1f).height(52.dp), shape = RoundedCornerShape(26.dp)) { Text("Escanear QR") }
         }
 
-        Row(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Computadores encontrados", fontSize = 19.sp, modifier = Modifier.weight(1f))
-            Text("${exibidos.size}", color = Texto2, fontSize = 13.sp)
-        }
-
-        if (exibidos.isEmpty()) {
-            Surface(Modifier.fillMaxWidth(), color = Painel, shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, Borda)) {
-                Column(Modifier.padding(18.dp)) {
-                    Text(if (filtro.isBlank()) "Procurando na rede local…" else "Esse ID não apareceu nesta rede.")
-                    Text("Mantenha o PCFlow do Windows aberto ou na bandeja e confirme que os dois dispositivos estão na mesma rede.", color = Texto2, fontSize = 12.sp, modifier = Modifier.padding(top = 7.dp))
+        Text("Computadores encontrados", fontSize = 20.sp, modifier = Modifier.padding(top = 28.dp, bottom = 12.dp))
+        LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (encontrados.isEmpty()) {
+                item {
+                    Surface(Modifier.fillMaxWidth(), color = Painel, shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, Borda)) {
+                        Column(Modifier.padding(18.dp)) {
+                            Text(if (filtro.isBlank()) "Procurando PCFlow na rede…" else "Esse ID não apareceu nesta rede.")
+                            Text("Deixe o aplicativo Windows aberto ou na bandeja e use a mesma rede Wi‑Fi/LAN.", color = Texto2, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
+                        }
+                    }
                 }
-            }
-        } else {
-            LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                items(exibidos, key = { it.maquinaId.ifBlank { it.host } }) { pc ->
-                    ComputadorCard(pc) { conectar(pc) }
+            } else {
+                items(encontrados, key = { it.maquinaId.ifBlank { it.host } }) { pc ->
+                    Surface(
+                        modifier = Modifier.fillMaxWidth().clickable { conectar(pc) },
+                        color = Painel,
+                        shape = RoundedCornerShape(20.dp),
+                        border = BorderStroke(1.dp, Borda)
+                    ) {
+                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icone(Ico.MONITOR, Ouro, 48.dp)
+                            Spacer(Modifier.width(14.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(pc.nome, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(formatarId(pc.maquinaId), color = Ouro, fontSize = 14.sp)
+                                Text("${pc.host} · ${pc.monitores} monitor(es)", color = Texto2, fontSize = 11.sp, modifier = Modifier.padding(top = 3.dp))
+                            }
+                            Text("Conectar", color = Ouro, fontSize = 13.sp)
+                        }
+                    }
                 }
             }
         }
 
         when (estado.estado) {
             EstadoConexao.CONECTANDO -> {
-                LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 12.dp))
-                Text(estado.mensagem.ifBlank { "Solicitando acesso…" }, color = Ouro, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
+                LinearProgressIndicator(Modifier.fillMaxWidth())
+                Text(estado.mensagem, color = Ouro, fontSize = 12.sp, modifier = Modifier.padding(top = 7.dp))
             }
             EstadoConexao.ERRO -> {
-                Surface(Modifier.fillMaxWidth().padding(top = 12.dp), color = Color(0xFF2B181B), shape = RoundedCornerShape(14.dp)) {
+                Surface(Modifier.fillMaxWidth(), color = Color(0xFF2B181B), shape = RoundedCornerShape(14.dp)) {
                     Column(Modifier.padding(12.dp)) {
                         Text("Não foi possível conectar", color = Perigo, fontWeight = FontWeight.Medium)
-                        Text(estado.mensagem, color = Color(0xFFFFA29A), fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
-                        Text("Se você acabou de atualizar o PCFlow, feche a versão antiga pelo ícone da bandeja do Windows antes de abrir a nova.", color = Texto2, fontSize = 11.sp, modifier = Modifier.padding(top = 7.dp))
+                        Text(estado.mensagem, color = Color(0xFFFFAAA2), fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
                     }
                 }
             }
             else -> Unit
         }
-
-        Text("Rede local · TLS com pinagem · sem conta", color = Texto2, fontSize = 11.sp, modifier = Modifier.align(Alignment.CenterHorizontally).padding(vertical = 14.dp))
+        Text("TLS com pinagem · conexão restrita à LAN", color = Texto2, fontSize = 11.sp, modifier = Modifier.align(Alignment.CenterHorizontally).padding(vertical = 14.dp))
     }
 }
 
 @Composable
-private fun ComputadorCard(pc: PcEncontrado, click: () -> Unit) {
-    Surface(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = click),
-        color = Painel,
-        shape = RoundedCornerShape(20.dp),
-        border = BorderStroke(1.dp, Borda)
-    ) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Surface(color = OuroSuave, shape = RoundedCornerShape(14.dp)) {
-                Box(Modifier.size(54.dp), contentAlignment = Alignment.Center) { IconeLinha(IconePc.MONITOR, Ouro, 34.dp) }
-            }
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
-                Text(pc.nome, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(formatarIdNovo(pc.maquinaId), color = Ouro, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                Text("${pc.host} · ${pc.monitores} monitor(es)", color = Texto2, fontSize = 11.sp, modifier = Modifier.padding(top = 3.dp))
-            }
-            Text("Conectar", color = Ouro, fontSize = 13.sp)
-        }
-    }
-}
-
-@Composable
-private fun DialogoConectar(
-    pc: PcEncontrado,
-    pin: String,
-    senha: String,
-    onPin: (String) -> Unit,
-    onSenha: (String) -> Unit,
-    fechar: () -> Unit,
-    conectar: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = fechar,
-        containerColor = Painel,
-        shape = RoundedCornerShape(22.dp),
-        title = {
-            Column {
-                Text("Conectar a ${pc.nome}")
-                Text(formatarIdNovo(pc.maquinaId), color = Ouro, fontSize = 14.sp)
-            }
-        },
-        text = {
-            Column {
-                Text("Você pode solicitar acesso e aceitar no PC, usar o código exibido no computador/QR ou informar a senha de acesso não supervisionado.", color = Texto2, fontSize = 12.sp)
-                OutlinedTextField(
-                    value = pin,
-                    onValueChange = onPin,
-                    modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
-                    label = { Text("Código de 6 dígitos") },
-                    singleLine = true
-                )
-                OutlinedTextField(
-                    value = senha,
-                    onValueChange = onSenha,
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                    label = { Text("Senha não supervisionada") },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation()
-                )
-                Text("Sem código ou senha, o computador mostrará uma solicitação para aceitar.", color = Texto2, fontSize = 11.sp, modifier = Modifier.padding(top = 10.dp))
-            }
-        },
-        confirmButton = { Button(onClick = conectar) { Text("Conectar") } },
-        dismissButton = { TextButton(onClick = fechar) { Text("Cancelar") } }
-    )
-}
-
-@Composable
-private fun ControlePrincipal(estado: EstadoSessao) {
-    var aba by remember { mutableStateOf(AbaPrincipal.TOUCHPAD) }
-    var painel by remember { mutableStateOf(PainelRapido.NONE) }
+private fun TelaControle(estado: EstadoSessao) {
+    var aba by remember { mutableStateOf(Aba.TOUCHPAD) }
+    var painel by remember { mutableStateOf(Painel.NONE) }
     val pc = requireNotNull(estado.pc)
 
     Column(Modifier.fillMaxSize().background(Fundo)) {
-        CabecalhoConectado(pc, estado)
-        BarraRapida(
-            abrir = { painel = it },
-            remotoPermitido = estado.permissoes.tela,
-            arquivosPermitidos = estado.permissoes.arquivos
-        )
-
-        Box(Modifier.weight(1f).fillMaxWidth()) {
-            when (aba) {
-                AbaPrincipal.TOUCHPAD -> TouchpadPage(estado)
-                AbaPrincipal.GAMES -> GamesPage()
-                AbaPrincipal.LAYOUTS -> LayoutsPage { destino ->
-                    when (destino) {
-                        "touchpad" -> aba = AbaPrincipal.TOUCHPAD
-                        "ppt" -> painel = PainelRapido.PPT
-                        "web" -> painel = PainelRapido.WEB
-                        "remote" -> painel = PainelRapido.REMOTE
-                    }
+        Row(Modifier.fillMaxWidth().background(Fundo2).padding(14.dp, 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icone(Ico.MONITOR, Ouro, 34.dp)
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(pc.nome, fontSize = 16.sp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(7.dp).background(Ciano, CircleShape))
+                    Spacer(Modifier.width(5.dp))
+                    Text("Conectado · ${formatarId(pc.maquinaId)}", color = Ciano, fontSize = 11.sp)
                 }
-                AbaPrincipal.UTILITIES -> UtilitiesPage(estado) { painel = it }
-                AbaPrincipal.MORE -> MorePage(estado) { painel = it }
             }
+            TextButton(onClick = SessaoPcFlow::desconectar) { Text("Sair", color = Texto2) }
         }
 
-        BarraInferior(aba) { aba = it }
+        BarraTopo(estado) { painel = it }
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            when (aba) {
+                Aba.TOUCHPAD -> Touchpad(estado.permissoes.entrada)
+                Aba.GAMES -> Games()
+                Aba.LAYOUTS -> Layouts { p -> painel = p }
+                Aba.UTILITIES -> Utilities(estado) { p -> painel = p }
+                Aba.MORE -> Mais(estado) { p -> painel = p }
+            }
+        }
+        BarraBaixo(aba) { aba = it }
     }
 
     when (painel) {
-        PainelRapido.MEDIA -> DialogoMedia { painel = PainelRapido.NONE }
-        PainelRapido.POWER -> DialogoPower(estado.permissoes.energia) { painel = PainelRapido.NONE }
-        PainelRapido.PPT -> DialogoPpt { painel = PainelRapido.NONE }
-        PainelRapido.WEB -> DialogoWeb { painel = PainelRapido.NONE }
-        PainelRapido.KEYBOARD -> DialogoTecladoNovo { painel = PainelRapido.NONE }
-        PainelRapido.REMOTE -> RemoteDesktopDialog(estado) { painel = PainelRapido.NONE }
-        PainelRapido.FILES -> if (estado.permissoes.arquivos) DialogoArquivosRemotos { painel = PainelRapido.NONE }
-        PainelRapido.CLIPBOARD -> DialogoClipboardNovo { painel = PainelRapido.NONE }
-        PainelRapido.NONE -> Unit
+        Painel.MEDIA -> DialogoMedia { painel = Painel.NONE }
+        Painel.POWER -> DialogoPower(estado.permissoes.energia) { painel = Painel.NONE }
+        Painel.PPT -> DialogoPpt { painel = Painel.NONE }
+        Painel.WEB -> DialogoWeb { painel = Painel.NONE }
+        Painel.TECLADO -> DialogoTeclado { painel = Painel.NONE }
+        Painel.REMOTE -> RemoteDesktop(estado) { painel = Painel.NONE }
+        Painel.FILES -> if (estado.permissoes.arquivos) DialogoArquivosRemotos { painel = Painel.NONE }
+        Painel.CLIPBOARD -> DialogoClipboard { painel = Painel.NONE }
+        Painel.NONE -> Unit
     }
 }
 
 @Composable
-private fun CabecalhoConectado(pc: PcEncontrado, estado: EstadoSessao) {
-    Row(Modifier.fillMaxWidth().background(Fundo2).padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconeLinha(IconePc.MONITOR, Ouro, 34.dp)
-        Spacer(Modifier.width(10.dp))
-        Column(Modifier.weight(1f)) {
-            Text(pc.nome, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(7.dp).background(Ciano, CircleShape))
-                Spacer(Modifier.width(5.dp))
-                Text("Conectado · ${formatarIdNovo(pc.maquinaId)}", color = Ciano, fontSize = 11.sp)
-            }
-        }
-        Text("${estado.quantidadeMonitores} tela(s)", color = Texto2, fontSize = 11.sp)
+private fun BarraTopo(estado: EstadoSessao, abrir: (Painel) -> Unit) {
+    Row(Modifier.fillMaxWidth().background(Color(0xFF24272D)).horizontalScroll(rememberScrollState()).padding(5.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        Topo("Media", Ico.PLAY) { abrir(Painel.MEDIA) }
+        Topo("Power", Ico.POWER) { abrir(Painel.POWER) }
+        Topo("PPT", Ico.PPT) { abrir(Painel.PPT) }
+        Topo("Web", Ico.WEB) { abrir(Painel.WEB) }
+        Topo("Teclado", Ico.KEYBOARD) { abrir(Painel.TECLADO) }
+        if (estado.permissoes.tela) Topo("Desktop", Ico.MONITOR) { abrir(Painel.REMOTE) }
+        if (estado.permissoes.arquivos) Topo("Arquivos", Ico.FILE) { abrir(Painel.FILES) }
     }
 }
 
 @Composable
-private fun BarraRapida(abrir: (PainelRapido) -> Unit, remotoPermitido: Boolean, arquivosPermitidos: Boolean) {
-    Row(
-        Modifier.fillMaxWidth().background(Color(0xFF24272D)).horizontalScroll(rememberScrollState()).padding(horizontal = 7.dp, vertical = 7.dp),
-        horizontalArrangement = Arrangement.spacedBy(3.dp)
-    ) {
-        AtalhoTopo("Mídia", IconePc.MEDIA) { abrir(PainelRapido.MEDIA) }
-        AtalhoTopo("Power", IconePc.POWER) { abrir(PainelRapido.POWER) }
-        AtalhoTopo("PPT", IconePc.PPT) { abrir(PainelRapido.PPT) }
-        AtalhoTopo("Web", IconePc.WEB) { abrir(PainelRapido.WEB) }
-        DivisorVertical()
-        AtalhoTopo("Teclado", IconePc.KEYBOARD) { abrir(PainelRapido.KEYBOARD) }
-        if (remotoPermitido) AtalhoTopo("Tela", IconePc.REMOTE) { abrir(PainelRapido.REMOTE) }
-        if (arquivosPermitidos) AtalhoTopo("Arquivos", IconePc.FILE) { abrir(PainelRapido.FILES) }
+private fun Topo(texto: String, ico: Ico, click: () -> Unit) {
+    Column(Modifier.width(67.dp).clickable(onClick = click).padding(vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Icone(ico, Color.White, 25.dp)
+        Text(texto, color = Color.White, fontSize = 9.sp, modifier = Modifier.padding(top = 3.dp))
     }
 }
 
 @Composable
-private fun AtalhoTopo(nome: String, icone: IconePc, click: () -> Unit) {
-    Column(
-        Modifier.width(66.dp).clickable(onClick = click).padding(vertical = 3.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        IconeLinha(icone, Color.White, 25.dp)
-        Text(nome, fontSize = 10.sp, color = Color(0xFFE7E9EC), modifier = Modifier.padding(top = 3.dp), maxLines = 1)
-    }
-}
-
-@Composable
-private fun DivisorVertical() {
-    Box(Modifier.width(1.dp).height(42.dp).background(Color(0xFF3A3E44)).padding(horizontal = 3.dp))
-}
-
-@Composable
-private fun TouchpadPage(estado: EstadoSessao) {
-    Column(Modifier.fillMaxSize().padding(10.dp)) {
-        if (!estado.permissoes.entrada) {
-            Surface(Modifier.fillMaxWidth(), color = Color(0xFF322124), shape = RoundedCornerShape(12.dp)) {
-                Text("O PC deixou esta sessão apenas para visualização.", color = Perigo, fontSize = 12.sp, modifier = Modifier.padding(10.dp))
-            }
-            Spacer(Modifier.height(8.dp))
-        }
-
+private fun Touchpad(entrada: Boolean) {
+    Column(Modifier.fillMaxSize().padding(8.dp)) {
+        if (!entrada) Text("Controle de entrada bloqueado pelo PC", color = Perigo, fontSize = 12.sp, modifier = Modifier.padding(4.dp))
         Row(Modifier.weight(1f).fillMaxWidth()) {
             Box(
                 Modifier.weight(1f).fillMaxHeight()
-                    .background(Color.Black, RoundedCornerShape(topStart = 26.dp, bottomStart = 26.dp))
-                    .border(1.dp, Color(0xFF3855FF), RoundedCornerShape(topStart = 26.dp, bottomStart = 26.dp))
-                    .pointerInput(estado.permissoes.entrada) {
-                        if (!estado.permissoes.entrada) return@pointerInput
+                    .background(Color.Black, RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp))
+                    .border(1.dp, Color(0xFF3857FF), RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp))
+                    .pointerInput(entrada) {
+                        if (!entrada) return@pointerInput
                         detectTapGestures(
-                            onTap = { SessaoPcFlow.enviar("mouse_click") { put("botao", "left") } },
-                            onDoubleTap = { repeat(2) { SessaoPcFlow.enviar("mouse_click") { put("botao", "left") } } },
-                            onLongPress = { SessaoPcFlow.enviar("mouse_click") { put("botao", "right") } }
+                            onTap = { mouseClique("left") },
+                            onDoubleTap = { mouseClique("left"); mouseClique("left") },
+                            onLongPress = { mouseClique("right") }
                         )
                     }
-                    .pointerInput(estado.permissoes.entrada) {
-                        if (!estado.permissoes.entrada) return@pointerInput
+                    .pointerInput(entrada) {
+                        if (!entrada) return@pointerInput
                         detectDragGestures { change, drag ->
                             change.consume()
                             SessaoPcFlow.enviar("mouse_move") { put("x", drag.x * 1.35); put("y", drag.y * 1.35) }
@@ -419,162 +345,127 @@ private fun TouchpadPage(estado: EstadoSessao) {
                 contentAlignment = Alignment.Center
             ) {
                 Canvas(Modifier.size(150.dp)) {
-                    drawCircle(OuroSuave, radius = size.minDimension * .24f)
+                    drawCircle(Ouro20, radius = size.minDimension * .24f)
                     drawCircle(Ouro.copy(alpha = .35f), radius = size.minDimension * .12f)
                     drawCircle(Ouro, radius = size.minDimension * .055f)
                 }
-                Text("Toque para clicar", color = Color(0xFFC9CDD3), fontSize = 12.sp, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 66.dp))
-                Row(
-                    Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(56.dp).background(Color(0xFF050607)),
-                    horizontalArrangement = Arrangement.spacedBy(1.dp)
-                ) {
-                    MouseBotao("Left", Modifier.weight(1f)) { SessaoPcFlow.enviar("mouse_click") { put("botao", "left") } }
-                    MouseBotao("Middle", Modifier.width(86.dp)) { SessaoPcFlow.enviar("mouse_click") { put("botao", "middle") } }
-                    MouseBotao("Right", Modifier.weight(1f)) { SessaoPcFlow.enviar("mouse_click") { put("botao", "right") } }
+                Text("Toque para clicar", color = Ouro, fontSize = 13.sp, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 68.dp))
+                Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(58.dp).background(Color(0xFF050607))) {
+                    MouseBotao("Left", Modifier.weight(1f)) { mouseClique("left") }
+                    MouseBotao("Middle", Modifier.width(82.dp)) { mouseClique("middle") }
+                    MouseBotao("Right", Modifier.weight(1f)) { mouseClique("right") }
                 }
             }
-
             Box(
-                Modifier.width(46.dp).fillMaxHeight()
-                    .background(Color.Black, RoundedCornerShape(topEnd = 26.dp, bottomEnd = 26.dp))
-                    .border(1.dp, Color(0xFF3855FF), RoundedCornerShape(topEnd = 26.dp, bottomEnd = 26.dp))
-                    .pointerInput(estado.permissoes.entrada) {
-                        if (!estado.permissoes.entrada) return@pointerInput
+                Modifier.width(46.dp).fillMaxHeight().background(Color.Black, RoundedCornerShape(topEnd = 24.dp, bottomEnd = 24.dp))
+                    .border(1.dp, Color(0xFF3857FF), RoundedCornerShape(topEnd = 24.dp, bottomEnd = 24.dp))
+                    .pointerInput(entrada) {
+                        if (!entrada) return@pointerInput
                         detectDragGestures { change, drag ->
                             change.consume()
-                            val delta = (-drag.y * 8f).toInt().coerceIn(-720, 720)
+                            val delta = (-drag.y * 8).toInt().coerceIn(-720, 720)
                             if (delta != 0) SessaoPcFlow.enviar("scroll") { put("delta", delta) }
                         }
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Box(Modifier.width(4.dp).height(64.dp).background(Color(0xFF333943), RoundedCornerShape(4.dp)))
-            }
+                    }, contentAlignment = Alignment.Center
+            ) { Box(Modifier.width(4.dp).height(64.dp).background(Borda, RoundedCornerShape(4.dp))) }
         }
     }
 }
 
 @Composable
 private fun MouseBotao(texto: String, modifier: Modifier, click: () -> Unit) {
-    Box(modifier.fillMaxHeight().border(.5.dp, Borda).clickable(onClick = click), contentAlignment = Alignment.Center) {
-        Text(texto, fontSize = 11.sp, color = Color.White)
-    }
+    Box(modifier.fillMaxHeight().border(.5.dp, Borda).clickable(onClick = click), contentAlignment = Alignment.Center) { Text(texto, fontSize = 11.sp) }
 }
 
 @Composable
-private fun GamesPage() {
+private fun Games() {
     Column(Modifier.fillMaxSize().padding(18.dp)) {
-        Text("Gamepad", fontSize = 22.sp, fontWeight = FontWeight.Medium)
-        Text("Controle básico por teclado. Os botões enviam teclas reais ao Windows.", color = Texto2, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+        Text("Games", fontSize = 22.sp, fontWeight = FontWeight.Medium)
+        Text("Layout de controle por teclado", color = Texto2, fontSize = 12.sp)
         Spacer(Modifier.height(20.dp))
-
         Row(Modifier.fillMaxWidth().weight(1f), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                 GameKey("W")
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    GameKey("A")
-                    GameKey("S")
-                    GameKey("D")
-                }
-                Text("WASD", color = Texto2, fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp))
+                Row { GameKey("A"); GameKey("S"); GameKey("D") }
             }
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                    GameKey("ESC", "Y")
-                    GameKey("SPACE", "X")
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                    GameKey("ENTER", "B")
-                    GameKey("TAB", "A")
-                }
-                Text("Ações", color = Texto2, fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp))
+                Row { GameKey("ESC", "Y"); GameKey("SPACE", "X") }
+                Row { GameKey("ENTER", "B"); GameKey("TAB", "A") }
             }
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { SessaoPcFlow.enviar("tecla") { put("tecla", "ALT_TAB") } }, modifier = Modifier.weight(1f)) { Text("Alt + Tab") }
-            OutlinedButton(onClick = { SessaoPcFlow.enviar("tecla") { put("tecla", "SHOW_DESKTOP") } }, modifier = Modifier.weight(1f)) { Text("Desktop") }
         }
     }
 }
 
 @Composable
 private fun GameKey(tecla: String, rotulo: String = tecla) {
-    Box(
-        Modifier.size(62.dp).padding(3.dp).background(Painel2, CircleShape).border(1.dp, Color(0xFF59606B), CircleShape)
-            .clickable { SessaoPcFlow.enviar("tecla") { put("tecla", tecla) } },
-        contentAlignment = Alignment.Center
-    ) {
-        Text(rotulo, color = Ouro, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+    Box(Modifier.size(64.dp).padding(4.dp).background(Painel2, CircleShape).border(1.dp, Borda, CircleShape).clickable { tecla(tecla) }, contentAlignment = Alignment.Center) {
+        Text(rotulo, color = Ouro, fontWeight = FontWeight.Bold)
     }
 }
 
 @Composable
-private fun LayoutsPage(abrir: (String) -> Unit) {
+private fun Layouts(abrir: (Painel) -> Unit) {
     Column(Modifier.fillMaxSize().padding(18.dp)) {
         Text("Layouts", fontSize = 22.sp, fontWeight = FontWeight.Medium)
-        Text("Acesso rápido aos modos de controle.", color = Texto2, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp, bottom = 16.dp))
-        LayoutCard("Touchpad clássico", "Mouse, cliques e scroll", IconePc.MOUSE) { abrir("touchpad") }
-        LayoutCard("Apresentação", "PowerPoint / LibreOffice", IconePc.PPT) { abrir("ppt") }
-        LayoutCard("Navegação web", "Abas, voltar, avançar e atualizar", IconePc.WEB) { abrir("web") }
-        LayoutCard("Área de trabalho remota", "Ver e tocar diretamente na tela do PC", IconePc.REMOTE) { abrir("remote") }
+        Text("Modos prontos para cada tarefa", color = Texto2, fontSize = 12.sp, modifier = Modifier.padding(bottom = 14.dp))
+        LayoutCard("Touchpad", "Mouse e scroll", Ico.MOUSE) { }
+        LayoutCard("Apresentação", "PowerPoint / LibreOffice", Ico.PPT) { abrir(Painel.PPT) }
+        LayoutCard("Navegador", "Abas e navegação web", Ico.WEB) { abrir(Painel.WEB) }
+        LayoutCard("Remote Desktop", "Controle visual da tela", Ico.MONITOR) { abrir(Painel.REMOTE) }
     }
 }
 
 @Composable
-private fun LayoutCard(titulo: String, subtitulo: String, icone: IconePc, click: () -> Unit) {
-    Surface(Modifier.fillMaxWidth().padding(bottom = 9.dp).clickable(onClick = click), color = Painel, shape = RoundedCornerShape(18.dp), border = BorderStroke(1.dp, Borda)) {
+private fun LayoutCard(titulo: String, subtitulo: String, ico: Ico, click: () -> Unit) {
+    Surface(Modifier.fillMaxWidth().padding(bottom = 9.dp).clickable(onClick = click), color = Painel, shape = RoundedCornerShape(17.dp), border = BorderStroke(1.dp, Borda)) {
         Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconeLinha(icone, Ouro, 34.dp)
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
-                Text(titulo, fontSize = 15.sp)
-                Text(subtitulo, color = Texto2, fontSize = 11.sp, modifier = Modifier.padding(top = 3.dp))
-            }
+            Icone(ico, Ouro, 34.dp); Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) { Text(titulo); Text(subtitulo, color = Texto2, fontSize = 11.sp) }
             Text("Abrir", color = Ouro, fontSize = 12.sp)
         }
     }
 }
 
 @Composable
-private fun UtilitiesPage(estado: EstadoSessao, abrir: (PainelRapido) -> Unit) {
+private fun Utilities(estado: EstadoSessao, abrir: (Painel) -> Unit) {
     Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Text("Utilities", fontSize = 23.sp, fontWeight = FontWeight.Medium)
+        Text("Utilities", fontSize = 23.sp)
         Spacer(Modifier.height(16.dp))
         UtilityRow(
-            Utility("Remote Desktop", IconePc.REMOTE, estado.permissoes.tela) { abrir(PainelRapido.REMOTE) },
-            Utility("File Explorer", IconePc.FILE, estado.permissoes.arquivos) { abrir(PainelRapido.FILES) },
-            Utility("Task Manager", IconePc.TASK, true) { SessaoPcFlow.enviar("tecla") { put("tecla", "TASK_MANAGER") } }
+            Util("Remote Desktop", Ico.MONITOR, estado.permissoes.tela) { abrir(Painel.REMOTE) },
+            Util("File Explorer", Ico.FILE, estado.permissoes.arquivos) { abrir(Painel.FILES) },
+            Util("Task Manager", Ico.TASK, true) { tecla("TASK_MANAGER") }
         )
         UtilityRow(
-            Utility("Data Cable", IconePc.PHONE, estado.permissoes.arquivos) { abrir(PainelRapido.FILES) },
-            Utility("Clipboard", IconePc.CLIPBOARD, estado.permissoes.clipboard) { abrir(PainelRapido.CLIPBOARD) },
-            Utility("Explorer", IconePc.FILE, true) { SessaoPcFlow.enviar("tecla") { put("tecla", "WIN_E") } }
+            Util("Data Cable", Ico.PHONE, estado.permissoes.arquivos) { abrir(Painel.FILES) },
+            Util("Clipboard", Ico.CLIP, estado.permissoes.clipboard) { abrir(Painel.CLIPBOARD) },
+            Util("Explorer", Ico.FILE, true) { tecla("WIN_E") }
         )
-        Spacer(Modifier.height(10.dp))
-        Text("Em desenvolvimento", color = Texto2, fontSize = 12.sp, modifier = Modifier.padding(vertical = 8.dp))
+        Text("Em desenvolvimento", color = Texto2, fontSize = 11.sp, modifier = Modifier.padding(top = 10.dp, bottom = 8.dp))
         UtilityRow(
-            Utility("Projector", IconePc.SCREEN, false, null),
-            Utility("Camera", IconePc.CAMERA, false, null),
-            Utility("Virtual Camera", IconePc.CAMERA, false, null)
+            Util("Projector", Ico.MONITOR, false, null),
+            Util("Camera", Ico.CAMERA, false, null),
+            Util("Virtual Camera", Ico.CAMERA, false, null)
         )
     }
 }
 
-private data class Utility(val nome: String, val icone: IconePc, val ativo: Boolean, val acao: (() -> Unit)?)
+private data class Util(val nome: String, val ico: Ico, val ativo: Boolean, val click: (() -> Unit)?)
 
 @Composable
-private fun UtilityRow(vararg itens: Utility) {
+private fun UtilityRow(vararg itens: Util) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        itens.forEach { item ->
+        itens.forEach { u ->
+            val mod = Modifier.weight(1f).aspectRatio(.95f)
             Surface(
-                modifier = Modifier.weight(1f).aspectRatio(.92f).then(if (item.ativo && item.acao != null) Modifier.clickable(onClick = item.acao) else Modifier),
-                color = if (item.ativo) Painel else Color(0xFF11151A),
+                modifier = if (u.ativo && u.click != null) mod.clickable(onClick = u.click) else mod,
+                color = if (u.ativo) Painel else Color(0xFF101419),
                 shape = RoundedCornerShape(18.dp),
-                border = BorderStroke(1.dp, if (item.ativo) Borda else Color(0xFF282D34))
+                border = BorderStroke(1.dp, if (u.ativo) Borda else Color(0xFF282D34))
             ) {
-                Column(Modifier.padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                    IconeLinha(item.icone, if (item.ativo) Color.White else Color(0xFF555B64), 32.dp)
-                    Text(item.nome, fontSize = 10.sp, color = if (item.ativo) Color.White else Color(0xFF666D77), textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
+                Column(Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                    Icone(u.ico, if (u.ativo) Color.White else Color(0xFF555C65), 32.dp)
+                    Text(u.nome, color = if (u.ativo) Color.White else Color(0xFF666D76), fontSize = 10.sp, modifier = Modifier.padding(top = 7.dp))
                 }
             }
         }
@@ -583,396 +474,247 @@ private fun UtilityRow(vararg itens: Utility) {
 }
 
 @Composable
-private fun MorePage(estado: EstadoSessao, abrir: (PainelRapido) -> Unit) {
+private fun Mais(estado: EstadoSessao, abrir: (Painel) -> Unit) {
     val monitor by SessaoPcFlow.monitorAtual.collectAsStateWithLifecycle()
     Column(Modifier.fillMaxSize().padding(18.dp).verticalScroll(rememberScrollState())) {
-        Text("Mais", fontSize = 23.sp, fontWeight = FontWeight.Medium)
-        Text("Sessão e atalhos do Windows", color = Texto2, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp, bottom = 16.dp))
-        MoreButton("Área de transferência", "Sincronizar texto entre celular e PC") { abrir(PainelRapido.CLIPBOARD) }
-        MoreButton("Trocar monitor", "Monitor ${monitor + 1} de ${estado.quantidadeMonitores}") {
-            SessaoPcFlow.alterarMonitor((monitor + 1) % estado.quantidadeMonitores.coerceAtLeast(1))
-        }
-        MoreButton("Mostrar área de trabalho", "Win + D") { SessaoPcFlow.enviar("tecla") { put("tecla", "SHOW_DESKTOP") } }
-        MoreButton("Alternar janela", "Alt + Tab") { SessaoPcFlow.enviar("tecla") { put("tecla", "ALT_TAB") } }
-        MoreButton("Menu Iniciar", "Abrir o Iniciar do Windows") { SessaoPcFlow.enviar("tecla") { put("tecla", "START_MENU") } }
-        MoreButton("Executar", "Win + R") { SessaoPcFlow.enviar("tecla") { put("tecla", "WIN_R") } }
-        Spacer(Modifier.height(8.dp))
-        OutlinedButton(onClick = SessaoPcFlow::desconectar, modifier = Modifier.fillMaxWidth(), border = BorderStroke(1.dp, Color(0xFF753E3E)), shape = RoundedCornerShape(16.dp)) {
-            Text("Desconectar", color = Perigo)
-        }
+        Text("More", fontSize = 23.sp)
+        MoreItem("Clipboard", "Sincronizar texto") { abrir(Painel.CLIPBOARD) }
+        MoreItem("Trocar monitor", "Monitor ${monitor + 1} de ${estado.quantidadeMonitores}") { SessaoPcFlow.alterarMonitor((monitor + 1) % estado.quantidadeMonitores.coerceAtLeast(1)) }
+        MoreItem("Mostrar desktop", "Win + D") { tecla("SHOW_DESKTOP") }
+        MoreItem("Alternar janela", "Alt + Tab") { tecla("ALT_TAB") }
+        MoreItem("Menu Iniciar", "Tecla Windows") { tecla("START_MENU") }
+        MoreItem("Executar", "Win + R") { tecla("WIN_R") }
+        OutlinedButton(onClick = SessaoPcFlow::desconectar, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), border = BorderStroke(1.dp, Color(0xFF784142))) { Text("Desconectar", color = Perigo) }
     }
 }
 
 @Composable
-private fun MoreButton(titulo: String, subtitulo: String, acao: () -> Unit) {
-    Surface(Modifier.fillMaxWidth().padding(bottom = 8.dp).clickable(onClick = acao), color = Painel, shape = RoundedCornerShape(16.dp), border = BorderStroke(1.dp, Borda)) {
-        Column(Modifier.padding(14.dp)) {
-            Text(titulo, fontSize = 14.sp)
-            Text(subtitulo, color = Texto2, fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
-        }
+private fun MoreItem(titulo: String, subtitulo: String, click: () -> Unit) {
+    Surface(Modifier.fillMaxWidth().padding(top = 8.dp).clickable(onClick = click), color = Painel, shape = RoundedCornerShape(15.dp), border = BorderStroke(1.dp, Borda)) {
+        Column(Modifier.padding(14.dp)) { Text(titulo); Text(subtitulo, color = Texto2, fontSize = 11.sp) }
     }
 }
 
 @Composable
-private fun BarraInferior(aba: AbaPrincipal, selecionar: (AbaPrincipal) -> Unit) {
-    Row(Modifier.fillMaxWidth().background(Color(0xFF3A3A3D)).padding(horizontal = 4.dp, vertical = 7.dp), horizontalArrangement = Arrangement.SpaceAround) {
-        BottomItem("Touchpad", IconePc.MOUSE, aba == AbaPrincipal.TOUCHPAD) { selecionar(AbaPrincipal.TOUCHPAD) }
-        BottomItem("Games", IconePc.GAME, aba == AbaPrincipal.GAMES) { selecionar(AbaPrincipal.GAMES) }
-        BottomItem("Layouts", IconePc.GRID, aba == AbaPrincipal.LAYOUTS) { selecionar(AbaPrincipal.LAYOUTS) }
-        BottomItem("Utilities", IconePc.TOOLS, aba == AbaPrincipal.UTILITIES) { selecionar(AbaPrincipal.UTILITIES) }
-        BottomItem("More", IconePc.MORE, aba == AbaPrincipal.MORE) { selecionar(AbaPrincipal.MORE) }
+private fun BarraBaixo(atual: Aba, selecionar: (Aba) -> Unit) {
+    Row(Modifier.fillMaxWidth().background(Color(0xFF3A3A3D)).padding(5.dp, 7.dp), horizontalArrangement = Arrangement.SpaceAround) {
+        Bottom("Touchpad", Ico.MOUSE, atual == Aba.TOUCHPAD) { selecionar(Aba.TOUCHPAD) }
+        Bottom("Games", Ico.GAME, atual == Aba.GAMES) { selecionar(Aba.GAMES) }
+        Bottom("Layouts", Ico.GRID, atual == Aba.LAYOUTS) { selecionar(Aba.LAYOUTS) }
+        Bottom("Utilities", Ico.TOOLS, atual == Aba.UTILITIES) { selecionar(Aba.UTILITIES) }
+        Bottom("More", Ico.MORE, atual == Aba.MORE) { selecionar(Aba.MORE) }
     }
 }
 
 @Composable
-private fun BottomItem(nome: String, icone: IconePc, ativo: Boolean, click: () -> Unit) {
-    Column(Modifier.width(66.dp).clickable(onClick = click), horizontalAlignment = Alignment.CenterHorizontally) {
-        Surface(color = if (ativo) Color(0xFF4B5260) else Color.Transparent, shape = RoundedCornerShape(18.dp)) {
-            Box(Modifier.width(52.dp).height(34.dp), contentAlignment = Alignment.Center) {
-                IconeLinha(icone, if (ativo) Color.White else Color(0xFFE7E7E7), 25.dp)
-            }
+private fun Bottom(texto: String, ico: Ico, ativo: Boolean, click: () -> Unit) {
+    Column(Modifier.width(68.dp).clickable(onClick = click), horizontalAlignment = Alignment.CenterHorizontally) {
+        Surface(color = if (ativo) Color(0xFF4C5360) else Color.Transparent, shape = RoundedCornerShape(18.dp)) {
+            Box(Modifier.width(52.dp).height(34.dp), contentAlignment = Alignment.Center) { Icone(ico, Color.White, 24.dp) }
         }
-        Text(nome, fontSize = 10.sp, color = if (ativo) Color.White else Color(0xFFD3D3D3), modifier = Modifier.padding(top = 2.dp))
+        Text(texto, color = Color.White, fontSize = 9.sp, modifier = Modifier.padding(top = 2.dp))
     }
 }
 
 @Composable
-private fun DialogoMedia(fechar: () -> Unit) {
-    PainelDialog("Mídia", fechar) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AcaoGrande("Anterior", Modifier.weight(1f)) { media("previous") }
-            AcaoGrande("Play / Pause", Modifier.weight(1f)) { media("playpause") }
-            AcaoGrande("Próxima", Modifier.weight(1f)) { media("next") }
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AcaoGrande("Vol -", Modifier.weight(1f)) { media("volumedown") }
-            AcaoGrande("Mudo", Modifier.weight(1f)) { media("mute") }
-            AcaoGrande("Vol +", Modifier.weight(1f)) { media("volumeup") }
-        }
-        OutlinedButton(onClick = { media("stop") }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp)) { Text("Parar") }
+private fun DialogoMedia(fechar: () -> Unit) = DialogoBase("Media", fechar) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Acao("Anterior", Modifier.weight(1f)) { media("previous") }
+        Acao("Play/Pause", Modifier.weight(1f)) { media("playpause") }
+        Acao("Próxima", Modifier.weight(1f)) { media("next") }
+    }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Acao("Vol -", Modifier.weight(1f)) { media("volumedown") }
+        Acao("Mudo", Modifier.weight(1f)) { media("mute") }
+        Acao("Vol +", Modifier.weight(1f)) { media("volumeup") }
     }
 }
 
 @Composable
 private fun DialogoPower(permitido: Boolean, fechar: () -> Unit) {
-    var confirmar by remember { mutableStateOf<String?>(null) }
-    PainelDialog("Energia", fechar) {
-        if (!permitido) {
-            Text("O computador bloqueou comandos de energia para esta sessão.", color = Perigo)
-        } else {
-            val acoes = listOf(
-                "Bloquear" to "lock",
-                "Desligar tela" to "monitoroff",
-                "Suspender" to "sleep",
-                "Hibernar" to "hibernate",
-                "Reiniciar" to "restart",
-                "Desligar" to "shutdown"
-            )
-            acoes.chunked(2).forEach { linha ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    linha.forEach { (nome, acao) ->
-                        AcaoGrande(nome, Modifier.weight(1f)) {
-                            if (acao in listOf("restart", "shutdown", "hibernate", "sleep")) confirmar = acao else power(acao)
-                        }
-                    }
-                }
+    var confirma by remember { mutableStateOf<String?>(null) }
+    DialogoBase("Power", fechar) {
+        if (!permitido) Text("Comandos de energia bloqueados pelo PC", color = Perigo)
+        else listOf("Bloquear" to "lock", "Tela off" to "monitoroff", "Suspender" to "sleep", "Hibernar" to "hibernate", "Reiniciar" to "restart", "Desligar" to "shutdown").chunked(2).forEach { linha ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                linha.forEach { (n, a) -> Acao(n, Modifier.weight(1f)) { if (a in listOf("sleep", "hibernate", "restart", "shutdown")) confirma = a else power(a) } }
             }
         }
     }
-    confirmar?.let { acao ->
-        AlertDialog(
-            onDismissRequest = { confirmar = null },
-            containerColor = Painel,
-            title = { Text("Confirmar comando") },
-            text = { Text("Executar '$acao' no computador agora?", color = Texto2) },
-            confirmButton = { Button(onClick = { power(acao); confirmar = null }) { Text("Confirmar") } },
-            dismissButton = { TextButton(onClick = { confirmar = null }) { Text("Cancelar") } }
-        )
+    confirma?.let { acao ->
+        AlertDialog(onDismissRequest = { confirma = null }, containerColor = Painel, title = { Text("Confirmar") }, text = { Text("Executar $acao no PC agora?") }, confirmButton = { Button(onClick = { power(acao); confirma = null }) { Text("Confirmar") } }, dismissButton = { TextButton(onClick = { confirma = null }) { Text("Cancelar") } })
     }
 }
 
 @Composable
-private fun DialogoPpt(fechar: () -> Unit) {
-    PainelDialog("Apresentação", fechar) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AcaoGrande("Anterior", Modifier.weight(1f)) { tecla("PPT_PREVIOUS") }
-            AcaoGrande("Próximo", Modifier.weight(1f)) { tecla("PPT_NEXT") }
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AcaoGrande("Iniciar F5", Modifier.weight(1f)) { tecla("PPT_START") }
-            AcaoGrande("Encerrar", Modifier.weight(1f)) { tecla("PPT_END") }
-        }
+private fun DialogoPpt(fechar: () -> Unit) = DialogoBase("PPT", fechar) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { Acao("Anterior", Modifier.weight(1f)) { tecla("PPT_PREVIOUS") }; Acao("Próximo", Modifier.weight(1f)) { tecla("PPT_NEXT") } }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { Acao("Iniciar F5", Modifier.weight(1f)) { tecla("PPT_START") }; Acao("Encerrar", Modifier.weight(1f)) { tecla("PPT_END") } }
+}
+
+@Composable
+private fun DialogoWeb(fechar: () -> Unit) = DialogoBase("Web", fechar) {
+    listOf("Voltar" to "BROWSER_BACK", "Avançar" to "BROWSER_FORWARD", "Atualizar" to "BROWSER_REFRESH", "Nova aba" to "NEW_TAB", "Fechar aba" to "CLOSE_TAB", "Reabrir" to "REOPEN_TAB").chunked(2).forEach { linha ->
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { linha.forEach { (n, a) -> Acao(n, Modifier.weight(1f)) { tecla(a) } } }
     }
 }
 
 @Composable
-private fun DialogoWeb(fechar: () -> Unit) {
-    PainelDialog("Navegador", fechar) {
-        val acoes = listOf(
-            "Voltar" to "BROWSER_BACK",
-            "Avançar" to "BROWSER_FORWARD",
-            "Atualizar" to "BROWSER_REFRESH",
-            "Nova aba" to "NEW_TAB",
-            "Fechar aba" to "CLOSE_TAB",
-            "Reabrir aba" to "REOPEN_TAB"
-        )
-        acoes.chunked(2).forEach { linha ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                linha.forEach { (nome, acao) -> AcaoGrande(nome, Modifier.weight(1f)) { tecla(acao) } }
-            }
-        }
-    }
-}
-
-@Composable
-private fun DialogoTecladoNovo(fechar: () -> Unit) {
+private fun DialogoTeclado(fechar: () -> Unit) {
     var texto by remember { mutableStateOf("") }
-    PainelDialog("Teclado", fechar) {
-        OutlinedTextField(
-            value = texto,
-            onValueChange = { texto = it },
-            modifier = Modifier.fillMaxWidth(),
-            minLines = 3,
-            label = { Text("Digite para enviar ao PC") },
-            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
-        )
-        Button(onClick = {
-            if (texto.isNotBlank()) SessaoPcFlow.enviar("texto") { put("texto", texto) }
-            texto = ""
-        }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text("Enviar texto") }
+    DialogoBase("Teclado", fechar) {
+        OutlinedTextField(value = texto, onValueChange = { texto = it }, modifier = Modifier.fillMaxWidth(), minLines = 3, label = { Text("Digite para enviar") }, keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences))
+        Button(onClick = { if (texto.isNotBlank()) SessaoPcFlow.enviar("texto") { put("texto", texto) }; texto = "" }, modifier = Modifier.fillMaxWidth().padding(top = 7.dp)) { Text("Enviar") }
         listOf("ESC", "TAB", "ENTER", "BACKSPACE", "DELETE", "LEFT", "UP", "DOWN", "RIGHT", "HOME", "END", "F5").chunked(4).forEach { linha ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                linha.forEach { t ->
-                    OutlinedButton(onClick = { tecla(t) }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(5.dp)) { Text(t, fontSize = 9.sp) }
-                }
-                repeat(4 - linha.size) { Spacer(Modifier.weight(1f)) }
-            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) { linha.forEach { t -> OutlinedButton(onClick = { tecla(t) }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(4.dp)) { Text(t, fontSize = 8.sp) } }; repeat(4 - linha.size) { Spacer(Modifier.weight(1f)) } }
         }
     }
 }
 
 @Composable
-private fun DialogoClipboardNovo(fechar: () -> Unit) {
+private fun DialogoClipboard(fechar: () -> Unit) {
     val contexto = LocalContext.current
     val remoto by SessaoPcFlow.clipboardRemoto.collectAsStateWithLifecycle()
-    val clipboard = remember { contexto.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager }
+    val clip = remember { contexto.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager }
     LaunchedEffect(Unit) { SessaoPcFlow.solicitarClipboard() }
-    PainelDialog("Área de transferência", fechar) {
-        Surface(Modifier.fillMaxWidth().heightIn(min = 90.dp, max = 190.dp), color = Fundo2, shape = RoundedCornerShape(12.dp)) {
-            Text(remoto.ifBlank { "Nenhum texto recebido do PC." }, color = Texto2, modifier = Modifier.padding(12.dp).verticalScroll(rememberScrollState()))
-        }
-        Button(onClick = { clipboard.setPrimaryClip(ClipData.newPlainText("PCFlow", remoto)) }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text("Copiar do PC") }
-        OutlinedButton(onClick = {
-            val texto = clipboard.primaryClip?.getItemAt(0)?.coerceToText(contexto)?.toString().orEmpty()
-            if (texto.isNotBlank()) SessaoPcFlow.enviarClipboard(texto)
-        }, modifier = Modifier.fillMaxWidth()) { Text("Enviar clipboard do celular") }
+    DialogoBase("Clipboard", fechar) {
+        Surface(Modifier.fillMaxWidth().heightIn(min = 90.dp, max = 190.dp), color = Fundo2, shape = RoundedCornerShape(12.dp)) { Text(remoto.ifBlank { "Nenhum texto recebido." }, color = Texto2, modifier = Modifier.padding(12.dp).verticalScroll(rememberScrollState())) }
+        Button(onClick = { clip.setPrimaryClip(ClipData.newPlainText("PCFlow", remoto)) }, modifier = Modifier.fillMaxWidth().padding(top = 7.dp)) { Text("Copiar do PC") }
+        OutlinedButton(onClick = { val t = clip.primaryClip?.getItemAt(0)?.coerceToText(contexto)?.toString().orEmpty(); if (t.isNotBlank()) SessaoPcFlow.enviarClipboard(t) }, modifier = Modifier.fillMaxWidth()) { Text("Enviar clipboard do celular") }
     }
 }
 
 @Composable
-private fun RemoteDesktopDialog(estado: EstadoSessao, fechar: () -> Unit) {
+private fun RemoteDesktop(estado: EstadoSessao, fechar: () -> Unit) {
     Dialog(onDismissRequest = fechar) {
-        Surface(Modifier.fillMaxSize(), color = Color.Black) {
-            RemoteDesktopView(estado, fechar)
-        }
+        Surface(Modifier.fillMaxSize(), color = Color.Black) { RemoteView(estado, fechar) }
     }
 }
 
 @Composable
-private fun RemoteDesktopView(estado: EstadoSessao, fechar: () -> Unit) {
+private fun RemoteView(estado: EstadoSessao, fechar: () -> Unit) {
     val quadro by SessaoPcFlow.quadro.collectAsStateWithLifecycle()
     val monitor by SessaoPcFlow.monitorAtual.collectAsStateWithLifecycle()
     var area by remember { mutableStateOf(IntSize.Zero) }
     val pc = requireNotNull(estado.pc)
+    val bitmap = quadro
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
-        val bitmap = quadro
         Box(
-            Modifier.fillMaxSize()
-                .onSizeChanged { area = it }
+            Modifier.fillMaxSize().onSizeChanged { area = it }
                 .pointerInput(bitmap, area, monitor, estado.permissoes.entrada) {
                     if (bitmap == null || !estado.permissoes.entrada) return@pointerInput
                     detectTapGestures(
-                        onTap = { pos -> enviarPosicaoNova(pos, area, bitmap.width, bitmap.height, monitor, "left") },
-                        onDoubleTap = { pos ->
-                            val p = mapearNovo(pos, area, bitmap.width, bitmap.height) ?: return@detectTapGestures
-                            SessaoPcFlow.enviar("mouse_abs") { put("x", p.first); put("y", p.second); put("monitor", monitor) }
-                            repeat(2) { SessaoPcFlow.enviar("mouse_click") { put("botao", "left") } }
-                        },
-                        onLongPress = { pos -> enviarPosicaoNova(pos, area, bitmap.width, bitmap.height, monitor, "right") }
+                        onTap = { pos -> enviarPosicao(pos, area, bitmap.width, bitmap.height, monitor, "left") },
+                        onDoubleTap = { pos -> enviarPosicao(pos, area, bitmap.width, bitmap.height, monitor, "left"); mouseClique("left") },
+                        onLongPress = { pos -> enviarPosicao(pos, area, bitmap.width, bitmap.height, monitor, "right") }
                     )
                 }
                 .pointerInput(bitmap, area, monitor, estado.permissoes.entrada) {
                     if (bitmap == null || !estado.permissoes.entrada) return@pointerInput
                     detectDragGestures(
-                        onDragStart = { pos ->
-                            val p = mapearNovo(pos, area, bitmap.width, bitmap.height) ?: return@detectDragGestures
-                            SessaoPcFlow.enviar("mouse_abs") { put("x", p.first); put("y", p.second); put("monitor", monitor) }
-                            SessaoPcFlow.enviar("mouse_down") { put("botao", "left") }
-                        },
+                        onDragStart = { pos -> mapear(pos, area, bitmap.width, bitmap.height)?.let { p -> SessaoPcFlow.enviar("mouse_abs") { put("x", p.first); put("y", p.second); put("monitor", monitor) }; SessaoPcFlow.enviar("mouse_down") { put("botao", "left") } } },
                         onDragEnd = { SessaoPcFlow.enviar("mouse_up") { put("botao", "left") } },
                         onDragCancel = { SessaoPcFlow.enviar("mouse_up") { put("botao", "left") } },
-                        onDrag = { change, _ ->
-                            val p = mapearNovo(change.position, area, bitmap.width, bitmap.height) ?: return@detectDragGestures
-                            change.consume()
-                            SessaoPcFlow.enviar("mouse_abs") { put("x", p.first); put("y", p.second); put("monitor", monitor) }
-                        }
+                        onDrag = { change, _ -> mapear(change.position, area, bitmap.width, bitmap.height)?.let { p -> change.consume(); SessaoPcFlow.enviar("mouse_abs") { put("x", p.first); put("y", p.second); put("monitor", monitor) } } }
                     )
-                },
-            contentAlignment = Alignment.Center
+                }, contentAlignment = Alignment.Center
         ) {
-            if (bitmap != null) {
-                Image(bitmap = bitmap.asImageBitmap(), contentDescription = "Tela do computador", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
-            } else {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    CircularProgressIndicator(color = Ouro)
-                    Text("Recebendo tela…", color = Texto2, modifier = Modifier.padding(top = 10.dp))
-                }
-            }
+            if (bitmap != null) Image(bitmap.asImageBitmap(), "Tela do PC", Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+            else Column(horizontalAlignment = Alignment.CenterHorizontally) { CircularProgressIndicator(color = Ouro); Text("Recebendo tela…", color = Texto2, modifier = Modifier.padding(top = 8.dp)) }
         }
 
-        Surface(Modifier.align(Alignment.TopCenter).padding(top = 10.dp), color = Color(0xD9151A22), shape = RoundedCornerShape(18.dp), border = BorderStroke(1.dp, Borda)) {
-            Row(Modifier.padding(horizontal = 13.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(7.dp).background(Ciano, CircleShape))
-                Spacer(Modifier.width(6.dp))
-                Text("${pc.nome} · Monitor ${monitor + 1}/${estado.quantidadeMonitores}", fontSize = 11.sp)
-            }
+        Surface(Modifier.align(Alignment.TopCenter).padding(top = 10.dp), color = Color(0xDD151A22), shape = RoundedCornerShape(18.dp), border = BorderStroke(1.dp, Borda)) {
+            Text("${pc.nome} · Monitor ${monitor + 1}/${estado.quantidadeMonitores}", fontSize = 11.sp, modifier = Modifier.padding(12.dp, 8.dp))
         }
-
-        Column(
-            Modifier.align(Alignment.CenterEnd).padding(end = 8.dp).background(Color(0xE51A2028), RoundedCornerShape(28.dp)).border(1.dp, Borda, RoundedCornerShape(28.dp)).padding(5.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            RadialButton("K") { tecla("TAB") }
-            RadialButton("M") { SessaoPcFlow.alterarMonitor((monitor + 1) % estado.quantidadeMonitores.coerceAtLeast(1)) }
-            RadialButton("+") { SessaoPcFlow.enviar("scroll") { put("delta", 240) } }
-            RadialButton("-") { SessaoPcFlow.enviar("scroll") { put("delta", -240) } }
-            RadialButton("X", Perigo) { fechar() }
+        Column(Modifier.align(Alignment.CenterEnd).padding(end = 8.dp).background(Color(0xE51B212A), RoundedCornerShape(28.dp)).border(1.dp, Borda, RoundedCornerShape(28.dp)).padding(4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Side("K") { tecla("TAB") }
+            Side("M") { SessaoPcFlow.alterarMonitor((monitor + 1) % estado.quantidadeMonitores.coerceAtLeast(1)) }
+            Side("+") { SessaoPcFlow.enviar("scroll") { put("delta", 240) } }
+            Side("-") { SessaoPcFlow.enviar("scroll") { put("delta", -240) } }
+            Side("X", Perigo) { fechar() }
         }
     }
 }
 
 @Composable
-private fun RadialButton(texto: String, cor: Color = Color.White, acao: () -> Unit) {
-    Box(Modifier.size(48.dp).clickable(onClick = acao), contentAlignment = Alignment.Center) {
-        Text(texto, color = cor, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-    }
-}
+private fun Side(t: String, cor: Color = Color.White, click: () -> Unit) { Box(Modifier.size(48.dp).clickable(onClick = click), contentAlignment = Alignment.Center) { Text(t, color = cor, fontSize = 16.sp) } }
 
 @Composable
-private fun PainelDialog(titulo: String, fechar: () -> Unit, conteudo: @Composable ColumnScope.() -> Unit) {
+private fun DialogoBase(titulo: String, fechar: () -> Unit, conteudo: @Composable ColumnScope.() -> Unit) {
     Dialog(onDismissRequest = fechar) {
         Surface(color = Painel, shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, Borda)) {
             Column(Modifier.padding(18.dp)) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(titulo, fontSize = 20.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-                    TextButton(onClick = fechar) { Text("Fechar", color = Texto2) }
-                }
-                Spacer(Modifier.height(8.dp))
-                conteudo()
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Text(titulo, fontSize = 20.sp, modifier = Modifier.weight(1f)); TextButton(onClick = fechar) { Text("Fechar", color = Texto2) } }
+                Spacer(Modifier.height(8.dp)); conteudo()
             }
         }
     }
 }
 
 @Composable
-private fun AcaoGrande(texto: String, modifier: Modifier = Modifier, acao: () -> Unit) {
-    OutlinedButton(onClick = acao, modifier = modifier.padding(vertical = 4.dp), shape = RoundedCornerShape(15.dp), border = BorderStroke(1.dp, Borda)) {
-        Text(texto, fontSize = 11.sp)
-    }
-}
+private fun Acao(texto: String, modifier: Modifier = Modifier, click: () -> Unit) { OutlinedButton(onClick = click, modifier = modifier.padding(vertical = 3.dp), border = BorderStroke(1.dp, Borda), shape = RoundedCornerShape(14.dp)) { Text(texto, fontSize = 10.sp) } }
 
-private fun media(acao: String) = SessaoPcFlow.enviar("media") { put("acao", acao) }
-private fun power(acao: String) = SessaoPcFlow.enviar("power") { put("acao", acao) }
-private fun tecla(tecla: String) = SessaoPcFlow.enviar("tecla") { put("tecla", tecla) }
+private fun mouseClique(botao: String) = SessaoPcFlow.enviar("mouse_click") { put("botao", botao) }
+private fun media(a: String) = SessaoPcFlow.enviar("media") { put("acao", a) }
+private fun power(a: String) = SessaoPcFlow.enviar("power") { put("acao", a) }
+private fun tecla(t: String) = SessaoPcFlow.enviar("tecla") { put("tecla", t) }
 
-private fun enviarPosicaoNova(pos: Offset, area: IntSize, largura: Int, altura: Int, monitor: Int, botao: String) {
-    val p = mapearNovo(pos, area, largura, altura) ?: return
+private fun enviarPosicao(pos: Offset, area: IntSize, w: Int, h: Int, monitor: Int, botao: String) {
+    val p = mapear(pos, area, w, h) ?: return
     SessaoPcFlow.enviar("mouse_abs") { put("x", p.first); put("y", p.second); put("monitor", monitor) }
-    SessaoPcFlow.enviar("mouse_click") { put("botao", botao) }
+    mouseClique(botao)
 }
 
-private fun mapearNovo(pos: Offset, area: IntSize, larguraImagem: Int, alturaImagem: Int): Pair<Double, Double>? {
-    if (area.width <= 0 || area.height <= 0 || larguraImagem <= 0 || alturaImagem <= 0) return null
-    val escala = minOf(area.width.toFloat() / larguraImagem, area.height.toFloat() / alturaImagem)
-    val larguraRender = larguraImagem * escala
-    val alturaRender = alturaImagem * escala
-    val esquerda = (area.width - larguraRender) / 2f
-    val topo = (area.height - alturaRender) / 2f
-    if (pos.x < esquerda || pos.x > esquerda + larguraRender || pos.y < topo || pos.y > topo + alturaRender) return null
-    return ((pos.x - esquerda) / larguraRender).coerceIn(0f, 1f).toDouble() to ((pos.y - topo) / alturaRender).coerceIn(0f, 1f).toDouble()
+private fun mapear(pos: Offset, area: IntSize, w: Int, h: Int): Pair<Double, Double>? {
+    if (area.width <= 0 || area.height <= 0 || w <= 0 || h <= 0) return null
+    val escala = minOf(area.width.toFloat() / w, area.height.toFloat() / h)
+    val rw = w * escala; val rh = h * escala
+    val l = (area.width - rw) / 2f; val t = (area.height - rh) / 2f
+    if (pos.x < l || pos.x > l + rw || pos.y < t || pos.y > t + rh) return null
+    return ((pos.x - l) / rw).coerceIn(0f, 1f).toDouble() to ((pos.y - t) / rh).coerceIn(0f, 1f).toDouble()
 }
 
-private fun lerQrPcFlowNovo(texto: String): Pair<PcEncontrado, String?>? = try {
-    val uri = Uri.parse(texto)
-    if (uri.scheme != "pcflow" || uri.host != "connect") null else {
+private fun lerQrPcFlow(texto: String): Pair<PcEncontrado, String?>? {
+    return try {
+        val uri = Uri.parse(texto)
+        if (uri.scheme != "pcflow" || uri.host != "connect") return null
         val host = uri.getQueryParameter("host") ?: return null
         val porta = uri.getQueryParameter("port")?.toIntOrNull() ?: 45456
         val id = uri.getQueryParameter("id") ?: ""
         val tls = uri.getQueryParameter("tls") ?: return null
         val pin = uri.getQueryParameter("pin")
-        PcEncontrado(
-            nome = "PCFlow $id",
-            host = host,
-            porta = porta,
-            portaTela = 45457,
-            portaArquivos = 45458,
-            maquinaId = id,
-            tls = tls
-        ) to pin
-    }
-} catch (_: Exception) { null }
+        PcEncontrado(nome = "PCFlow $id", host = host, porta = porta, portaTela = 45457, portaArquivos = 45458, maquinaId = id, tls = tls) to pin
+    } catch (_: Exception) { null }
+}
 
-private fun formatarIdNovo(id: String): String = if (id.length == 9) "${id.substring(0, 3)} ${id.substring(3, 6)} ${id.substring(6, 9)}" else id
+private fun formatarId(id: String): String = if (id.length == 9) "${id.substring(0,3)} ${id.substring(3,6)} ${id.substring(6,9)}" else id
 
 @Composable
-private fun IconeLinha(tipo: IconePc, cor: Color, tamanho: androidx.compose.ui.unit.Dp) {
+private fun Icone(tipo: Ico, cor: Color, tamanho: Dp) {
     Canvas(Modifier.size(tamanho)) {
-        val w = size.width
-        val h = size.height
-        val s = maxOf(1.5f, w * .055f)
+        val w = size.width; val h = size.height; val s = maxOf(1.4f, w * .055f)
         when (tipo) {
-            IconePc.MONITOR, IconePc.REMOTE, IconePc.SCREEN -> {
-                drawRoundRect(cor, Offset(w * .12f, h * .15f), androidx.compose.ui.geometry.Size(w * .76f, h * .55f), androidx.compose.ui.geometry.CornerRadius(w * .08f), style = Stroke(s))
-                drawLine(cor, Offset(w * .5f, h * .70f), Offset(w * .5f, h * .84f), s)
-                drawLine(cor, Offset(w * .30f, h * .84f), Offset(w * .70f, h * .84f), s)
+            Ico.MONITOR -> {
+                drawRoundRect(cor, Offset(w*.12f,h*.14f), androidx.compose.ui.geometry.Size(w*.76f,h*.56f), androidx.compose.ui.geometry.CornerRadius(w*.07f), style=Stroke(s))
+                drawLine(cor,Offset(w*.5f,h*.70f),Offset(w*.5f,h*.84f),s); drawLine(cor,Offset(w*.30f,h*.84f),Offset(w*.70f,h*.84f),s)
             }
-            IconePc.MOUSE -> {
-                drawRoundRect(cor, Offset(w * .27f, h * .10f), androidx.compose.ui.geometry.Size(w * .46f, h * .78f), androidx.compose.ui.geometry.CornerRadius(w * .22f), style = Stroke(s))
-                drawLine(cor, Offset(w * .5f, h * .10f), Offset(w * .5f, h * .35f), s)
+            Ico.MOUSE -> { drawRoundRect(cor,Offset(w*.27f,h*.10f),androidx.compose.ui.geometry.Size(w*.46f,h*.78f),androidx.compose.ui.geometry.CornerRadius(w*.22f),style=Stroke(s)); drawLine(cor,Offset(w*.5f,h*.10f),Offset(w*.5f,h*.36f),s) }
+            Ico.GAME -> {
+                val p=Path().apply{moveTo(w*.18f,h*.62f);quadraticBezierTo(w*.22f,h*.30f,w*.42f,h*.38f);lineTo(w*.58f,h*.38f);quadraticBezierTo(w*.78f,h*.30f,w*.82f,h*.62f);quadraticBezierTo(w*.84f,h*.82f,w*.68f,h*.70f);lineTo(w*.58f,h*.60f);lineTo(w*.42f,h*.60f);lineTo(w*.32f,h*.70f);quadraticBezierTo(w*.16f,h*.82f,w*.18f,h*.62f)}; drawPath(p,cor,style=Stroke(s)); drawLine(cor,Offset(w*.31f,h*.46f),Offset(w*.31f,h*.61f),s); drawLine(cor,Offset(w*.24f,h*.535f),Offset(w*.38f,h*.535f),s)
             }
-            IconePc.GAME -> {
-                val p = Path().apply { moveTo(w*.18f,h*.62f); quadraticBezierTo(w*.22f,h*.30f,w*.42f,h*.38f); lineTo(w*.58f,h*.38f); quadraticBezierTo(w*.78f,h*.30f,w*.82f,h*.62f); quadraticBezierTo(w*.84f,h*.82f,w*.68f,h*.70f); lineTo(w*.58f,h*.60f); lineTo(w*.42f,h*.60f); lineTo(w*.32f,h*.70f); quadraticBezierTo(w*.16f,h*.82f,w*.18f,h*.62f) }
-                drawPath(p, cor, style = Stroke(s))
-                drawLine(cor, Offset(w*.31f,h*.46f), Offset(w*.31f,h*.61f), s)
-                drawLine(cor, Offset(w*.24f,h*.535f), Offset(w*.38f,h*.535f), s)
-                drawCircle(cor, w*.035f, Offset(w*.67f,h*.49f)); drawCircle(cor, w*.035f, Offset(w*.74f,h*.57f))
-            }
-            IconePc.GRID -> {
-                val q = w * .27f
-                listOf(.14f to .14f, .59f to .14f, .14f to .59f, .59f to .59f).forEach { (x,y) -> drawRoundRect(cor, Offset(w*x,h*y), androidx.compose.ui.geometry.Size(q,q), androidx.compose.ui.geometry.CornerRadius(w*.04f), style = Stroke(s)) }
-            }
-            IconePc.TOOLS -> {
-                drawCircle(cor, w*.22f, Offset(w*.36f,h*.36f), style = Stroke(s))
-                drawLine(cor, Offset(w*.50f,h*.50f), Offset(w*.82f,h*.82f), s*1.3f)
-                drawCircle(cor, w*.07f, Offset(w*.78f,h*.78f), style = Stroke(s))
-            }
-            IconePc.MORE -> { drawCircle(cor,w*.055f,Offset(w*.5f,h*.25f)); drawCircle(cor,w*.055f,Offset(w*.5f,h*.5f)); drawCircle(cor,w*.055f,Offset(w*.5f,h*.75f)) }
-            IconePc.MEDIA, IconePc.PLAY -> {
-                val p = Path().apply { moveTo(w*.30f,h*.20f); lineTo(w*.78f,h*.50f); lineTo(w*.30f,h*.80f); close() }
-                drawPath(p, cor, style = Stroke(s))
-            }
-            IconePc.POWER -> { drawArc(cor, -55f, 290f, false, Offset(w*.14f,h*.14f), androidx.compose.ui.geometry.Size(w*.72f,h*.72f), style = Stroke(s)); drawLine(cor, Offset(w*.5f,h*.06f), Offset(w*.5f,h*.45f), s) }
-            IconePc.PPT -> { drawRoundRect(cor,Offset(w*.18f,h*.14f),androidx.compose.ui.geometry.Size(w*.64f,h*.72f),androidx.compose.ui.geometry.CornerRadius(w*.05f),style=Stroke(s)); drawLine(cor,Offset(w*.32f,h*.35f),Offset(w*.68f,h*.35f),s); drawLine(cor,Offset(w*.32f,h*.50f),Offset(w*.60f,h*.50f),s) }
-            IconePc.WEB -> { drawCircle(cor,w*.36f,Offset(w*.5f,h*.5f),style=Stroke(s)); drawOval(cor,Offset(w*.36f,h*.14f),androidx.compose.ui.geometry.Size(w*.28f,h*.72f),style=Stroke(s)); drawLine(cor,Offset(w*.14f,h*.5f),Offset(w*.86f,h*.5f),s) }
-            IconePc.KEYBOARD -> { drawRoundRect(cor,Offset(w*.10f,h*.24f),androidx.compose.ui.geometry.Size(w*.80f,h*.52f),androidx.compose.ui.geometry.CornerRadius(w*.05f),style=Stroke(s)); for(r in 0..2) for(c in 0..4) drawCircle(cor,w*.018f,Offset(w*(.22f+c*.14f),h*(.34f+r*.13f))) }
-            IconePc.FILE -> { val p=Path().apply{moveTo(w*.24f,h*.12f);lineTo(w*.58f,h*.12f);lineTo(w*.78f,h*.32f);lineTo(w*.78f,h*.88f);lineTo(w*.24f,h*.88f);close()};drawPath(p,cor,style=Stroke(s));drawLine(cor,Offset(w*.58f,h*.12f),Offset(w*.58f,h*.33f),s);drawLine(cor,Offset(w*.58f,h*.33f),Offset(w*.78f,h*.33f),s) }
-            IconePc.TASK -> { drawRoundRect(cor,Offset(w*.12f,h*.16f),androidx.compose.ui.geometry.Size(w*.76f,h*.68f),androidx.compose.ui.geometry.CornerRadius(w*.06f),style=Stroke(s)); drawLine(cor,Offset(w*.25f,h*.62f),Offset(w*.38f,h*.45f),s);drawLine(cor,Offset(w*.38f,h*.45f),Offset(w*.51f,h*.57f),s);drawLine(cor,Offset(w*.51f,h*.57f),Offset(w*.72f,h*.31f),s) }
-            IconePc.CAMERA -> { drawRoundRect(cor,Offset(w*.12f,h*.28f),androidx.compose.ui.geometry.Size(w*.62f,h*.48f),androidx.compose.ui.geometry.CornerRadius(w*.08f),style=Stroke(s));drawCircle(cor,w*.12f,Offset(w*.43f,h*.52f),style=Stroke(s));val p=Path().apply{moveTo(w*.74f,h*.42f);lineTo(w*.90f,h*.32f);lineTo(w*.90f,h*.72f);lineTo(w*.74f,h*.62f)};drawPath(p,cor,style=Stroke(s)) }
-            IconePc.PHONE -> { drawRoundRect(cor,Offset(w*.30f,h*.08f),androidx.compose.ui.geometry.Size(w*.40f,h*.84f),androidx.compose.ui.geometry.CornerRadius(w*.09f),style=Stroke(s));drawCircle(cor,w*.025f,Offset(w*.5f,h*.83f)) }
-            IconePc.CLIPBOARD -> { drawRoundRect(cor,Offset(w*.22f,h*.20f),androidx.compose.ui.geometry.Size(w*.56f,h*.68f),androidx.compose.ui.geometry.CornerRadius(w*.05f),style=Stroke(s));drawRoundRect(cor,Offset(w*.36f,h*.10f),androidx.compose.ui.geometry.Size(w*.28f,h*.20f),androidx.compose.ui.geometry.CornerRadius(w*.04f),style=Stroke(s)) }
-            IconePc.HOME -> { val p=Path().apply{moveTo(w*.16f,h*.48f);lineTo(w*.5f,h*.18f);lineTo(w*.84f,h*.48f);moveTo(w*.28f,h*.42f);lineTo(w*.28f,h*.82f);lineTo(w*.72f,h*.82f);lineTo(w*.72f,h*.42f)};drawPath(p,cor,style=Stroke(s)) }
-            IconePc.BACK -> { drawLine(cor,Offset(w*.74f,h*.25f),Offset(w*.32f,h*.5f),s);drawLine(cor,Offset(w*.32f,h*.5f),Offset(w*.74f,h*.75f),s) }
+            Ico.GRID -> listOf(.14f to .14f,.59f to .14f,.14f to .59f,.59f to .59f).forEach{(x,y)->drawRoundRect(cor,Offset(w*x,h*y),androidx.compose.ui.geometry.Size(w*.27f,h*.27f),androidx.compose.ui.geometry.CornerRadius(w*.04f),style=Stroke(s))}
+            Ico.TOOLS -> { drawCircle(cor,w*.19f,Offset(w*.35f,h*.35f),style=Stroke(s)); drawLine(cor,Offset(w*.49f,h*.49f),Offset(w*.82f,h*.82f),s*1.2f) }
+            Ico.MORE -> { drawCircle(cor,w*.055f,Offset(w*.5f,h*.25f));drawCircle(cor,w*.055f,Offset(w*.5f,h*.5f));drawCircle(cor,w*.055f,Offset(w*.5f,h*.75f)) }
+            Ico.PLAY -> { val p=Path().apply{moveTo(w*.30f,h*.20f);lineTo(w*.78f,h*.50f);lineTo(w*.30f,h*.80f);close()};drawPath(p,cor,style=Stroke(s)) }
+            Ico.POWER -> { drawArc(cor,-55f,290f,false,Offset(w*.14f,h*.14f),androidx.compose.ui.geometry.Size(w*.72f,h*.72f),style=Stroke(s));drawLine(cor,Offset(w*.5f,h*.06f),Offset(w*.5f,h*.45f),s) }
+            Ico.PPT, Ico.FILE -> { drawRoundRect(cor,Offset(w*.20f,h*.12f),androidx.compose.ui.geometry.Size(w*.60f,h*.76f),androidx.compose.ui.geometry.CornerRadius(w*.05f),style=Stroke(s));drawLine(cor,Offset(w*.32f,h*.40f),Offset(w*.68f,h*.40f),s);drawLine(cor,Offset(w*.32f,h*.55f),Offset(w*.60f,h*.55f),s) }
+            Ico.WEB -> { drawCircle(cor,w*.36f,Offset(w*.5f,h*.5f),style=Stroke(s));drawOval(cor,Offset(w*.36f,h*.14f),androidx.compose.ui.geometry.Size(w*.28f,h*.72f),style=Stroke(s));drawLine(cor,Offset(w*.14f,h*.5f),Offset(w*.86f,h*.5f),s) }
+            Ico.KEYBOARD -> { drawRoundRect(cor,Offset(w*.10f,h*.24f),androidx.compose.ui.geometry.Size(w*.80f,h*.52f),androidx.compose.ui.geometry.CornerRadius(w*.05f),style=Stroke(s));for(r in 0..2)for(c in 0..4)drawCircle(cor,w*.018f,Offset(w*(.22f+c*.14f),h*(.34f+r*.13f))) }
+            Ico.CLIP -> { drawRoundRect(cor,Offset(w*.22f,h*.20f),androidx.compose.ui.geometry.Size(w*.56f,h*.68f),androidx.compose.ui.geometry.CornerRadius(w*.05f),style=Stroke(s));drawRoundRect(cor,Offset(w*.36f,h*.10f),androidx.compose.ui.geometry.Size(w*.28f,h*.20f),androidx.compose.ui.geometry.CornerRadius(w*.04f),style=Stroke(s)) }
+            Ico.CAMERA -> { drawRoundRect(cor,Offset(w*.12f,h*.28f),androidx.compose.ui.geometry.Size(w*.68f,h*.48f),androidx.compose.ui.geometry.CornerRadius(w*.08f),style=Stroke(s));drawCircle(cor,w*.12f,Offset(w*.46f,h*.52f),style=Stroke(s)) }
+            Ico.TASK -> { drawRoundRect(cor,Offset(w*.12f,h*.16f),androidx.compose.ui.geometry.Size(w*.76f,h*.68f),androidx.compose.ui.geometry.CornerRadius(w*.06f),style=Stroke(s));drawLine(cor,Offset(w*.25f,h*.62f),Offset(w*.42f,h*.44f),s);drawLine(cor,Offset(w*.42f,h*.44f),Offset(w*.58f,h*.58f),s);drawLine(cor,Offset(w*.58f,h*.58f),Offset(w*.74f,h*.30f),s) }
+            Ico.PHONE -> { drawRoundRect(cor,Offset(w*.30f,h*.08f),androidx.compose.ui.geometry.Size(w*.40f,h*.84f),androidx.compose.ui.geometry.CornerRadius(w*.09f),style=Stroke(s));drawCircle(cor,w*.025f,Offset(w*.5f,h*.83f)) }
         }
     }
 }
