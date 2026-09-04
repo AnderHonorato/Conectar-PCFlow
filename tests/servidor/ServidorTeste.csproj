@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>PCFlow.ServidorTeste</RootNamespace>
+    <AssemblyName>ServidorTeste</AssemblyName>
+  </PropertyGroup>
+  <!-- Usa o código TLS real do aplicativo, sem cópia. -->
+  <ItemGroup>
+    <Compile Include="..\..\windows\PCFlow.Windows\Core\TlsPcFlow.cs" Link="TlsPcFlow.cs" />
+  </ItemGroup>
+</Project>

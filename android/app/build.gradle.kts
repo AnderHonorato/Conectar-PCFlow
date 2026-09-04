@@ -48,6 +48,8 @@ android {
         checkReleaseBuilds = false
     }
 
+    testOptions { unitTests.isReturnDefaultValues = true }
+
     buildFeatures { compose = true }
     composeOptions { kotlinCompilerExtensionVersion = "1.5.15" }
     kotlinOptions { jvmTarget = "17" }
@@ -73,4 +75,8 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
+
+    testImplementation("junit:junit:4.13.2")
+    // org.json real na JVM: no unitTests do Android o org.json do SDK é um stub.
+    testImplementation("org.json:json:20240303")
 }
