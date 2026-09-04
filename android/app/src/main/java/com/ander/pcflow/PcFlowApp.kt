@@ -177,7 +177,7 @@ private fun TelaConectar(
             Spacer(Modifier.width(12.dp))
             Column {
                 Text("PCFlow", fontSize = 34.sp, fontWeight = FontWeight.SemiBold)
-                Text("Controle remoto seguro na sua rede", color = Texto2, fontSize = 13.sp)
+                Text("Acesso remoto seguro · v${SessaoPcFlow.VERSAO_APP}", color = Texto2, fontSize = 13.sp)
             }
         }
 
