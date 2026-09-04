@@ -1,10 +1,14 @@
-Microsoft Visual Studio Solution File, Format Version 12.00
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PCFlow.Windows", "windows\PCFlow.Windows\PCFlow.Windows.csproj", "{A6B6D3A2-7D5B-4F54-8E5E-DBA9F32610B1}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PCFlow.Tests", "windows\PCFlow.Tests\PCFlow.Tests.csproj", "{7B2E4C91-1A55-4E33-9C08-52D1F0A6B744}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "server", "server", "{22BDF368-545D-4302-AF28-23EFEF3084B7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PCFlow.Relay", "server\PCFlow.Relay\PCFlow.Relay.csproj", "{72F7EB8E-4FE3-4CAB-84E3-373E23EC89B5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -20,5 +24,12 @@ Global
 		{7B2E4C91-1A55-4E33-9C08-52D1F0A6B744}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7B2E4C91-1A55-4E33-9C08-52D1F0A6B744}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7B2E4C91-1A55-4E33-9C08-52D1F0A6B744}.Release|Any CPU.Build.0 = Release|Any CPU
+		{72F7EB8E-4FE3-4CAB-84E3-373E23EC89B5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{72F7EB8E-4FE3-4CAB-84E3-373E23EC89B5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{72F7EB8E-4FE3-4CAB-84E3-373E23EC89B5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{72F7EB8E-4FE3-4CAB-84E3-373E23EC89B5}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{72F7EB8E-4FE3-4CAB-84E3-373E23EC89B5} = {22BDF368-545D-4302-AF28-23EFEF3084B7}
 	EndGlobalSection
 EndGlobal

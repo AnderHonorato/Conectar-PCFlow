@@ -1,0 +1,57 @@
+<Window x:Class="PCFlow.Windows.ControleRemotoWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Controle remoto — PCFlow"
+        Width="1180" Height="740" MinWidth="640" MinHeight="420"
+        WindowStartupLocation="CenterOwner"
+        Background="#0B0F14" Foreground="#F5F7FA"
+        FontFamily="Segoe UI" FontSize="13">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Background="#12171D" BorderBrush="#2E353F" BorderThickness="0,0,0,1" Padding="16,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock x:Name="TextoTitulo" Text="Conectando…" FontSize="15" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="TextoStatus" Text="" Foreground="#98A1AC" FontSize="12" Margin="0,3,0,0"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <ComboBox x:Name="ComboMonitor" Width="130" Margin="0,0,8,0"
+                              SelectionChanged="Monitor_Changed" ToolTip="Monitor exibido"/>
+                    <Button x:Name="BotaoTeclado" Content="Teclado" Click="Teclado_Click" Margin="0,0,8,0"
+                            Padding="12,7" Background="#1A2028" Foreground="#F6F7F9" BorderBrush="#2E353F"
+                            ToolTip="Digitar direto neste PC e mandar para o outro"/>
+                    <Button Content="Ctrl+Alt+Del" Click="CtrlAltDel_Click" Margin="0,0,8,0"
+                            Padding="12,7" Background="#1A2028" Foreground="#F6F7F9" BorderBrush="#2E353F"/>
+                    <Button Content="Desconectar" Click="Desconectar_Click"
+                            Padding="12,7" Background="#2A1A1D" Foreground="#FF8A80" BorderBrush="#6A3535"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Border x:Name="AreaTela" Grid.Row="1" Background="#05080B" Focusable="True"
+                MouseMove="Tela_MouseMove" MouseLeftButtonDown="Tela_MouseDown" MouseLeftButtonUp="Tela_MouseUp"
+                MouseRightButtonDown="Tela_MouseDown" MouseRightButtonUp="Tela_MouseUp"
+                MouseWheel="Tela_MouseWheel" Cursor="Cross">
+            <Grid>
+                <Image x:Name="ImagemTela" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                <TextBlock x:Name="AvisoTela" Text="Aguardando a tela do outro computador…"
+                           Foreground="#7F8894" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="2" Background="#12171D" BorderBrush="#2E353F" BorderThickness="0,1,0,0" Padding="16,8">
+            <TextBlock x:Name="TextoDica" Foreground="#7F8894" FontSize="11"
+                       Text="Mova o mouse sobre a tela para controlar. Clique com o botão esquerdo ou direito normalmente, use a roda para rolar. O botão Teclado captura o que você digitar aqui."/>
+        </Border>
+    </Grid>
+</Window>

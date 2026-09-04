@@ -152,6 +152,8 @@
                     <Button x:Name="MenuVisaoGeral" Style="{StaticResource BotaoNav}" Content="Visão geral" Tag="visao" Click="NavegarMenu_Click"/>
                     <Button x:Name="MenuConexao" Style="{StaticResource BotaoNav}" Content="Conexão" Tag="conexao" Click="NavegarMenu_Click"/>
                     <Button x:Name="MenuAcessoRemoto" Style="{StaticResource BotaoNav}" Content="Acesso remoto" Tag="remoto" Click="NavegarMenu_Click"/>
+                    <Button x:Name="MenuInternet" Style="{StaticResource BotaoNav}" Content="Pela internet" Tag="internet" Click="NavegarMenu_Click"/>
+                    <Button x:Name="MenuControlar" Style="{StaticResource BotaoNav}" Content="Controlar outro PC" Tag="controlar" Click="NavegarMenu_Click"/>
                     <Button x:Name="MenuDispositivos" Style="{StaticResource BotaoNav}" Content="Dispositivos" Tag="dispositivos" Click="NavegarMenu_Click"/>
                     <Button x:Name="MenuSeguranca" Style="{StaticResource BotaoNav}" Content="Segurança" Tag="seguranca" Click="NavegarMenu_Click"/>
                     <Button x:Name="MenuRecursos" Style="{StaticResource BotaoNav}" Content="Diagnóstico" Tag="recursos" Click="NavegarMenu_Click"/>
@@ -310,6 +312,113 @@
                         </Border>
                     </StackPanel>
 
+
+                    <!-- ============ PELA INTERNET ============ -->
+                    <StackPanel x:Name="PaginaInternet" Visibility="Collapsed">
+                        <Border Style="{StaticResource Cartao}" BorderBrush="#3A3327">
+                            <StackPanel>
+                                <TextBlock Text="Conectar de fora de casa" Style="{StaticResource Secao}"/>
+                                <TextBlock Style="{StaticResource Sub}" Margin="0,0,0,12"
+                                           Text="Com isto ligado o celular entra por qualquer internet, sem precisar estar no mesmo Wi‑Fi. Quem vem de fora sempre tem que digitar a senha de acesso — só o código não basta."/>
+                                <CheckBox x:Name="CheckAcessoExterno" Content="Aceitar conexões de fora da rede local" Click="ConfigInternet_Click"/>
+                                <CheckBox x:Name="CheckUpnp" Content="Pedir ao roteador para abrir as portas automaticamente (UPnP)" Click="ConfigInternet_Click"/>
+                                <TextBlock x:Name="AvisoSenhaExterna" Style="{StaticResource Sub}" Margin="0,4,0,10"
+                                           Foreground="#FF8A80" Visibility="Collapsed"
+                                           Text="Defina uma senha em Segurança: sem ela nenhuma conexão de fora da rede será aceita."/>
+                                <WrapPanel>
+                                    <Button x:Name="BotaoAbrirInternet" Content="Preparar acesso pela internet"
+                                            Style="{StaticResource BotaoPrimario}" Click="PrepararInternet_Click"/>
+                                    <Button Content="Fechar portas no roteador" Click="FecharInternet_Click"/>
+                                </WrapPanel>
+                                <TextBlock x:Name="InfoInternet" Style="{StaticResource Sub}" Margin="0,12,0,0"
+                                           Text="Ainda não verificado. Clique em Preparar acesso pela internet."/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Cartao}">
+                            <StackPanel>
+                                <TextBlock Text="Código de acesso" Style="{StaticResource Secao}"/>
+                                <TextBlock Style="{StaticResource Sub}" Margin="0,0,0,10"
+                                           Text="Este código leva o endereço, a porta e a identidade deste PC. Mande para o celular ou para o outro computador; a conexão continua verificando a identidade, então ninguém no caminho consegue se passar por você."/>
+                                <TextBox x:Name="CampoCodigoAcesso" IsReadOnly="True" FontFamily="Consolas" FontSize="15"
+                                         TextWrapping="Wrap" Margin="0,0,0,10" Text="—"/>
+                                <WrapPanel>
+                                    <Button Content="Copiar código" Click="CopiarCodigoAcesso_Click"/>
+                                    <Button Content="Código da rede local" Click="CodigoLocal_Click"/>
+                                </WrapPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Cartao}">
+                            <StackPanel>
+                                <TextBlock Text="Servidor de retransmissão" Style="{StaticResource Secao}"/>
+                                <TextBlock Style="{StaticResource Sub}" Margin="0,0,0,10"
+                                           Text="Quando a operadora usa CGNAT, abrir porta no roteador não resolve. Aí este PC se registra num servidor PCFlow e recebe as conexões por ele. O servidor só emenda os dois lados: a sessão continua criptografada de ponta a ponta e ele não vê a tela nem o que é digitado."/>
+                                <TextBlock Text="Endereço do servidor (host ou host:porta)" Style="{StaticResource Sub}"/>
+                                <TextBox x:Name="CampoServidorRelay" Width="360" HorizontalAlignment="Left" Margin="0,4,0,10"/>
+                                <CheckBox x:Name="CheckUsarRelay" Content="Usar o servidor de retransmissão" Click="ConfigInternet_Click"/>
+                                <WrapPanel>
+                                    <Button Content="Salvar e conectar ao servidor" Style="{StaticResource BotaoPrimario}" Click="SalvarRelay_Click"/>
+                                    <Button Content="Desconectar do servidor" Click="DesligarRelay_Click"/>
+                                </WrapPanel>
+                                <TextBlock x:Name="InfoRelay" Style="{StaticResource Sub}" Margin="0,12,0,0"
+                                           Text="Nenhum servidor configurado."/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- ============ CONTROLAR OUTRO PC ============ -->
+                    <StackPanel x:Name="PaginaControlar" Visibility="Collapsed">
+                        <Border Style="{StaticResource Cartao}" BorderBrush="#3A3327">
+                            <StackPanel>
+                                <TextBlock Text="Usar este PC para controlar outro" Style="{StaticResource Secao}"/>
+                                <TextBlock Style="{StaticResource Sub}" Margin="0,0,0,12"
+                                           Text="Os computadores da sua rede que estiverem com o PCFlow aberto aparecem na lista. Para um PC fora da rede, cole o código de acesso que ele mostra em Pela internet."/>
+                                <WrapPanel>
+                                    <Button Content="Procurar na rede" Style="{StaticResource BotaoPrimario}" Click="ProcurarPcs_Click"/>
+                                </WrapPanel>
+                                <TextBlock x:Name="InfoBusca" Style="{StaticResource Sub}" Margin="0,10,0,0"
+                                           Text="Clique em Procurar na rede."/>
+                            </StackPanel>
+                        </Border>
+
+                        <ItemsControl x:Name="ListaPcs">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="#151A21" BorderBrush="#2E353F" BorderThickness="1"
+                                            CornerRadius="14" Padding="16" Margin="0,0,0,10">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Nome}" FontSize="15" FontWeight="SemiBold"/>
+                                                <TextBlock Text="{Binding Host}" Foreground="#7F8894" FontSize="11" Margin="0,4,0,0"/>
+                                            </StackPanel>
+                                            <Button Grid.Column="1" Content="Conectar" Style="{StaticResource BotaoPrimario}"
+                                                    Tag="{Binding MaquinaId}" Click="ConectarPc_Click" Margin="0"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <Border Style="{StaticResource Cartao}">
+                            <StackPanel>
+                                <TextBlock Text="Conectar por código" Style="{StaticResource Secao}"/>
+                                <TextBox x:Name="CampoCodigoDestino" FontFamily="Consolas" Margin="0,0,0,10"
+                                         TextWrapping="Wrap" MinHeight="52"/>
+                                <TextBlock Text="Senha de acesso do outro PC (obrigatória fora da rede local)" Style="{StaticResource Sub}"/>
+                                <PasswordBox x:Name="CampoSenhaDestino" Width="300" HorizontalAlignment="Left" Margin="0,4,0,10"/>
+                                <TextBlock Text="Código de pareamento, se ele estiver pedindo" Style="{StaticResource Sub}"/>
+                                <TextBox x:Name="CampoPinDestino" Width="160" HorizontalAlignment="Left" Margin="0,4,0,12"/>
+                                <Button Content="Conectar por código" Style="{StaticResource BotaoPrimario}"
+                                        HorizontalAlignment="Left" Click="ConectarPorCodigo_Click"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
                     <!-- ============ DISPOSITIVOS ============ -->
                     <StackPanel x:Name="PaginaDispositivos" Visibility="Collapsed">
                         <DockPanel x:Name="TituloDispositivos" Margin="0,0,0,14">
@@ -327,6 +436,10 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
                                             <StackPanel VerticalAlignment="Center">
                                                 <TextBlock Text="{Binding Nome}" FontSize="15" FontWeight="SemiBold"/>
                                                 <TextBlock Margin="0,4,0,0" FontSize="11">
@@ -343,14 +456,47 @@
                                                         </Style>
                                                     </TextBlock.Style>
                                                 </TextBlock>
-                                                <TextBlock Text="{Binding UltimaConexao, StringFormat='Última conexão: {0:dd/MM/yyyy HH:mm}'}"
-                                                           Foreground="#7F8894" FontSize="11" Margin="0,6,0,0"/>
+                                                <TextBlock Foreground="#7F8894" FontSize="11" Margin="0,6,0,0">
+                                                    <Run Text="{Binding UltimaConexao, StringFormat='Última conexão: {0:dd/MM/yyyy HH:mm}', Mode=OneWay}"/>
+                                                    <Run Text="{Binding UltimaOrigem, StringFormat=' · por {0}', Mode=OneWay}"/>
+                                                </TextBlock>
                                             </StackPanel>
                                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                                 <Button Content="Bloquear / liberar" Tag="{Binding Id}" Click="AlternarBloqueio_Click" FontSize="11"/>
                                                 <Button Content="Revogar" Tag="{Binding Id}" Click="RevogarDispositivo_Click"
                                                         FontSize="11" Foreground="#FF8A80" BorderBrush="#6A3535" Margin="0"/>
                                             </StackPanel>
+
+                                            <Border Grid.Row="1" Grid.ColumnSpan="2" Background="#11161C" BorderBrush="#242C36"
+                                                    BorderThickness="1" CornerRadius="11" Padding="14" Margin="0,14,0,0">
+                                                <StackPanel>
+                                                    <CheckBox Content="Definir permissões só para este dispositivo"
+                                                              IsChecked="{Binding PermissoesProprias, Mode=TwoWay}"
+                                                              Tag="{Binding Id}" Click="PermissaoDispositivo_Click"/>
+                                                    <TextBlock Style="{StaticResource Sub}" Margin="0,0,0,10"
+                                                               Text="Desmarcado, ele segue as permissões gerais desta máquina."/>
+                                                    <WrapPanel IsEnabled="{Binding PermissoesProprias}">
+                                                        <CheckBox Content="Tela" Margin="0,0,18,8"
+                                                                  IsChecked="{Binding PermitirTela, Mode=TwoWay}"
+                                                                  Tag="{Binding Id}" Click="PermissaoDispositivo_Click"/>
+                                                        <CheckBox Content="Teclado e mouse" Margin="0,0,18,8"
+                                                                  IsChecked="{Binding PermitirEntrada, Mode=TwoWay}"
+                                                                  Tag="{Binding Id}" Click="PermissaoDispositivo_Click"/>
+                                                        <CheckBox Content="Área de transferência" Margin="0,0,18,8"
+                                                                  IsChecked="{Binding PermitirClipboard, Mode=TwoWay}"
+                                                                  Tag="{Binding Id}" Click="PermissaoDispositivo_Click"/>
+                                                        <CheckBox Content="Energia" Margin="0,0,18,8"
+                                                                  IsChecked="{Binding PermitirEnergia, Mode=TwoWay}"
+                                                                  Tag="{Binding Id}" Click="PermissaoDispositivo_Click"/>
+                                                        <CheckBox Content="Arquivos" Margin="0,0,18,8"
+                                                                  IsChecked="{Binding PermitirArquivos, Mode=TwoWay}"
+                                                                  Tag="{Binding Id}" Click="PermissaoDispositivo_Click"/>
+                                                    </WrapPanel>
+                                                    <CheckBox Content="Pode entrar de fora da rede local"
+                                                              IsChecked="{Binding PermitirForaDaRede, Mode=TwoWay}"
+                                                              Tag="{Binding Id}" Click="PermissaoDispositivo_Click" Margin="0,4,0,0"/>
+                                                </StackPanel>
+                                            </Border>
                                         </Grid>
                                     </Border>
                                 </DataTemplate>

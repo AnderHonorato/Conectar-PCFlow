@@ -18,6 +18,8 @@ public partial class MainWindow : Window
 {
     private readonly ServidorPcFlow _servidor = new();
     private readonly ServidorArquivosPcFlow _servidorArquivos = new();
+    private AgenteRelay? _relay;
+    private List<PcRemoto> _pcsEncontrados = [];
     private readonly Forms.NotifyIcon _tray;
     private readonly ConcurrentQueue<string> _eventos = new();
     private MolduraSessaoWindow? _moldura;
@@ -102,7 +104,8 @@ public partial class MainWindow : Window
     }
 
     private WpfButton[] Menus() =>
-        [MenuVisaoGeral, MenuConexao, MenuAcessoRemoto, MenuDispositivos, MenuSeguranca, MenuRecursos];
+        [MenuVisaoGeral, MenuConexao, MenuAcessoRemoto, MenuInternet, MenuControlar,
+         MenuDispositivos, MenuSeguranca, MenuRecursos];
 
     // ------------------------------------------------------------------
     // Ciclo de vida
@@ -127,6 +130,14 @@ public partial class MainWindow : Window
         AtualizarLog();
         AjustarLayoutResponsivo();
         AtualizarStatusVisual();
+
+        // Religa sozinho o que o usuário já tinha deixado ligado.
+        if (_servidor.Configuracao.UsarServidorRelay &&
+            !string.IsNullOrWhiteSpace(_servidor.Configuracao.ServidorRelay))
+            await LigarRelayAsync();
+
+        if (_servidor.Configuracao.PermitirAcessoExterno)
+            _ = _servidor.PrepararAcessoExternoAsync();
     }
 
     private void GarantirFirewallSilencioso()
@@ -228,6 +239,8 @@ public partial class MainWindow : Window
         PaginaVisao.Visibility = pagina == "visao" ? Visibility.Visible : Visibility.Collapsed;
         PaginaConexao.Visibility = pagina == "conexao" ? Visibility.Visible : Visibility.Collapsed;
         PaginaRemoto.Visibility = pagina == "remoto" ? Visibility.Visible : Visibility.Collapsed;
+        PaginaInternet.Visibility = pagina == "internet" ? Visibility.Visible : Visibility.Collapsed;
+        PaginaControlar.Visibility = pagina == "controlar" ? Visibility.Visible : Visibility.Collapsed;
         PaginaDispositivos.Visibility = pagina == "dispositivos" ? Visibility.Visible : Visibility.Collapsed;
         PaginaSeguranca.Visibility = pagina == "seguranca" ? Visibility.Visible : Visibility.Collapsed;
         PaginaRecursos.Visibility = pagina == "recursos" ? Visibility.Visible : Visibility.Collapsed;
@@ -236,6 +249,8 @@ public partial class MainWindow : Window
         {
             "conexao" => "Conexão",
             "remoto" => "Acesso remoto",
+            "internet" => "Pela internet",
+            "controlar" => "Controlar outro PC",
             "dispositivos" => "Dispositivos",
             "seguranca" => "Segurança",
             "recursos" => "Diagnóstico",
@@ -254,6 +269,7 @@ public partial class MainWindow : Window
 
         ScrollPrincipal.ScrollToTop();
         if (pagina == "conexao") { AtualizarConexao(); AtualizarInfoFirewall(); }
+        if (pagina == "internet") AtualizarInternet();
         if (pagina == "recursos") { AtualizarDiagnostico(); AtualizarLog(); }
     }
 
@@ -505,6 +521,198 @@ public partial class MainWindow : Window
         RegistrarEvento($"Acesso de {dispositivo.Nome} revogado");
     }
 
+
+    // ------------------------------------------------------------------
+    // Pela internet
+    // ------------------------------------------------------------------
+
+    private void AtualizarInternet()
+    {
+        if (!_carregado) return;
+        _aplicandoConfiguracao = true;
+        var c = _servidor.Configuracao;
+        CheckAcessoExterno.IsChecked = c.PermitirAcessoExterno;
+        CheckUpnp.IsChecked = c.AbrirPortasUpnp;
+        CheckUsarRelay.IsChecked = c.UsarServidorRelay;
+        if (string.IsNullOrEmpty(CampoServidorRelay.Text)) CampoServidorRelay.Text = c.ServidorRelay;
+        _aplicandoConfiguracao = false;
+
+        // Acesso externo sem senha definida não conecta ninguém: é melhor
+        // dizer isso aqui do que deixar o usuário tentando do celular.
+        AvisoSenhaExterna.Visibility = c.PermitirAcessoExterno && string.IsNullOrEmpty(c.SenhaHash)
+            ? Visibility.Visible : Visibility.Collapsed;
+
+        CampoCodigoAcesso.Text = _servidor.CodigoAcessoExterno is { Length: > 0 } codigo
+            ? codigo
+            : _servidor.CodigoAcessoLocal;
+
+        InfoRelay.Text = _relay is null
+            ? (string.IsNullOrWhiteSpace(c.ServidorRelay)
+                ? "Nenhum servidor configurado. Sem ele, o acesso de fora depende do roteador aceitar UPnP."
+                : $"Servidor {c.ServidorRelay} salvo, mas desligado.")
+            : $"{_relay.UltimoDetalhe}\nCódigo neste servidor: {_relay.CodigoServidor}";
+    }
+
+    private void ConfigInternet_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_carregado || _aplicandoConfiguracao) return;
+        var c = _servidor.Configuracao;
+        c.PermitirAcessoExterno = CheckAcessoExterno.IsChecked == true;
+        c.AbrirPortasUpnp = CheckUpnp.IsChecked == true;
+        c.UsarServidorRelay = CheckUsarRelay.IsChecked == true;
+        _servidor.SalvarConfiguracao();
+        AtualizarInternet();
+        RegistrarEvento(c.PermitirAcessoExterno
+            ? "Acesso de fora da rede local liberado"
+            : "Acesso de fora da rede local bloqueado");
+    }
+
+    private async void PrepararInternet_Click(object sender, RoutedEventArgs e)
+    {
+        BotaoAbrirInternet.IsEnabled = false;
+        InfoInternet.Text = "Procurando o roteador e conferindo o IP público…";
+        try
+        {
+            var resultado = await _servidor.PrepararAcessoExternoAsync();
+            InfoInternet.Text = resultado.Detalhe;
+            CampoCodigoAcesso.Text = _servidor.CodigoAcessoExterno is { Length: > 0 } codigo
+                ? codigo : _servidor.CodigoAcessoLocal;
+
+            if (resultado.Cgnat)
+                WpfMessageBox.Show(this,
+                    resultado.Detalhe + "\n\nUse a seção Servidor de retransmissão logo abaixo.",
+                    "PCFlow — CGNAT detectado", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        catch (Exception ex)
+        {
+            InfoInternet.Text = $"Falhou: {ex.Message}";
+        }
+        finally { BotaoAbrirInternet.IsEnabled = true; }
+    }
+
+    private async void FecharInternet_Click(object sender, RoutedEventArgs e)
+    {
+        await _servidor.FecharAcessoExternoAsync();
+        InfoInternet.Text = "Portas removidas do roteador.";
+        RegistrarEvento("Encaminhamento de portas removido do roteador");
+    }
+
+    private void CopiarCodigoAcesso_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(CampoCodigoAcesso.Text) || CampoCodigoAcesso.Text == "—") return;
+        System.Windows.Clipboard.SetText(CampoCodigoAcesso.Text);
+        RegistrarEvento("Código de acesso copiado");
+    }
+
+    private void CodigoLocal_Click(object sender, RoutedEventArgs e)
+    {
+        CampoCodigoAcesso.Text = _servidor.CodigoAcessoLocal;
+        RegistrarEvento("Mostrando o código da rede local");
+    }
+
+    private async void SalvarRelay_Click(object sender, RoutedEventArgs e)
+    {
+        var c = _servidor.Configuracao;
+        c.ServidorRelay = CampoServidorRelay.Text.Trim();
+        c.UsarServidorRelay = true;
+        CheckUsarRelay.IsChecked = true;
+        _servidor.SalvarConfiguracao();
+
+        if (string.IsNullOrWhiteSpace(c.ServidorRelay))
+        {
+            InfoRelay.Text = "Informe o endereço do servidor primeiro.";
+            return;
+        }
+
+        await LigarRelayAsync();
+        AtualizarInternet();
+    }
+
+    private async Task LigarRelayAsync()
+    {
+        if (_relay is not null) { await _relay.PararAsync(); _relay = null; }
+        _relay = new AgenteRelay(_servidor);
+        _relay.Status += mensagem => Dispatcher.BeginInvoke(() =>
+        {
+            RegistrarEvento(mensagem);
+            if (_pagina == "internet") AtualizarInternet();
+        });
+        _relay.Iniciar();
+    }
+
+    private async void DesligarRelay_Click(object sender, RoutedEventArgs e)
+    {
+        if (_relay is not null) { await _relay.PararAsync(); _relay = null; }
+        _servidor.Configuracao.UsarServidorRelay = false;
+        CheckUsarRelay.IsChecked = false;
+        _servidor.SalvarConfiguracao();
+        AtualizarInternet();
+    }
+
+    // ------------------------------------------------------------------
+    // Controlar outro PC
+    // ------------------------------------------------------------------
+
+    private async void ProcurarPcs_Click(object sender, RoutedEventArgs e)
+    {
+        InfoBusca.Text = "Procurando computadores com PCFlow na rede…";
+        ListaPcs.ItemsSource = null;
+        _pcsEncontrados = (await ClientePcFlow.DescobrirAsync()).ToList();
+        ListaPcs.ItemsSource = _pcsEncontrados;
+        InfoBusca.Text = _pcsEncontrados.Count switch
+        {
+            0 => "Nenhum outro PC encontrado. Confira se o PCFlow está aberto no outro computador e se os dois estão na mesma rede.",
+            1 => "1 computador encontrado.",
+            var n => $"{n} computadores encontrados."
+        };
+    }
+
+    private void ConectarPc_Click(object sender, RoutedEventArgs e)
+    {
+        var id = (sender as WpfButton)?.Tag?.ToString();
+        var pc = _pcsEncontrados.FirstOrDefault(p => p.MaquinaId == id);
+        if (pc is null) return;
+        AbrirControleRemoto(pc, null, null);
+    }
+
+    private void ConectarPorCodigo_Click(object sender, RoutedEventArgs e)
+    {
+        var destino = ClientePcFlow.DoCodigo(CampoCodigoDestino.Text);
+        if (destino is null)
+        {
+            WpfMessageBox.Show(this,
+                "Não reconheci esse código. Copie de novo, na página Pela internet do outro computador.",
+                "PCFlow", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        AbrirControleRemoto(destino,
+            string.IsNullOrWhiteSpace(CampoPinDestino.Text) ? null : CampoPinDestino.Text,
+            string.IsNullOrEmpty(CampoSenhaDestino.Password) ? null : CampoSenhaDestino.Password);
+    }
+
+    private void AbrirControleRemoto(PcRemoto destino, string? pin, string? senha)
+    {
+        var janela = new ControleRemotoWindow(destino, pin, senha) { Owner = this };
+        janela.Show();
+        RegistrarEvento($"Abrindo controle remoto de {destino.Nome}");
+    }
+
+    // ------------------------------------------------------------------
+    // Permissões por dispositivo
+    // ------------------------------------------------------------------
+
+    private void PermissaoDispositivo_Click(object sender, RoutedEventArgs e)
+    {
+        // O binding TwoWay já escreveu no objeto; aqui só persiste e avisa.
+        if (sender is not System.Windows.Controls.CheckBox caixa) return;
+        var id = caixa.Tag?.ToString();
+        var dispositivo = _servidor.Configuracao.Dispositivos.FirstOrDefault(d => d.Id == id);
+        if (dispositivo is null) return;
+        _servidor.SalvarConfiguracao();
+        AtualizarTela();
+        RegistrarEvento($"Permissões de {dispositivo.Nome} atualizadas");
+    }
+
     // ------------------------------------------------------------------
     // Diagnóstico
     // ------------------------------------------------------------------
@@ -658,6 +866,7 @@ public partial class MainWindow : Window
         _moldura?.Close();
         _tray.Visible = false;
         _tray.Dispose();
+        if (_relay is not null) await _relay.DisposeAsync();
         await _servidorArquivos.DisposeAsync();
         await _servidor.DisposeAsync();
         Dispatcher.Invoke(() => System.Windows.Application.Current.Shutdown());
