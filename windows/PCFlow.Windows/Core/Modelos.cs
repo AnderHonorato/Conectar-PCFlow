@@ -34,7 +34,34 @@ public sealed class DispositivoAutorizado
     public bool Bloqueado { get; set; }
     public DateTime PareadoEm { get; set; } = DateTime.UtcNow;
     public DateTime UltimaConexao { get; set; } = DateTime.UtcNow;
+
+    /// <summary>Como este dispositivo chegou na última vez: "local", "internet" ou "servidor".</summary>
+    public string UltimaOrigem { get; set; } = "local";
+
+    /// <summary>
+    /// Quando falso, o dispositivo herda as permissões gerais do PC.
+    /// Quando verdadeiro, valem exclusivamente as permissões abaixo.
+    /// </summary>
+    public bool PermissoesProprias { get; set; }
+
+    public bool PermitirTela { get; set; } = true;
+    public bool PermitirEntrada { get; set; } = true;
+    public bool PermitirClipboard { get; set; } = true;
+    public bool PermitirEnergia { get; set; } = true;
+    public bool PermitirArquivos { get; set; } = true;
+
+    /// <summary>Este dispositivo pode entrar de fora da rede local.</summary>
+    public bool PermitirForaDaRede { get; set; } = true;
+
+    /// <summary>Permissões que valem para esta conexão, já resolvendo a herança.</summary>
+    public PermissoesEfetivas Resolver(ConfiguracaoPcFlow geral) => PermissoesProprias
+        ? new PermissoesEfetivas(PermitirTela, PermitirEntrada, PermitirClipboard, PermitirEnergia, PermitirArquivos)
+        : new PermissoesEfetivas(geral.PermitirTela, geral.PermitirEntrada, geral.PermitirClipboard,
+                                 geral.PermitirEnergia, geral.PermitirArquivos);
 }
+
+public sealed record PermissoesEfetivas(
+    bool Tela, bool Entrada, bool Clipboard, bool Energia, bool Arquivos);
 
 public sealed class ConfiguracaoPcFlow
 {
@@ -53,6 +80,26 @@ public sealed class ConfiguracaoPcFlow
     public bool PermitirArquivos { get; set; } = true;
     public List<DispositivoAutorizado> Dispositivos { get; set; } = [];
 
+    // --- Acesso de fora da rede local ---
+
+    /// <summary>Aceitar conexões que não vêm da rede local (internet ou servidor).</summary>
+    public bool PermitirAcessoExterno { get; set; }
+
+    /// <summary>Tentar abrir as portas no roteador por UPnP ao ligar o servidor.</summary>
+    public bool AbrirPortasUpnp { get; set; } = true;
+
+    /// <summary>
+    /// Endereço do servidor de retransmissão (host:porta). Vazio = sem servidor,
+    /// funcionando só por rede local e por IP público/UPnP.
+    /// </summary>
+    public string ServidorRelay { get; set; } = "";
+
+    /// <summary>Usar o servidor de retransmissão quando ele estiver configurado.</summary>
+    public bool UsarServidorRelay { get; set; }
+
+    /// <summary>Segredo que prova a posse do código neste servidor de retransmissão.</summary>
+    public string SegredoRelay { get; set; } = "";
+
     /// <summary>Tamanho da janela, sempre revalidado contra a tela atual ao abrir.</summary>
     public double JanelaLargura { get; set; }
     public double JanelaAltura { get; set; }
@@ -70,3 +117,14 @@ public sealed record SessaoAtiva(
     bool PermitirClipboard,
     bool PermitirEnergia,
     bool PermitirArquivos);
+
+/// <summary>
+/// De onde a conexão veio. O servidor trata rede local e internet com exigências
+/// diferentes, então essa classificação precisa acompanhar a sessão inteira.
+/// </summary>
+public sealed record OrigemConexao(string Descricao, bool RedeLocal, string Rotulo)
+{
+    public static OrigemConexao Local(string endereco) => new(endereco, true, "local");
+    public static OrigemConexao Internet(string endereco) => new(endereco, false, "internet");
+    public static OrigemConexao Servidor() => new("servidor de retransmissão", false, "servidor");
+}

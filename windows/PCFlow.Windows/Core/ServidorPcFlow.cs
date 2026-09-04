@@ -17,6 +17,10 @@ public sealed class ServidorPcFlow : IAsyncDisposable
     public const int PortaDescoberta = 45455;
     public const int PortaControle = 45456;
     public const int PortaTela = 45457;
+    public const int PortaArquivos = ServidorArquivosPcFlow.Porta;
+
+    /// <summary>Todas as portas TCP que precisam chegar até este PC.</summary>
+    public static readonly int[] PortasTcp = [PortaControle, PortaTela, PortaArquivos];
 
     private readonly ArmazenamentoConfiguracao _armazenamento = new();
     private readonly ConfiguracaoPcFlow _configuracao;
@@ -39,6 +43,24 @@ public sealed class ServidorPcFlow : IAsyncDisposable
     public ConfiguracaoPcFlow Configuracao => _configuracao;
     public bool Ativo { get; private set; }
     public bool Pausado { get; private set; }
+
+    /// <summary>IP público apurado na última tentativa de abrir acesso externo.</summary>
+    public string? IpPublico { get; private set; }
+
+    /// <summary>
+    /// Código para conectar de qualquer lugar: leva destino, porta e a identidade
+    /// TLS deste PC, então a pinagem continua valendo fora da rede local.
+    /// </summary>
+    public string CodigoAcessoExterno =>
+        IPAddress.TryParse(IpPublico, out var ip)
+            ? CodigoAcesso.GerarDireto(ip, PortaControle, ImpressaoTls)
+            : "";
+
+    /// <summary>O mesmo código, mas para a rede local — serve de atalho sem QR.</summary>
+    public string CodigoAcessoLocal =>
+        IPAddress.TryParse(EnderecoLocal, out var ip)
+            ? CodigoAcesso.GerarDireto(ip, PortaControle, ImpressaoTls)
+            : "";
 
     public Func<SolicitacaoConexao, Task<bool>>? SolicitarAceiteAsync { get; set; }
     public Func<bool>? JanelaVisivel { get; set; }
@@ -100,6 +122,7 @@ public sealed class ServidorPcFlow : IAsyncDisposable
                     maquinaId = MaquinaId,
                     porta = PortaControle,
                     portaTela = PortaTela,
+                    portaArquivos = PortaArquivos,
                     protocolo = 2,
                     tls = ImpressaoTls,
                     monitores = CapturaTela.QuantidadeMonitores
@@ -131,15 +154,30 @@ public sealed class ServidorPcFlow : IAsyncDisposable
         using (cliente)
         {
             var remoto = (cliente.Client.RemoteEndPoint as IPEndPoint)?.Address;
-            if (remoto is null || !EhRedeLocal(remoto))
+            var origem = ClassificarOrigem(remoto);
+            if (origem is null)
             {
-                StatusAlterado?.Invoke("Conexão recusada: origem fora da rede local");
+                StatusAlterado?.Invoke(
+                    "Conexão recusada: origem fora da rede local. Ligue \"Aceitar conexões de fora da rede\" em Acesso remoto para permitir.");
                 return;
             }
             cliente.NoDelay = true;
             cliente.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
+            await AtenderControleFluxoAsync(cliente.GetStream(), origem, () => cliente.Connected, ct);
+        }
+    }
 
-            using var ssl = new SslStream(cliente.GetStream(), false);
+    /// <summary>
+    /// Atende uma sessão de controle sobre qualquer transporte já estabelecido.
+    /// É o que permite a mesma sessão chegar por TCP direto ou por um canal
+    /// vindo do servidor de retransmissão, sem duplicar a lógica.
+    /// </summary>
+    public async Task AtenderControleFluxoAsync(Stream transporte, OrigemConexao origem,
+        Func<bool> conectado, CancellationToken ct)
+    {
+        {
+            var remoto = origem.Descricao;
+            using var ssl = new SslStream(transporte, false);
             try
             {
                 var negociado = await TlsPcFlow.AutenticarServidorAsync(ssl, _tls.Certificado, ct);
@@ -188,6 +226,43 @@ public sealed class ServidorPcFlow : IAsyncDisposable
                 return;
             }
 
+            // Fora da rede local a exigência sobe: só entra quem sabe a senha de
+            // acesso não supervisionado. Sem senha definida, nem tenta — é o que
+            // impede alguém de varrer a internet e cair na tela do PC.
+            if (!origem.RedeLocal)
+            {
+                if (!_configuracao.PermitirAcessoExterno)
+                {
+                    await EscreverJsonAsync(ssl, new
+                    {
+                        tipo = "erro",
+                        mensagem = "Este PC só aceita conexões da rede local. Ligue \"Aceitar conexões de fora da rede\" no PCFlow do computador."
+                    }, ct);
+                    return;
+                }
+                if (string.IsNullOrEmpty(_configuracao.SenhaHash))
+                {
+                    await EscreverJsonAsync(ssl, new
+                    {
+                        tipo = "erro",
+                        mensagem = "Para entrar de fora da rede é preciso definir uma senha de acesso em Segurança, no PCFlow do computador."
+                    }, ct);
+                    StatusAlterado?.Invoke($"Recusado {origem.Descricao}: acesso externo sem senha definida");
+                    return;
+                }
+                if (!SegurancaSenha.Verificar(ola.Senha ?? "", _configuracao.SenhaSalt, _configuracao.SenhaHash))
+                {
+                    await EscreverJsonAsync(ssl, new
+                    {
+                        tipo = "erro",
+                        mensagem = "Senha de acesso incorreta. Conexões de fora da rede local sempre exigem a senha."
+                    }, ct);
+                    StatusAlterado?.Invoke($"Recusado {origem.Descricao}: senha de acesso externo incorreta");
+                    await Task.Delay(1500, ct); // atrasa quem fica tentando na sorte
+                    return;
+                }
+            }
+
             var informouPin = !string.IsNullOrWhiteSpace(ola.Pin);
             var pinValido = informouPin && ola.Pin!.Replace(" ", "") == CodigoPareamento;
             if (informouPin && !pinValido)
@@ -202,6 +277,15 @@ public sealed class ServidorPcFlow : IAsyncDisposable
                 await EscreverJsonAsync(ssl, new { tipo = "erro", mensagem = "Dispositivo bloqueado neste computador" }, ct);
                 return;
             }
+            if (conhecido is not null && !origem.RedeLocal && !conhecido.PermitirForaDaRede)
+            {
+                await EscreverJsonAsync(ssl, new
+                {
+                    tipo = "erro",
+                    mensagem = $"{conhecido.Nome} só pode conectar pela rede local. Libere o acesso externo deste dispositivo em Dispositivos, no PC."
+                }, ct);
+                return;
+            }
 
             var tokenValido = conhecido is not null && TokenIgual(conhecido.Token, ola.Token);
             var acessoNaoSupervisionado = SegurancaSenha.Verificar(ola.Senha ?? "", _configuracao.SenhaSalt, _configuracao.SenhaHash);
@@ -213,7 +297,7 @@ public sealed class ServidorPcFlow : IAsyncDisposable
             {
                 StatusAlterado?.Invoke($"Solicitação de {ola.Nome ?? "Android"} aguardando aceite");
                 aceito = await SolicitarPermissaoInterativaAsync(
-                    new SolicitacaoConexao(ola.DispositivoId, ola.Nome ?? "Android", remoto.ToString(), tokenValido));
+                    new SolicitacaoConexao(ola.DispositivoId, ola.Nome ?? "Android", origem.Descricao, tokenValido));
             }
 
             if (!aceito)
@@ -232,18 +316,22 @@ public sealed class ServidorPcFlow : IAsyncDisposable
                 if (!_configuracao.Dispositivos.Contains(conhecido)) _configuracao.Dispositivos.Add(conhecido);
             }
             else conhecido.UltimaConexao = DateTime.UtcNow;
+            conhecido.UltimaOrigem = origem.Rotulo;
 
             _armazenamento.Salvar(_configuracao);
             if (pinValido) CodigoPareamento = GerarPin();
             DispositivosAlterados?.Invoke();
 
+            // As permissões do dispositivo mandam quando ele tem regra própria;
+            // fora isso valem as gerais do PC.
+            var permitido = conhecido.Resolver(_configuracao);
             var sessaoId = Convert.ToHexString(RandomNumberGenerator.GetBytes(24)).ToLowerInvariant();
-            var sessao = new SessaoAtiva(sessaoId, conhecido.Id, conhecido.Nome, remoto.ToString(),
-                _configuracao.PermitirTela, _configuracao.PermitirEntrada, _configuracao.PermitirClipboard,
-                _configuracao.PermitirEnergia, _configuracao.PermitirArquivos);
+            var sessao = new SessaoAtiva(sessaoId, conhecido.Id, conhecido.Nome, origem.Descricao,
+                permitido.Tela, permitido.Entrada, permitido.Clipboard,
+                permitido.Energia, permitido.Arquivos);
             _sessoes[sessaoId] = sessao;
             SessoesAlteradas?.Invoke(_sessoes.Count);
-            StatusAlterado?.Invoke($"{conhecido.Nome} conectado");
+            StatusAlterado?.Invoke($"{conhecido.Nome} conectado ({origem.Rotulo})");
 
             await EscreverJsonAsync(ssl, new
             {
@@ -253,6 +341,7 @@ public sealed class ServidorPcFlow : IAsyncDisposable
                 nome = Environment.MachineName,
                 maquinaId = MaquinaId,
                 portaTela = PortaTela,
+                portaArquivos = PortaArquivos,
                 monitores = CapturaTela.DescreverMonitores(),
                 permissoes = new
                 {
@@ -266,7 +355,7 @@ public sealed class ServidorPcFlow : IAsyncDisposable
 
             try
             {
-                while (!ct.IsCancellationRequested && cliente.Connected)
+                while (!ct.IsCancellationRequested && conectado())
                 {
                     var linha = await LerLinhaAsync(ssl, ct);
                     if (linha is null) break;
@@ -338,10 +427,18 @@ public sealed class ServidorPcFlow : IAsyncDisposable
     {
         using (cliente)
         {
-            var remoto = (cliente.Client.RemoteEndPoint as IPEndPoint)?.Address;
-            if (remoto is null || !EhRedeLocal(remoto)) return;
+            var origem = ClassificarOrigem((cliente.Client.RemoteEndPoint as IPEndPoint)?.Address);
+            if (origem is null) return;
             cliente.NoDelay = true;
-            using var ssl = new SslStream(cliente.GetStream(), false);
+            await TransmitirTelaFluxoAsync(cliente.GetStream(), () => cliente.Connected, ct);
+        }
+    }
+
+    /// <summary>Transmite a tela sobre qualquer transporte já estabelecido.</summary>
+    public async Task TransmitirTelaFluxoAsync(Stream transporte, Func<bool> conectado, CancellationToken ct)
+    {
+        {
+            using var ssl = new SslStream(transporte, false);
             try
             {
                 await TlsPcFlow.AutenticarServidorAsync(ssl, _tls.Certificado, ct);
@@ -355,7 +452,7 @@ public sealed class ServidorPcFlow : IAsyncDisposable
                 var monitor = Math.Clamp(pedido.Monitor, 0, Math.Max(0, CapturaTela.QuantidadeMonitores - 1));
                 var cabecalho = new byte[4];
 
-                while (!ct.IsCancellationRequested && cliente.Connected && _sessoes.ContainsKey(pedido.SessaoId))
+                while (!ct.IsCancellationRequested && conectado() && _sessoes.ContainsKey(pedido.SessaoId))
                 {
                     var quadro = CapturaTela.CapturarJpeg(monitor, qualidade);
                     if (quadro.Length == 0 || quadro.Length > 16_000_000) break;
@@ -404,6 +501,26 @@ public sealed class ServidorPcFlow : IAsyncDisposable
     }
 
     public void SalvarConfiguracao() => _armazenamento.Salvar(_configuracao);
+
+    private readonly AcessoRemoto _acessoExterno = new();
+
+    /// <summary>
+    /// Prepara o acesso de fora da rede: descobre o IP público e, se permitido,
+    /// pede ao roteador para encaminhar as portas do PCFlow.
+    /// </summary>
+    public async Task<ResultadoAcessoExterno> PrepararAcessoExternoAsync(CancellationToken ct = default)
+    {
+        var resultado = _configuracao.AbrirPortasUpnp
+            ? await _acessoExterno.AbrirAsync(PortasTcp, ct)
+            : new ResultadoAcessoExterno(false, await _acessoExterno.ObterIpPublicoAsync(ct), null, [], false,
+                "Encaminhamento automático desligado: abra as portas no roteador ou use o servidor de retransmissão.");
+        IpPublico = resultado.IpPublico;
+        StatusAlterado?.Invoke(resultado.Detalhe);
+        return resultado;
+    }
+
+    /// <summary>Desfaz o encaminhamento de portas feito no roteador.</summary>
+    public Task FecharAcessoExternoAsync(CancellationToken ct = default) => _acessoExterno.FecharAsync(ct);
 
     public bool DefinirSenhaNaoSupervisionada(string senha)
     {
@@ -463,6 +580,26 @@ public sealed class ServidorPcFlow : IAsyncDisposable
         var b = Encoding.UTF8.GetBytes(recebido);
         return a.Length == b.Length && CryptographicOperations.FixedTimeEquals(a, b);
     }
+
+    /// <summary>
+    /// Decide se uma origem pode sequer tentar conectar e como ela será tratada.
+    /// Devolve null quando a conexão deve ser cortada ali mesmo.
+    /// </summary>
+    private OrigemConexao? ClassificarOrigem(IPAddress? endereco)
+    {
+        if (endereco is null) return null;
+        if (EhRedeLocal(endereco)) return OrigemConexao.Local(endereco.ToString());
+        if (!_configuracao.PermitirAcessoExterno) return null;
+        return OrigemConexao.Internet(endereco.ToString());
+    }
+
+    /// <summary>Entrega ao servidor um canal já aberto pelo servidor de retransmissão.</summary>
+    public Task AtenderCanalDoRelayAsync(string canal, Stream transporte, Func<bool> conectado, CancellationToken ct) =>
+        canal switch
+        {
+            "tela" => TransmitirTelaFluxoAsync(transporte, conectado, ct),
+            _ => AtenderControleFluxoAsync(transporte, OrigemConexao.Servidor(), conectado, ct)
+        };
 
     private static bool EhRedeLocal(IPAddress endereco)
     {

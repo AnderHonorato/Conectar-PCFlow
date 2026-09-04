@@ -2,7 +2,6 @@ using System.IO;
 using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
-using System.Security.Authentication;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -55,12 +54,9 @@ public sealed class ServidorArquivosPcFlow : IAsyncDisposable
             using var ssl = new SslStream(cliente.GetStream(), false);
             try
             {
-                await ssl.AuthenticateAsServerAsync(new SslServerAuthenticationOptions
-                {
-                    ServerCertificate = _tls.Certificado,
-                    ClientCertificateRequired = false,
-                    EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13
-                }, ct);
+                // Mesma correção do canal de controle: fixar Tls12|Tls13 quebrava
+                // o handshake no Windows 10, cujo SChannel não expõe TLS 1.3.
+                await TlsPcFlow.AutenticarServidorAsync(ssl, _tls.Certificado, ct);
 
                 var autenticacaoTexto = await LerLinhaAsync(ssl, ct);
                 if (autenticacaoTexto is null) return;
