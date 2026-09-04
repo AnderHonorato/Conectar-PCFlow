@@ -33,10 +33,9 @@ var json = new JsonSerializerOptions(JsonSerializerDefaults.Web);
 using var encerrar = new CancellationTokenSource();
 Console.CancelKeyPress += (_, e) => { e.Cancel = true; encerrar.Cancel(); };
 
-var ouvinte = new TcpListener(IPAddress.IPv6Any, porta);
-ouvinte.Server.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, false);
+var ouvinte = AbrirEscuta(porta);
 ouvinte.Start();
-Registrar($"PCFlow Relay ouvindo na porta {porta}");
+Registrar($"PCFlow Relay ouvindo na porta {porta} ({ouvinte.LocalEndpoint})");
 
 _ = Task.Run(async () =>
 {
@@ -232,6 +231,29 @@ static byte[] Resumo(string segredo) => SHA256.HashData(Encoding.UTF8.GetBytes(s
 
 static void Registrar(string mensagem) =>
     Console.WriteLine($"{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}Z  {mensagem}");
+
+/// <summary>
+/// Escuta em IPv6 com pilha dupla quando a máquina tem IPv6, e volta para IPv4
+/// puro quando não tem — contêineres e VPS pequenas costumam vir sem IPv6, e o
+/// servidor não pode simplesmente morrer nesses lugares.
+/// </summary>
+static TcpListener AbrirEscuta(int porta)
+{
+    if (Socket.OSSupportsIPv6)
+    {
+        try
+        {
+            var duplo = new TcpListener(IPAddress.IPv6Any, porta);
+            duplo.Server.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, false);
+            return duplo;
+        }
+        catch (SocketException ex)
+        {
+            Registrar($"IPv6 indisponível ({ex.SocketErrorCode}); escutando somente em IPv4.");
+        }
+    }
+    return new TcpListener(IPAddress.Any, porta);
+}
 
 static int ResolverPorta(string[] args)
 {

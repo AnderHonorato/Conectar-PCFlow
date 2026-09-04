@@ -17,5 +17,11 @@
        lógica de TLS e de rede seja testada sem precisar de um host Windows. -->
   <ItemGroup>
     <Compile Include="..\PCFlow.Windows\Core\TlsPcFlow.cs" Link="Core\TlsPcFlow.cs" />
+    <Compile Include="..\PCFlow.Windows\Core\CodigoAcesso.cs" Link="Core\CodigoAcesso.cs" />
+  </ItemGroup>
+
+  <!-- O servidor de retransmissão é iniciado de verdade pelos testes. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\server\PCFlow.Relay\PCFlow.Relay.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
 </Project>

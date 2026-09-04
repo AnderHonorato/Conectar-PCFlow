@@ -22,13 +22,16 @@ if ! grep -q '^PRONTO ' "$LOG"; then
 fi
 
 TLS=$(grep -m1 '^PRONTO ' "$LOG" | sed 's/.*tls=//')
+CODIGO=$(grep -m1 '^CODIGO ' "$LOG" | sed 's/^CODIGO //')
 echo "Servidor de teste em 127.0.0.1:$PORTA"
 echo "Impressao TLS: $TLS"
+echo "Codigo de acesso: $CODIGO"
 echo
 
 export PCFLOW_TESTE_HOST=127.0.0.1
 export PCFLOW_TESTE_PORTA="$PORTA"
 export PCFLOW_TESTE_TLS="$TLS"
+export PCFLOW_TESTE_CODIGO="$CODIGO"
 
 gradle -p android :app:testDebugUnitTest --tests '*InteropTlsTest*' --no-daemon --rerun-tasks -i 2>&1 \
   | grep -viE 'JAVA_TOOL_OPTIONS' \

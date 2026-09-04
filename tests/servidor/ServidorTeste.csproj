@@ -10,5 +10,6 @@
   <!-- Usa o código TLS real do aplicativo, sem cópia. -->
   <ItemGroup>
     <Compile Include="..\..\windows\PCFlow.Windows\Core\TlsPcFlow.cs" Link="TlsPcFlow.cs" />
+    <Compile Include="..\..\windows\PCFlow.Windows\Core\CodigoAcesso.cs" Link="CodigoAcesso.cs" />
   </ItemGroup>
 </Project>

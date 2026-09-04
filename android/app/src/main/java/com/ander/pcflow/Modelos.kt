@@ -8,8 +8,19 @@ data class PcEncontrado(
     val portaArquivos: Int = 45458,
     val maquinaId: String = "",
     val tls: String = "",
-    val monitores: Int = 1
-)
+    val monitores: Int = 1,
+    /**
+     * Quando preenchido, a conexão não vai direto ao PC: passa por um servidor
+     * de retransmissão do PCFlow. Formato "host" ou "host:porta".
+     */
+    val servidorRelay: String = "",
+    /** Código do PC dentro do servidor de retransmissão. */
+    val codigoRelay: String = "",
+    /** Este destino veio de um código de acesso, e não da busca na rede. */
+    val porCodigo: Boolean = false
+) {
+    val viaRelay: Boolean get() = servidorRelay.isNotBlank() && codigoRelay.isNotBlank()
+}
 
 enum class EstadoConexao { DESCONECTADO, CONECTANDO, CONECTADO, ERRO }
 

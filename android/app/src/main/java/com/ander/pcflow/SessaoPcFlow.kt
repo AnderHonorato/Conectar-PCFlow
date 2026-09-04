@@ -25,9 +25,10 @@ import javax.net.ssl.*
 
 object SessaoPcFlow {
     /** Deve casar com VersaoPcFlow.App no Windows: o servidor recusa versões diferentes. */
-    const val VERSAO_APP = "1.1.0"
+    const val VERSAO_APP = "1.2.0"
 
     private const val PORTA_DESCOBERTA = 45455
+    private const val PORTA_RELAY = 45460
     private const val TEMPO_DESCOBERTA_MS = 1800
 
     private val escopo = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -96,6 +97,42 @@ object SessaoPcFlow {
                     _estado.value = EstadoSessao(EstadoConexao.ERRO, mensagem = "Falha na descoberta: ${e.message}")
             }
         }
+    }
+
+    /**
+     * Monta um destino a partir do código de acesso mostrado no PC.
+     * `servidor` só é usado quando o código é do tipo que passa por servidor de
+     * retransmissão. Devolve null quando o código não é válido.
+     */
+    fun destinoDoCodigo(codigo: String, servidor: String = ""): PcEncontrado? {
+        val destino = CodigoAcesso.ler(codigo) ?: return null
+        return if (destino.direto)
+            PcEncontrado(
+                nome = "PC em ${destino.host}",
+                host = destino.host,
+                porta = destino.porta,
+                tls = destino.impressaoTls,
+                porCodigo = true
+            )
+        else {
+            if (servidor.isBlank()) return null
+            PcEncontrado(
+                nome = "PC ${destino.identificadorServidor}",
+                host = "servidor",
+                maquinaId = destino.identificadorServidor.toString(),
+                tls = destino.impressaoTls,
+                servidorRelay = servidor,
+                codigoRelay = destino.identificadorServidor.toString(),
+                porCodigo = true
+            )
+        }
+    }
+
+    /** O endereço do servidor de retransmissão fica guardado entre as sessões. */
+    fun servidorSalvo(): String = prefs().getString("servidor_relay", "") ?: ""
+
+    fun salvarServidor(endereco: String) {
+        prefs().edit().putString("servidor_relay", endereco.trim()).apply()
     }
 
     fun conectar(pc: PcEncontrado, pin: String? = null, senha: String? = null) {
@@ -440,7 +477,7 @@ object SessaoPcFlow {
     }
 
     private fun abrirTls(pc: PcEncontrado, porta: Int): SSLSocket {
-        if (pc.tls.isBlank()) error("Identidade TLS do PC não disponível. Atualize a descoberta ou use o QR Code.")
+        if (pc.tls.isBlank()) error("Identidade TLS do PC não disponível. Atualize a descoberta ou use o código de acesso.")
         val trustAll = object : X509TrustManager {
             override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
             override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) = Unit
@@ -448,18 +485,73 @@ object SessaoPcFlow {
         }
         val contextoSsl = SSLContext.getInstance("TLS")
         contextoSsl.init(null, arrayOf(trustAll), SecureRandom())
-        val ssl = contextoSsl.socketFactory.createSocket() as SSLSocket
-        ssl.connect(InetSocketAddress(pc.host, porta), 5000)
+
+        // Direto no PC, ou por dentro de um canal já aberto no servidor de
+        // retransmissão. Nos dois casos o TLS é com o PC, ponta a ponta: quem
+        // estiver no meio só vê bytes embaralhados.
+        val base = if (pc.viaRelay) abrirCanalRelay(pc, alvoDaPorta(pc, porta))
+                   else Socket().apply { connect(InetSocketAddress(pc.host, porta), 8000) }
+
+        val ssl = try {
+            contextoSsl.socketFactory.createSocket(base, pc.host, porta, true) as SSLSocket
+        } catch (e: Exception) {
+            runCatching { base.close() }
+            throw e
+        }
         ssl.tcpNoDelay = true
         ssl.keepAlive = true
         ssl.startHandshake()
+
         val cert = ssl.session.peerCertificates.firstOrNull() as? X509Certificate ?: error("Certificado remoto ausente")
         val atual = MessageDigest.getInstance("SHA-256").digest(cert.encoded).joinToString("") { "%02x".format(it.toInt() and 0xff) }
-        if (!atual.equals(pc.tls.replace(":", ""), ignoreCase = true)) {
+        // O código de acesso traz a impressão truncada; a descoberta traz inteira.
+        if (!CodigoAcesso.impressaoConfere(atual, pc.tls)) {
             ssl.close()
             throw SSLHandshakeException("A identidade deste PC mudou. Conexão bloqueada por segurança.")
         }
         return ssl
+    }
+
+    private fun alvoDaPorta(pc: PcEncontrado, porta: Int) = when (porta) {
+        pc.portaTela -> "tela"
+        pc.portaArquivos -> "arquivos"
+        else -> "controle"
+    }
+
+    /**
+     * Pede ao servidor de retransmissão um canal até o PC. O servidor avisa o
+     * computador, ele traz a outra ponta e a partir do "pronto" os bytes passam
+     * direto — o servidor não decifra nada, só emenda os dois lados.
+     */
+    private fun abrirCanalRelay(pc: PcEncontrado, alvo: String): Socket {
+        val separador = pc.servidorRelay.lastIndexOf(':')
+        val host = if (separador > 0) pc.servidorRelay.substring(0, separador) else pc.servidorRelay
+        val porta = if (separador > 0) pc.servidorRelay.substring(separador + 1).toIntOrNull() ?: PORTA_RELAY
+                    else PORTA_RELAY
+
+        val socket = Socket()
+        try {
+            socket.connect(InetSocketAddress(host, porta), 8000)
+            socket.tcpNoDelay = true
+            socket.soTimeout = 15_000
+
+            val saida = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), Charsets.UTF_8))
+            saida.write(JSONObject().put("tipo", "conectar").put("codigo", pc.codigoRelay).put("alvo", alvo).toString())
+            saida.newLine()
+            saida.flush()
+
+            val resposta = lerLinhaRaw(socket.getInputStream())
+                ?: error("O servidor de retransmissão não respondeu")
+            val json = JSONObject(resposta)
+            if (json.optString("tipo") != "pronto")
+                error(json.optString("mensagem", "O servidor não conseguiu falar com o computador"))
+
+            socket.soTimeout = 0
+            return socket
+        } catch (e: Exception) {
+            runCatching { socket.close() }
+            throw e
+        }
     }
 
     private fun obterDispositivoId(): String {

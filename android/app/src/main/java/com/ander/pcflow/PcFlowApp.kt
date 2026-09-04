@@ -79,6 +79,7 @@ private fun RootPcFlow() {
     var selecionado by remember { mutableStateOf<PcEncontrado?>(null) }
     var pin by remember { mutableStateOf("") }
     var senha by remember { mutableStateOf("") }
+    var abrirPorCodigo by remember { mutableStateOf(false) }
 
     val notificacao = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     val scanner = rememberLauncherForActivityResult(ScanContract()) { r ->
@@ -103,6 +104,7 @@ private fun RootPcFlow() {
                 estado = estado,
                 atualizar = SessaoPcFlow::descobrir,
                 conectar = { selecionado = it; pin = ""; senha = "" },
+                porCodigo = { abrirPorCodigo = true },
                 escanear = {
                     scanner.launch(
                         ScanOptions()
@@ -114,6 +116,16 @@ private fun RootPcFlow() {
                 }
             )
         }
+    }
+
+    if (abrirPorCodigo) {
+        DialogoCodigoAcesso(
+            fechar = { abrirPorCodigo = false },
+            conectar = { pc, senhaDigitada ->
+                abrirPorCodigo = false
+                SessaoPcFlow.conectar(pc, null, senhaDigitada.ifBlank { null })
+            }
+        )
     }
 
     selecionado?.let { pc ->
@@ -158,12 +170,91 @@ private fun RootPcFlow() {
     }
 }
 
+/**
+ * Conexão de fora da rede: o usuário cola o código que o PC mostra em
+ * "Pela internet". O código já leva endereço, porta e a identidade do PC, e
+ * conexões externas sempre exigem a senha de acesso definida lá.
+ */
+@Composable
+private fun DialogoCodigoAcesso(
+    fechar: () -> Unit,
+    conectar: (PcEncontrado, String) -> Unit
+) {
+    var codigo by remember { mutableStateOf("") }
+    var senha by remember { mutableStateOf("") }
+    var servidor by remember { mutableStateOf(SessaoPcFlow.servidorSalvo()) }
+    var erro by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = fechar,
+        containerColor = Painel,
+        shape = RoundedCornerShape(22.dp),
+        title = { Text("Conectar por código") },
+        text = {
+            Column {
+                Text(
+                    "Abra o PCFlow no computador, vá em \"Pela internet\" e copie o código de acesso. " +
+                        "Ele carrega o endereço e a identidade do PC, então a conexão continua verificada.",
+                    color = Texto2, fontSize = 12.sp
+                )
+                OutlinedTextField(
+                    value = codigo,
+                    onValueChange = { codigo = it; erro = "" },
+                    modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
+                    label = { Text("Código de acesso") },
+                    minLines = 2
+                )
+                OutlinedTextField(
+                    value = senha,
+                    onValueChange = { senha = it },
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    label = { Text("Senha de acesso do PC") },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation()
+                )
+                OutlinedTextField(
+                    value = servidor,
+                    onValueChange = { servidor = it },
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    label = { Text("Servidor de retransmissão (opcional)") },
+                    singleLine = true
+                )
+                Text(
+                    "O servidor só é necessário quando o PC avisou que está atrás de CGNAT e usa retransmissão.",
+                    color = Texto2, fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp)
+                )
+                if (erro.isNotBlank())
+                    Text(erro, color = Perigo, fontSize = 12.sp, modifier = Modifier.padding(top = 10.dp))
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                SessaoPcFlow.salvarServidor(servidor)
+                val destino = SessaoPcFlow.destinoDoCodigo(codigo.trim(), servidor.trim())
+                if (destino == null) {
+                    erro = if (servidor.isBlank())
+                        "Código não reconhecido. Confira se copiou inteiro — e, se ele for de servidor, preencha o endereço do servidor."
+                    else "Código não reconhecido. Copie de novo no computador."
+                    return@Button
+                }
+                if (senha.isBlank()) {
+                    erro = "Conexões de fora da rede sempre pedem a senha definida no PC, em Segurança."
+                    return@Button
+                }
+                conectar(destino, senha)
+            }) { Text("Conectar") }
+        },
+        dismissButton = { TextButton(onClick = fechar) { Text("Cancelar") } }
+    )
+}
+
 @Composable
 private fun TelaConectar(
     pcs: List<PcEncontrado>,
     estado: EstadoSessao,
     atualizar: () -> Unit,
     conectar: (PcEncontrado) -> Unit,
+    porCodigo: () -> Unit,
     escanear: () -> Unit
 ) {
     var busca by remember { mutableStateOf("") }
@@ -196,6 +287,12 @@ private fun TelaConectar(
             }
             Button(onClick = escanear, modifier = Modifier.weight(1f).height(52.dp), shape = RoundedCornerShape(26.dp)) { Text("Escanear QR") }
         }
+        OutlinedButton(
+            onClick = porCodigo,
+            modifier = Modifier.fillMaxWidth().padding(top = 10.dp).height(52.dp),
+            border = BorderStroke(1.dp, Borda),
+            shape = RoundedCornerShape(26.dp)
+        ) { Text("Conectar por código (fora do Wi‑Fi)", color = Ouro) }
 
         Text("Computadores encontrados", fontSize = 20.sp, modifier = Modifier.padding(top = 28.dp, bottom = 12.dp))
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {

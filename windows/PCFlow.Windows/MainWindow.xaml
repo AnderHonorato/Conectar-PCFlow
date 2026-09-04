@@ -1,7 +1,7 @@
 <Window x:Class="PCFlow.Windows.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="PCFlow 1.1.0"
+        Title="PCFlow 1.2.0"
         Width="1100" Height="720" MinWidth="620" MinHeight="440"
         ResizeMode="CanResize" SizeToContent="Manual"
         WindowStartupLocation="Manual" UseLayoutRounding="True"

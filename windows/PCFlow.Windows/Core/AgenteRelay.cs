@@ -35,8 +35,18 @@ public sealed class AgenteRelay : IAsyncDisposable
         _configuracao = servidor.Configuracao;
     }
 
-    /// <summary>Código que o usuário digita no celular para chegar por servidor.</summary>
+    /// <summary>Identificador deste PC dentro do servidor de retransmissão.</summary>
     public string CodigoServidor => _configuracao.MaquinaId;
+
+    /// <summary>
+    /// Código de acesso para colar no celular quando a conexão vai pelo servidor.
+    /// Leva o identificador e a identidade TLS, então a pinagem continua valendo
+    /// mesmo com o servidor no meio do caminho.
+    /// </summary>
+    public string CodigoAcessoServidor =>
+        uint.TryParse(_configuracao.MaquinaId, out var identificador) && _servidor.ImpressaoTls.Length >= 32
+            ? CodigoAcesso.GerarPorServidor(identificador, _servidor.ImpressaoTls)
+            : "";
 
     public void Iniciar()
     {

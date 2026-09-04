@@ -550,7 +550,8 @@ public partial class MainWindow : Window
             ? (string.IsNullOrWhiteSpace(c.ServidorRelay)
                 ? "Nenhum servidor configurado. Sem ele, o acesso de fora depende do roteador aceitar UPnP."
                 : $"Servidor {c.ServidorRelay} salvo, mas desligado.")
-            : $"{_relay.UltimoDetalhe}\nCódigo neste servidor: {_relay.CodigoServidor}";
+            : $"{_relay.UltimoDetalhe}\n\nCole este código no celular (ele já inclui a identidade deste PC):\n" +
+              $"{_relay.CodigoAcessoServidor}\n\nNo celular, aponte o servidor para {c.ServidorRelay}.";
     }
 
     private void ConfigInternet_Click(object sender, RoutedEventArgs e)

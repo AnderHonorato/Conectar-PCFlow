@@ -34,6 +34,7 @@ class InteropTlsTest {
     private val host = System.getenv("PCFLOW_TESTE_HOST")
     private val porta = System.getenv("PCFLOW_TESTE_PORTA")?.toIntOrNull()
     private val impressao = System.getenv("PCFLOW_TESTE_TLS")
+    private val codigo = System.getenv("PCFLOW_TESTE_CODIGO")
 
     /**
      * Cópia fiel de SessaoPcFlow.abrirTls: mesmo contexto, mesma pinagem.
@@ -63,7 +64,9 @@ class InteropTlsTest {
         val atual = MessageDigest.getInstance("SHA-256")
             .digest(certificado.encoded)
             .joinToString("") { "%02x".format(it.toInt() and 0xff) }
-        if (!atual.equals(impressaoEsperada.replace(":", ""), ignoreCase = true)) {
+        // Igual ao app: aceita a impressão completa da descoberta e a truncada
+        // que vem dentro do código de acesso, sempre exigindo o mesmo prefixo.
+        if (!CodigoAcesso.impressaoConfere(atual, impressaoEsperada)) {
             ssl.close()
             throw SSLHandshakeException("A identidade deste PC mudou. Conexão bloqueada por segurança.")
         }
@@ -178,6 +181,55 @@ class InteropTlsTest {
             assertTrue("Mensagem pouco clara: $mensagem", mensagem.contains("Versões diferentes"))
             assertTrue(mensagem.contains("0.2.0"))
         }
+    }
+
+    /**
+     * O código de acesso é gerado em C# e lido em Kotlin. Se os dois lados
+     * discordarem de um único bit, conectar de fora da rede para de funcionar —
+     * então o teste decodifica o código de verdade e conecta com o que saiu dele.
+     */
+    @Test
+    fun `codigo de acesso gerado pelo PC leva o app ate o servidor`() {
+        Assume.assumeTrue(
+            "Servidor de teste não iniciado (use tests/rodar-interop.sh)",
+            host != null && porta != null && impressao != null && codigo != null
+        )
+
+        val destino = CodigoAcesso.ler(codigo!!)
+        assertTrue("O app não reconheceu o código gerado pelo PC: $codigo", destino != null)
+        assertTrue("O código deveria ser de conexão direta", destino!!.direto)
+        assertEquals("127.0.0.1", destino.host)
+        assertEquals(porta, destino.porta)
+
+        // A impressão do código é truncada; precisa fechar com a do certificado.
+        assertTrue(
+            "A identidade do código não bate com a do servidor",
+            CodigoAcesso.impressaoConfere(impressao!!, destino.impressaoTls)
+        )
+
+        // E, com ela, a conexão real tem que subir.
+        abrirTls(destino.host, destino.porta, destino.impressaoTls).use { ssl ->
+            val leitor = BufferedReader(InputStreamReader(ssl.inputStream, Charsets.UTF_8))
+            val escritor = BufferedWriter(OutputStreamWriter(ssl.outputStream, Charsets.UTF_8))
+            escritor.write(
+                JSONObject()
+                    .put("tipo", "ola")
+                    .put("dispositivoId", "celular-fora-da-rede")
+                    .put("nome", "Celular por código")
+                    .put("appVersao", SessaoPcFlow.VERSAO_APP).toString()
+            )
+            escritor.newLine(); escritor.flush()
+            assertEquals("conectado", JSONObject(leitor.readLine()!!).optString("tipo"))
+        }
+    }
+
+    /** O código truncado de um certificado diferente não pode passar. */
+    @Test
+    fun `codigo de outro computador nao serve para este`() {
+        val impressaoDeOutro = "ff".repeat(16)
+        assertTrue(
+            !CodigoAcesso.impressaoConfere("00".repeat(32), impressaoDeOutro)
+        )
     }
 
     @Test

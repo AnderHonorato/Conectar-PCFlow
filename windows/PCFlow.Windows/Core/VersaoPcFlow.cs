@@ -9,6 +9,6 @@ namespace PCFlow.Windows.Core;
 /// </summary>
 public static class VersaoPcFlow
 {
-    public const string App = "1.1.0";
+    public const string App = "1.2.0";
     public const int Protocolo = 2;
 }

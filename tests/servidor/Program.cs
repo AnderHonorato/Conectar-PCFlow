@@ -24,7 +24,12 @@ var impressao = Convert.ToHexString(SHA256.HashData(certificado.RawData)).ToLowe
 var ouvinte = new TcpListener(IPAddress.Loopback, porta);
 ouvinte.Start();
 
+// O mesmo gerador que o aplicativo Windows usa: o teste Kotlin decodifica este
+// código para provar que os dois lados falam exatamente o mesmo formato.
+var codigoAcesso = CodigoAcesso.GerarDireto(IPAddress.Loopback, porta, impressao);
+
 Console.WriteLine($"PRONTO porta={porta} tls={impressao}");
+Console.WriteLine($"CODIGO {codigoAcesso}");
 Console.Out.Flush();
 
 var json = new JsonSerializerOptions(JsonSerializerDefaults.Web);
@@ -147,5 +152,5 @@ static X509Certificate2 CriarCertificado()
 // Espelha a constante do aplicativo para o teste de versão.
 file static class VersaoPcFlow
 {
-    public const string App = "1.1.0";
+    public const string App = "1.2.0";
 }
