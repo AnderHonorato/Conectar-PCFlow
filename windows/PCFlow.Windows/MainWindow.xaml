@@ -2,23 +2,18 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="PCFlow"
-        Width="1020" Height="680"
-        MinWidth="600" MinHeight="420"
-        ResizeMode="CanResize"
-        SizeToContent="Manual"
-        WindowStartupLocation="Manual"
-        UseLayoutRounding="True"
-        Background="#0E1218" Foreground="#F2F5F8"
+        Width="1100" Height="720" MinWidth="620" MinHeight="440"
+        ResizeMode="CanResize" SizeToContent="Manual"
+        WindowStartupLocation="Manual" UseLayoutRounding="True"
+        Background="#0F1318" Foreground="#F5F7FA"
         FontFamily="Segoe UI" FontSize="13">
 
     <Window.Resources>
-        <SolidColorBrush x:Key="Fundo" Color="#0E1218"/>
         <SolidColorBrush x:Key="Painel" Color="#151A21"/>
-        <SolidColorBrush x:Key="PainelClaro" Color="#1B212A"/>
-        <SolidColorBrush x:Key="Borda" Color="#2B323C"/>
+        <SolidColorBrush x:Key="Painel2" Color="#1A2028"/>
+        <SolidColorBrush x:Key="Borda" Color="#2E353F"/>
         <SolidColorBrush x:Key="Destaque" Color="#F2AA2E"/>
-        <SolidColorBrush x:Key="DestaqueFraco" Color="#6B5223"/>
-        <SolidColorBrush x:Key="Sucesso" Color="#16D3C6"/>
+        <SolidColorBrush x:Key="Sucesso" Color="#13D4C4"/>
         <SolidColorBrush x:Key="Alerta" Color="#FF8A80"/>
         <SolidColorBrush x:Key="Secundario" Color="#98A1AC"/>
 
@@ -26,38 +21,31 @@
             <Setter Property="Foreground" Value="#EDF1F5"/>
             <Setter Property="TextWrapping" Value="Wrap"/>
         </Style>
-
-        <Style x:Key="Titulo" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="24"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Margin" Value="0,0,0,4"/>
-        </Style>
-        <Style x:Key="Secao" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="15"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Margin" Value="0,18,0,8"/>
-        </Style>
         <Style x:Key="Sub" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{StaticResource Secundario}"/>
             <Setter Property="FontSize" Value="12"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style x:Key="Secao" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="0,0,0,10"/>
         </Style>
 
         <Style TargetType="Button">
-            <Setter Property="Foreground" Value="#EDF1F5"/>
-            <Setter Property="Background" Value="#1B212A"/>
+            <Setter Property="Foreground" Value="#F6F7F9"/>
+            <Setter Property="Background" Value="#1A2028"/>
             <Setter Property="BorderBrush" Value="{StaticResource Borda}"/>
-            <Setter Property="Padding" Value="14,8"/>
+            <Setter Property="Padding" Value="14,9"/>
             <Setter Property="Margin" Value="0,0,8,8"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="SnapsToDevicePixels" Value="True"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="raiz"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="1" CornerRadius="10"
-                                Padding="{TemplateBinding Padding}">
+                        <Border x:Name="raiz" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1"
+                                CornerRadius="11" Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
@@ -74,7 +62,7 @@
         </Style>
 
         <Style x:Key="BotaoPrimario" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-            <Setter Property="Foreground" Value="#0E1218"/>
+            <Setter Property="Foreground" Value="#0F1318"/>
             <Setter Property="Background" Value="{StaticResource Destaque}"/>
             <Setter Property="BorderBrush" Value="{StaticResource Destaque}"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
@@ -86,18 +74,19 @@
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
             <Setter Property="Margin" Value="0,0,0,4"/>
-            <Setter Property="Padding" Value="12,9"/>
+            <Setter Property="Padding" Value="12,10"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="raiz" Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1"
                                 CornerRadius="10" Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="raiz" Property="Background" Value="#1B212A"/>
+                                <Setter TargetName="raiz" Property="Background" Value="#1A2028"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -106,16 +95,22 @@
         </Style>
 
         <Style TargetType="CheckBox">
-            <Setter Property="Foreground" Value="#DDE3E9"/>
-            <Setter Property="Margin" Value="0,0,0,10"/>
+            <Setter Property="Foreground" Value="#C8CDD4"/>
+            <Setter Property="Margin" Value="0,0,0,9"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
         <Style TargetType="TextBox">
             <Setter Property="Background" Value="#11161C"/>
-            <Setter Property="Foreground" Value="#EDF1F5"/>
+            <Setter Property="Foreground" Value="#F5F7FA"/>
             <Setter Property="BorderBrush" Value="{StaticResource Borda}"/>
-            <Setter Property="Padding" Value="8,6"/>
-            <Setter Property="CaretBrush" Value="#EDF1F5"/>
+            <Setter Property="Padding" Value="9,7"/>
+            <Setter Property="CaretBrush" Value="#F5F7FA"/>
+        </Style>
+        <Style TargetType="PasswordBox">
+            <Setter Property="Background" Value="#11161C"/>
+            <Setter Property="Foreground" Value="#F5F7FA"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Borda}"/>
+            <Setter Property="Padding" Value="9,7"/>
         </Style>
         <Style TargetType="ComboBox">
             <Setter Property="Padding" Value="8,5"/>
@@ -126,63 +121,58 @@
             <Setter Property="Background" Value="{StaticResource Painel}"/>
             <Setter Property="BorderBrush" Value="{StaticResource Borda}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="14"/>
-            <Setter Property="Padding" Value="18"/>
+            <Setter Property="CornerRadius" Value="16"/>
+            <Setter Property="Padding" Value="20"/>
             <Setter Property="Margin" Value="0,0,0,14"/>
         </Style>
     </Window.Resources>
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition x:Name="ColunaNav" Width="176"/>
+            <ColumnDefinition x:Name="ColunaNav" Width="192"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <!-- Navegação lateral -->
-        <Border Grid.Column="0" Background="#11161C" BorderBrush="{StaticResource Borda}" BorderThickness="0,0,1,0">
-            <Grid Margin="12,16,12,12">
+        <!-- ================= NAVEGAÇÃO ================= -->
+        <Border Grid.Column="0" Background="#12171D" BorderBrush="{StaticResource Borda}" BorderThickness="0,0,1,0">
+            <Grid Margin="14,16,14,14">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <StackPanel Orientation="Horizontal" Margin="4,4,0,22">
-                    <Border Width="26" Height="20" BorderBrush="{StaticResource Destaque}"
-                            BorderThickness="2" CornerRadius="4"/>
-                    <TextBlock x:Name="RotuloLogo" Text="PCFlow" FontSize="17" FontWeight="SemiBold"
-                               Margin="10,0,0,0" VerticalAlignment="Center"/>
+                <StackPanel Orientation="Horizontal" Margin="4,4,0,24">
+                    <Border Width="28" Height="21" BorderBrush="{StaticResource Destaque}" BorderThickness="2" CornerRadius="4"/>
+                    <TextBlock x:Name="RotuloLogo" Text="PCFlow" FontSize="18" FontWeight="SemiBold"
+                               Margin="11,0,0,0" VerticalAlignment="Center"/>
                 </StackPanel>
 
                 <StackPanel Grid.Row="1">
-                    <Button x:Name="NavInicio" Style="{StaticResource BotaoNav}" Content="Início"
-                            Tag="0" Click="Navegar_Click"/>
-                    <Button x:Name="NavDispositivos" Style="{StaticResource BotaoNav}" Content="Dispositivos"
-                            Tag="1" Click="Navegar_Click"/>
-                    <Button x:Name="NavConexao" Style="{StaticResource BotaoNav}" Content="Conexão"
-                            Tag="2" Click="Navegar_Click"/>
-                    <Button x:Name="NavDiagnostico" Style="{StaticResource BotaoNav}" Content="Diagnóstico"
-                            Tag="3" Click="Navegar_Click"/>
-                    <Button x:Name="NavAjustes" Style="{StaticResource BotaoNav}" Content="Ajustes"
-                            Tag="4" Click="Navegar_Click"/>
+                    <Button x:Name="MenuVisaoGeral" Style="{StaticResource BotaoNav}" Content="Visão geral" Tag="visao" Click="NavegarMenu_Click"/>
+                    <Button x:Name="MenuConexao" Style="{StaticResource BotaoNav}" Content="Conexão" Tag="conexao" Click="NavegarMenu_Click"/>
+                    <Button x:Name="MenuAcessoRemoto" Style="{StaticResource BotaoNav}" Content="Acesso remoto" Tag="remoto" Click="NavegarMenu_Click"/>
+                    <Button x:Name="MenuDispositivos" Style="{StaticResource BotaoNav}" Content="Dispositivos" Tag="dispositivos" Click="NavegarMenu_Click"/>
+                    <Button x:Name="MenuSeguranca" Style="{StaticResource BotaoNav}" Content="Segurança" Tag="seguranca" Click="NavegarMenu_Click"/>
+                    <Button x:Name="MenuRecursos" Style="{StaticResource BotaoNav}" Content="Diagnóstico" Tag="recursos" Click="NavegarMenu_Click"/>
                 </StackPanel>
 
                 <StackPanel Grid.Row="2">
                     <TextBlock x:Name="RodapeVersao" Style="{StaticResource Sub}" Margin="4,0,0,10"/>
-                    <Button Content="Minimizar para a bandeja" Click="Minimizar_Click" Margin="0"/>
+                    <Button Content="Minimizar para a bandeja" Click="Minimizar_Click" Margin="0,0,0,6"/>
+                    <Button Content="Encerrar PCFlow" Click="Encerrar_Click" Foreground="#FF8A80" BorderBrush="#6A3535" Margin="0"/>
                 </StackPanel>
             </Grid>
         </Border>
 
-        <!-- Conteúdo -->
+        <!-- ================= CONTEÚDO ================= -->
         <Grid Grid.Column="1">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <!-- Barra de status -->
-            <Border Grid.Row="0" Background="#11161C" BorderBrush="{StaticResource Borda}"
+            <Border Grid.Row="0" Background="#12171D" BorderBrush="{StaticResource Borda}"
                     BorderThickness="0,0,0,1" Padding="24,14">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -190,199 +180,234 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel>
-                        <TextBlock x:Name="TituloPagina" Text="Início" FontSize="19" FontWeight="SemiBold"/>
+                        <TextBlock x:Name="TituloPagina" Text="Visão geral" FontSize="19" FontWeight="SemiBold"/>
                         <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
-                            <Ellipse x:Name="LuzStatus" Width="9" Height="9"
-                                     Fill="{StaticResource Sucesso}" Margin="0,0,8,0"
-                                     VerticalAlignment="Center"/>
-                            <TextBlock x:Name="TextoStatus" Text="Iniciando…"
-                                       Foreground="{StaticResource Sucesso}"/>
+                            <Ellipse x:Name="LuzStatus" Width="9" Height="9" Fill="{StaticResource Sucesso}"
+                                     Margin="0,0,8,0" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="TextoStatus" Text="Iniciando…" Foreground="{StaticResource Sucesso}"/>
                         </StackPanel>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button x:Name="BotaoPausar" Content="Pausar" Click="Pausar_Click" Margin="0,0,8,0"/>
-                        <Button x:Name="BotaoLigar" Content="Parar servidor" Click="LigarDesligar_Click" Margin="0"/>
+                        <Button x:Name="BotaoPausar" Content="Pausar" Click="Pausar_Click" Margin="0,0,8,0"
+                                ToolTip="Pausar ou retomar conexões"/>
+                        <Button Content="Atualizar" Click="Atualizar_Click" Margin="0"/>
                     </StackPanel>
                 </Grid>
             </Border>
 
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+            <ScrollViewer x:Name="ScrollPrincipal" Grid.Row="1" VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled" Padding="24,20,24,24">
                 <Grid>
 
-                    <!-- ============ INÍCIO ============ -->
-                    <StackPanel x:Name="PaginaInicio">
-                        <Border Style="{StaticResource Cartao}">
+                    <!-- ============ VISÃO GERAL ============ -->
+                    <StackPanel x:Name="PaginaVisao">
+                        <Border x:Name="SecaoVisaoGeral" Style="{StaticResource Cartao}"
+                                BorderBrush="#3A3327">
                             <Grid>
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" MinWidth="220"/>
+                                    <ColumnDefinition Width="*" MinWidth="230"/>
                                     <ColumnDefinition x:Name="ColunaQr" Width="Auto"/>
                                 </Grid.ColumnDefinitions>
 
-                                <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
-                                    <TextBlock x:Name="NomePc" Style="{StaticResource Titulo}" Text="—"/>
-                                    <TextBlock x:Name="EnderecoPc" Style="{StaticResource Sub}" Margin="0,0,0,14"/>
-                                    <TextBlock Text="Abra o PCFlow no Android: ele encontra este PC sozinho na rede local. No primeiro acesso, escaneie o QR ou digite o código."
-                                               Style="{StaticResource Sub}" Margin="0,0,0,16"/>
-                                    <StackPanel Orientation="Horizontal">
-                                        <Button Content="Gerar novo código" Style="{StaticResource BotaoPrimario}"
-                                                Click="NovoPin_Click"/>
+                                <StackPanel VerticalAlignment="Center" Margin="0,0,18,0">
+                                    <TextBlock Text="Seu endereço PCFlow" Style="{StaticResource Sub}"/>
+                                    <TextBlock x:Name="TextoMaquinaId" FontSize="38" FontFamily="Consolas"
+                                               Foreground="{StaticResource Destaque}" Margin="0,4,0,4"/>
+                                    <TextBlock x:Name="TextoEndereco" Style="{StaticResource Sub}"/>
+                                    <TextBlock x:Name="TextoPin" FontSize="26" FontFamily="Consolas"
+                                               Foreground="{StaticResource Destaque}" Margin="0,14,0,0"/>
+                                    <TextBlock Text="Código de pareamento — digite no celular se preferir não escanear"
+                                               Style="{StaticResource Sub}"/>
+                                    <WrapPanel Margin="0,16,0,0">
+                                        <Button Content="Gerar novo código" Style="{StaticResource BotaoPrimario}" Click="NovoCodigo_Click"/>
+                                        <Button Content="Copiar ID" Click="CopiarId_Click"/>
                                         <Button Content="Copiar endereço" Click="CopiarEndereco_Click"/>
-                                    </StackPanel>
+                                    </WrapPanel>
                                 </StackPanel>
 
-                                <Border Grid.Column="1" Style="{StaticResource Cartao}" Margin="0"
-                                        Background="#0B0F14" BorderBrush="{StaticResource DestaqueFraco}">
-                                    <StackPanel HorizontalAlignment="Center">
-                                        <TextBlock Text="Escaneie com o aplicativo Android"
-                                                   Style="{StaticResource Sub}"
-                                                   HorizontalAlignment="Center" Margin="0,0,0,10"/>
-                                        <Border Background="White" Padding="8" CornerRadius="8"
-                                                HorizontalAlignment="Center">
-                                            <Image x:Name="ImagemQr" Width="168" Height="168"
-                                                   RenderOptions.BitmapScalingMode="NearestNeighbor"/>
-                                        </Border>
-                                        <TextBlock Text="ou digite o PIN" Style="{StaticResource Sub}"
-                                                   HorizontalAlignment="Center" Margin="0,12,0,4"/>
-                                        <TextBlock x:Name="TextoPin" Text="— — —"
-                                                   FontSize="30" FontFamily="Consolas"
-                                                   Foreground="{StaticResource Destaque}"
-                                                   HorizontalAlignment="Center"/>
-                                        <TextBlock x:Name="TextoExpira" Style="{StaticResource Sub}"
-                                                   HorizontalAlignment="Center" Margin="0,4,0,0"/>
-                                    </StackPanel>
+                                <Border Grid.Column="1" Background="#F5F7FA" CornerRadius="14" Padding="10"
+                                        VerticalAlignment="Center">
+                                    <Image x:Name="ImagemQr" Width="196" Height="196" Stretch="Uniform"/>
                                 </Border>
                             </Grid>
                         </Border>
 
-                        <TextBlock Text="Dispositivos conhecidos" Style="{StaticResource Secao}"/>
-                        <ItemsControl x:Name="ListaResumo">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border Background="#151A21" BorderBrush="#2B323C" BorderThickness="1"
-                                            CornerRadius="12" Padding="14" Margin="0,0,0,8">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel>
-                                                <TextBlock Text="{Binding Nome}" FontSize="14" FontWeight="SemiBold"/>
-                                                <TextBlock Text="{Binding Situacao}" FontSize="12"
-                                                           Foreground="{Binding Cor}"/>
-                                            </StackPanel>
-                                            <TextBlock Grid.Column="1" Text="{Binding Quando}"
-                                                       Foreground="#98A1AC" VerticalAlignment="Center"/>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                        <TextBlock x:Name="AvisoSemDispositivos"
-                                   Text="Nenhum celular pareado ainda. Instale o APK, abra o app e escaneie o código acima."
-                                   Style="{StaticResource Sub}"/>
-                    </StackPanel>
-
-                    <!-- ============ DISPOSITIVOS ============ -->
-                    <StackPanel x:Name="PaginaDispositivos" Visibility="Collapsed">
-                        <TextBlock Text="Celulares autorizados a controlar este PC." Style="{StaticResource Sub}"
-                                   Margin="0,0,0,14"/>
-                        <ItemsControl x:Name="ListaDispositivos">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border Background="#151A21" BorderBrush="#2B323C" BorderThickness="1"
-                                            CornerRadius="12" Padding="16" Margin="0,0,0,10">
-                                        <StackPanel>
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                </Grid.ColumnDefinitions>
-                                                <StackPanel>
-                                                    <TextBlock Text="{Binding Nome}" FontSize="15" FontWeight="SemiBold"/>
-                                                    <TextBlock Text="{Binding Situacao}" Foreground="{Binding Cor}"
-                                                               FontSize="12" Margin="0,2,0,0"/>
-                                                </StackPanel>
-                                                <TextBlock Grid.Column="1" Text="{Binding Quando}"
-                                                           Foreground="#98A1AC" VerticalAlignment="Top"/>
-                                            </Grid>
-                                            <TextBlock Text="{Binding Detalhe}" Foreground="#7F8894"
-                                                       FontSize="12" Margin="0,8,0,10"/>
-                                            <StackPanel Orientation="Horizontal">
-                                                <Button Content="Renomear" Tag="{Binding Id}" Click="Renomear_Click"/>
-                                                <Button Content="{Binding TextoBloqueio}" Tag="{Binding Id}"
-                                                        Click="Bloquear_Click"/>
-                                                <Button Content="Remover" Tag="{Binding Id}" Click="Remover_Click"/>
-                                            </StackPanel>
-                                        </StackPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                        <TextBlock x:Name="AvisoDispositivosVazio"
-                                   Text="Nenhum dispositivo pareado. Vá em Início e escaneie o código com o celular."
-                                   Style="{StaticResource Sub}"/>
+                        <Border Style="{StaticResource Cartao}">
+                            <StackPanel>
+                                <TextBlock Text="Como conectar o celular" Style="{StaticResource Secao}"/>
+                                <TextBlock Style="{StaticResource Sub}" Margin="0,0,0,4"
+                                           Text="1. Instale no celular o APK que veio junto com esta versão do PCFlow."/>
+                                <TextBlock Style="{StaticResource Sub}" Margin="0,0,0,4"
+                                           Text="2. Deixe os dois no mesmo Wi‑Fi. O último número do IP ser diferente é normal e esperado."/>
+                                <TextBlock Style="{StaticResource Sub}" Margin="0,0,0,4"
+                                           Text="3. Abra o app e toque em Escanear QR, ou escolha o PC na lista."/>
+                                <TextBlock Style="{StaticResource Sub}"
+                                           Text="4. Aceite a solicitação aqui no computador."/>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
 
                     <!-- ============ CONEXÃO ============ -->
                     <StackPanel x:Name="PaginaConexao" Visibility="Collapsed">
                         <Border Style="{StaticResource Cartao}">
                             <StackPanel>
-                                <TextBlock Text="Rede" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                                <TextBlock Text="Rede" Style="{StaticResource Secao}"/>
                                 <TextBlock x:Name="InfoRede" Style="{StaticResource Sub}"/>
                                 <TextBlock x:Name="InfoPortas" Style="{StaticResource Sub}" Margin="0,6,0,0"/>
-                                <TextBlock x:Name="InfoDescoberta" Style="{StaticResource Sub}" Margin="0,6,0,0"/>
+                                <TextBlock x:Name="InfoTls" Style="{StaticResource Sub}" Margin="0,6,0,0"/>
                             </StackPanel>
                         </Border>
 
                         <Border Style="{StaticResource Cartao}">
                             <StackPanel>
-                                <TextBlock Text="Firewall do Windows" FontSize="15" FontWeight="SemiBold"
-                                           Margin="0,0,0,8"/>
+                                <TextBlock Text="Firewall do Windows" Style="{StaticResource Secao}"/>
                                 <TextBlock x:Name="InfoFirewall" Style="{StaticResource Sub}" Margin="0,0,0,12"/>
-                                <TextBlock Text="Se o celular encontra o PC mas a conexão falha, quase sempre é o firewall bloqueando a porta. O botão abaixo cria a regra apenas para a rede privada."
-                                           Style="{StaticResource Sub}" Margin="0,0,0,12"/>
-                                <StackPanel Orientation="Horizontal">
-                                    <Button Content="Liberar no firewall" Style="{StaticResource BotaoPrimario}"
-                                            Click="Firewall_Click"/>
-                                    <Button Content="Testar porta" Click="TestarPorta_Click"/>
-                                </StackPanel>
+                                <TextBlock Style="{StaticResource Sub}" Margin="0,0,0,12"
+                                           Text="Se o celular encontra o PC mas a conexão falha, quase sempre é o firewall bloqueando a porta. O botão abaixo cria a regra somente para a rede privada — nada é aberto para a internet. Pode ser usado quantas vezes quiser."/>
+                                <WrapPanel>
+                                    <Button Content="Liberar no firewall" Style="{StaticResource BotaoPrimario}" Click="Firewall_Click"/>
+                                    <Button Content="Testar portas" Click="TestarPortas_Click"/>
+                                </WrapPanel>
                             </StackPanel>
                         </Border>
 
                         <Border Style="{StaticResource Cartao}">
                             <StackPanel>
-                                <TextBlock Text="Servidor" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,10"/>
-                                <CheckBox x:Name="ChkSomenteLan"
-                                          Content="Aceitar conexões somente da rede local (recomendado)"
-                                          Click="Config_Click"/>
-                                <StackPanel Orientation="Horizontal" Margin="0,4,0,12">
-                                    <TextBlock Text="Porta de controle:" VerticalAlignment="Center"
-                                               Margin="0,0,10,0"/>
-                                    <TextBox x:Name="CampoPorta" Width="90" MaxLength="5"/>
-                                    <Button Content="Aplicar e reiniciar" Click="AplicarPorta_Click"
-                                            Margin="10,0,0,0"/>
-                                </StackPanel>
-                                <Button Content="Reiniciar servidor" Click="Reiniciar_Click" HorizontalAlignment="Left"/>
+                                <TextBlock Text="Servidor" Style="{StaticResource Secao}"/>
+                                <CheckBox x:Name="CheckDescoberta" Content="Ser encontrado automaticamente na rede local" Click="Config_Click"/>
+                                <CheckBox x:Name="CheckMinimizar" Content="Fechar a janela minimiza para a bandeja" Click="Config_Click"/>
+                                <Button Content="Reiniciar servidor" Click="Reiniciar_Click" HorizontalAlignment="Left" Margin="0,8,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- ============ ACESSO REMOTO ============ -->
+                    <StackPanel x:Name="PaginaRemoto" Visibility="Collapsed">
+                        <Border x:Name="SecaoAcessoRemoto" Style="{StaticResource Cartao}">
+                            <StackPanel>
+                                <TextBlock Text="Controle remoto visual" Style="{StaticResource Secao}"/>
+                                <TextBlock Style="{StaticResource Sub}"
+                                           Text="O celular recebe a tela deste PC em tempo real e devolve toque, arraste, clique, rolagem e teclado — o dedo funciona como o ponteiro, igual a um acesso remoto de desktop. A transmissão usa TLS com pinagem da identidade desta máquina e só aceita endereços da rede local."/>
+                                <WrapPanel Margin="0,14,0,0">
+                                    <Button Content="Ir para segurança" Tag="seguranca" Click="NavegarMenu_Click"/>
+                                    <Button Content="Atualizar QR/código" Click="NovoCodigo_Click"/>
+                                </WrapPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Cartao}">
+                            <StackPanel>
+                                <TextBlock Text="Permissões desta máquina" Style="{StaticResource Secao}"/>
+                                <TextBlock Style="{StaticResource Sub}" Margin="0,0,0,12"
+                                           Text="Valem para toda sessão nova. Desmarcar aqui bloqueia o recurso no servidor, não apenas na tela do celular."/>
+                                <CheckBox x:Name="CheckTela" Content="Exibir a tela deste PC" Click="Config_Click"/>
+                                <CheckBox x:Name="CheckEntrada" Content="Controlar teclado e mouse" Click="Config_Click"/>
+                                <CheckBox x:Name="CheckClipboard" Content="Sincronizar área de transferência" Click="Config_Click"/>
+                                <CheckBox x:Name="CheckEnergia" Content="Comandos de energia" Click="Config_Click"/>
+                                <CheckBox x:Name="CheckArquivos" Content="Transferência de arquivos" Click="Config_Click"/>
+                                <CheckBox x:Name="CheckMoldura" Content="Mostrar moldura na tela durante a sessão" Click="Config_Click"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- ============ DISPOSITIVOS ============ -->
+                    <StackPanel x:Name="PaginaDispositivos" Visibility="Collapsed">
+                        <DockPanel x:Name="TituloDispositivos" Margin="0,0,0,14">
+                            <TextBlock DockPanel.Dock="Right" Text="Bloqueie ou revogue acessos salvos"
+                                       Style="{StaticResource Sub}" VerticalAlignment="Center"/>
+                            <TextBlock Text="Celulares autorizados" FontSize="16" FontWeight="SemiBold"/>
+                        </DockPanel>
+                        <ItemsControl x:Name="ListaDispositivos">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="#151A21" BorderBrush="#2E353F" BorderThickness="1"
+                                            CornerRadius="14" Padding="16" Margin="0,0,0,10">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Nome}" FontSize="15" FontWeight="SemiBold"/>
+                                                <TextBlock Margin="0,4,0,0" FontSize="11">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Text" Value="Autorizado"/>
+                                                            <Setter Property="Foreground" Value="#13D4C4"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Bloqueado}" Value="True">
+                                                                    <Setter Property="Text" Value="Bloqueado"/>
+                                                                    <Setter Property="Foreground" Value="#FF8A80"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                                <TextBlock Text="{Binding UltimaConexao, StringFormat='Última conexão: {0:dd/MM/yyyy HH:mm}'}"
+                                                           Foreground="#7F8894" FontSize="11" Margin="0,6,0,0"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Button Content="Bloquear / liberar" Tag="{Binding Id}" Click="AlternarBloqueio_Click" FontSize="11"/>
+                                                <Button Content="Revogar" Tag="{Binding Id}" Click="RevogarDispositivo_Click"
+                                                        FontSize="11" Foreground="#FF8A80" BorderBrush="#6A3535" Margin="0"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock x:Name="AvisoSemDispositivos" Style="{StaticResource Sub}"
+                                   Text="Nenhum celular autorizado ainda. Vá em Visão geral e escaneie o QR com o app."/>
+                    </StackPanel>
+
+                    <!-- ============ SEGURANÇA ============ -->
+                    <StackPanel x:Name="PaginaSeguranca" Visibility="Collapsed">
+                        <Border x:Name="PainelSeguranca" Style="{StaticResource Cartao}">
+                            <StackPanel>
+                                <TextBlock Text="Solicitações de conexão" Style="{StaticResource Secao}"/>
+                                <TextBlock Style="{StaticResource Sub}" Margin="0,0,0,10"
+                                           Text="Quem escaneia o QR ou digita o código já provou estar na frente deste PC e entra direto. As outras tentativas passam por esta regra."/>
+                                <ComboBox x:Name="ComboAcesso" Width="300" HorizontalAlignment="Left"
+                                          SelectionChanged="Config_Changed">
+                                    <ComboBoxItem Content="Sempre solicitar" Tag="sempre"/>
+                                    <ComboBoxItem Content="Somente com a janela aberta" Tag="janela"/>
+                                    <ComboBoxItem Content="Nunca solicitar" Tag="nunca"/>
+                                </ComboBox>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Cartao}">
+                            <StackPanel>
+                                <TextBlock Text="Acesso não supervisionado" Style="{StaticResource Secao}"/>
+                                <TextBlock Style="{StaticResource Sub}" Margin="0,0,0,10"
+                                           Text="Com uma senha definida, o celular entra sem que ninguém precise aceitar no PC. Use no seu próprio computador; mínimo de 8 caracteres."/>
+                                <PasswordBox x:Name="CampoSenha" Width="300" HorizontalAlignment="Left" Margin="0,0,0,10"/>
+                                <WrapPanel>
+                                    <Button Content="Definir senha" Click="DefinirSenha_Click"/>
+                                    <Button Content="Remover senha" Click="RemoverSenha_Click"/>
+                                </WrapPanel>
                             </StackPanel>
                         </Border>
                     </StackPanel>
 
                     <!-- ============ DIAGNÓSTICO ============ -->
-                    <StackPanel x:Name="PaginaDiagnostico" Visibility="Collapsed">
-                        <Border Style="{StaticResource Cartao}">
+                    <StackPanel x:Name="PaginaRecursos" Visibility="Collapsed">
+                        <Border x:Name="SecaoRecursos" Style="{StaticResource Cartao}">
                             <StackPanel>
-                                <TextBlock x:Name="InfoDiagnostico" Style="{StaticResource Sub}"/>
-                                <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
-                                    <Button Content="Exportar diagnóstico" Style="{StaticResource BotaoPrimario}"
-                                            Click="Exportar_Click"/>
-                                    <Button Content="Limpar tela" Click="LimparLog_Click"/>
-                                </StackPanel>
+                                <TextBlock Text="Estado do sistema" Style="{StaticResource Secao}"/>
+                                <TextBlock x:Name="TextoDiagnostico" Style="{StaticResource Sub}"
+                                           Text="Clique em Atualizar para conferir as portas e o estado do servidor."/>
+                                <WrapPanel Margin="0,14,0,0">
+                                    <Button Content="Exportar diagnóstico" Style="{StaticResource BotaoPrimario}" Click="Exportar_Click"/>
+                                    <Button Content="Atualizar" Click="Diagnostico_Click"/>
+                                    <Button Content="Abrir Downloads" Click="AbrirDownloads_Click"/>
+                                </WrapPanel>
                             </StackPanel>
                         </Border>
+
                         <TextBlock Text="Registro de eventos" Style="{StaticResource Secao}"/>
                         <Border Background="#0B0F14" BorderBrush="{StaticResource Borda}" BorderThickness="1"
-                                CornerRadius="12" Padding="12" MinHeight="240">
+                                CornerRadius="14" Padding="12" MinHeight="220">
                             <ItemsControl x:Name="ListaLog">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
@@ -391,62 +416,6 @@
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
-                        </Border>
-                    </StackPanel>
-
-                    <!-- ============ AJUSTES ============ -->
-                    <StackPanel x:Name="PaginaAjustes" Visibility="Collapsed">
-                        <Border Style="{StaticResource Cartao}">
-                            <StackPanel>
-                                <TextBlock Text="Geral" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,10"/>
-                                <TextBlock Text="Ao fechar a janela:" Margin="0,0,0,6"/>
-                                <ComboBox x:Name="ComboAoFechar" Width="260" HorizontalAlignment="Left"
-                                          SelectionChanged="AoFechar_Changed">
-                                    <ComboBoxItem Content="Minimizar para a bandeja"/>
-                                    <ComboBoxItem Content="Encerrar o aplicativo"/>
-                                    <ComboBoxItem Content="Perguntar sempre"/>
-                                </ComboBox>
-                                <CheckBox x:Name="ChkIniciarWindows" Content="Iniciar junto com o Windows"
-                                          Click="Config_Click"/>
-                                <CheckBox x:Name="ChkIniciarServidor" Content="Iniciar o servidor automaticamente"
-                                          Click="Config_Click"/>
-                                <CheckBox x:Name="ChkAbrirMinimizado" Content="Abrir minimizado na bandeja"
-                                          Click="Config_Click"/>
-                            </StackPanel>
-                        </Border>
-
-                        <Border Style="{StaticResource Cartao}">
-                            <StackPanel>
-                                <TextBlock Text="Segurança" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,10"/>
-                                <CheckBox x:Name="ChkPerguntarNovo"
-                                          Content="Perguntar antes de permitir um dispositivo novo"
-                                          Click="Config_Click"/>
-                                <CheckBox x:Name="ChkConfirmarEnergia"
-                                          Content="Pedir confirmação antes de desligar ou reiniciar"
-                                          Click="Config_Click"/>
-                            </StackPanel>
-                        </Border>
-
-                        <Border Style="{StaticResource Cartao}">
-                            <StackPanel>
-                                <TextBlock Text="Recursos liberados ao celular" FontSize="15"
-                                           FontWeight="SemiBold" Margin="0,0,0,10"/>
-                                <CheckBox x:Name="ChkEnergia" Content="Controle de energia (bloquear, suspender, desligar)"
-                                          Click="Config_Click"/>
-                                <CheckBox x:Name="ChkArquivos" Content="Explorador e transferência de arquivos"
-                                          Click="Config_Click"/>
-                                <CheckBox x:Name="ChkTela" Content="Ver a tela do PC no celular"
-                                          Click="Config_Click"/>
-                                <CheckBox x:Name="ChkClipboard" Content="Compartilhar a área de transferência"
-                                          Click="Config_Click"/>
-                            </StackPanel>
-                        </Border>
-
-                        <Border Style="{StaticResource Cartao}">
-                            <StackPanel>
-                                <TextBlock Text="Sobre" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                                <TextBlock x:Name="InfoSobre" Style="{StaticResource Sub}"/>
-                            </StackPanel>
                         </Border>
                     </StackPanel>
 

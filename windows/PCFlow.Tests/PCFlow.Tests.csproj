@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>PCFlow.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <!-- Compila os arquivos independentes de Windows direto do app, para que a
+       lógica de TLS e de rede seja testada sem precisar de um host Windows. -->
+  <ItemGroup>
+    <Compile Include="..\PCFlow.Windows\Core\TlsPcFlow.cs" Link="Core\TlsPcFlow.cs" />
+  </ItemGroup>
+</Project>

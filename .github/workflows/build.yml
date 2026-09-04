@@ -2,131 +2,52 @@ name: Build PCFlow
 
 on:
   push:
-    branches: [main, "claude/**", "feat/**"]
+    branches: [main, "feat/**", "claude/**"]
   pull_request:
-  workflow_dispatch:
+    branches: [main]
 
 jobs:
-  nucleo-e-testes:
-    name: Núcleo .NET + testes
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "8.0.x"
-
-      - name: Restaurar
-        run: dotnet restore PCFlow.sln -p:EnableWindowsTargeting=true
-
-      - name: Compilar (inclui a interface WPF)
-        run: dotnet build PCFlow.sln -c Release --no-restore -p:EnableWindowsTargeting=true
-
-      - name: Testes do núcleo e de integração
-        run: dotnet test windows/PCFlow.Core.Tests/PCFlow.Core.Tests.csproj -c Release --no-build --logger "trx;LogFileName=testes.trx"
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: resultados-testes-dotnet
-          path: "**/TestResults/*.trx"
-
   windows:
-    name: Aplicativo Windows
     runs-on: windows-latest
-    needs: nucleo-e-testes
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"
-
       - name: Restaurar
         run: dotnet restore PCFlow.sln
-
       - name: Compilar
         run: dotnet build PCFlow.sln -c Release --no-restore
-
-      - name: Testes no Windows
-        run: dotnet test windows/PCFlow.Core.Tests/PCFlow.Core.Tests.csproj -c Release --no-build
-
-      - name: Publicar executável único
-        run: >
-          dotnet publish windows/PCFlow.Windows/PCFlow.Windows.csproj
-          -c Release -r win-x64 --self-contained false
-          -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
-          -o release/windows
-
-      - name: Publicar versão portátil independente do .NET
-        run: >
-          dotnet publish windows/PCFlow.Windows/PCFlow.Windows.csproj
-          -c Release -r win-x64 --self-contained true
-          -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
-          -o release/windows-portatil
-
-      - name: Compactar portátil
-        run: Compress-Archive -Path release/windows-portatil/* -DestinationPath release/PCFlow-Windows-Portable-v1.0.0.zip
-        shell: pwsh
-
-      - name: Somas SHA-256
-        shell: pwsh
-        run: |
-          Get-ChildItem release/windows/PCFlow.exe, release/PCFlow-Windows-Portable-v1.0.0.zip |
-            Get-FileHash -Algorithm SHA256 |
-            ForEach-Object { "$($_.Hash)  $(Split-Path $_.Path -Leaf)" } |
-            Tee-Object -FilePath release/SHA256SUMS-windows.txt
-
+      - name: Testes de TLS e protocolo
+        run: dotnet test windows/PCFlow.Tests/PCFlow.Tests.csproj -c Release --no-build
+      - name: Testar handshake TLS real no Windows
+        run: dotnet run --project windows/PCFlow.TlsSmoke/PCFlow.TlsSmoke.csproj -c Release
+      - name: Publicar Windows portátil e autônomo
+        run: dotnet publish windows/PCFlow.Windows/PCFlow.Windows.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o release/windows
       - uses: actions/upload-artifact@v4
         with:
-          name: PCFlow-Windows-v1.0.0
-          path: |
-            release/windows/PCFlow.exe
-            release/PCFlow-Windows-Portable-v1.0.0.zip
-            release/SHA256SUMS-windows.txt
+          name: PCFlow-Windows-x64
+          path: release/windows/PCFlow.exe
 
   android:
-    name: Aplicativo Android
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
       - uses: android-actions/setup-android@v3
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "8.14"
-
-      - name: Testes unitários
-        run: gradle -p android :app:testDebugUnitTest --stacktrace
-
-      - name: Análise estática (lint)
-        run: gradle -p android :app:lintDebug --stacktrace
-        continue-on-error: true
-
-      - name: APK de depuração
+          gradle-version: "8.9"
+      - name: Compilar APK Debug instalável
         run: gradle -p android :app:assembleDebug --stacktrace
-
-      - name: APK de release
+      - name: Compilar APK Release
         run: gradle -p android :app:assembleRelease --stacktrace
-
-      - name: Somas SHA-256
-        run: |
-          cd android/app/build/outputs/apk
-          sha256sum release/app-release.apk debug/app-debug.apk > SHA256SUMS-android.txt
-          cat SHA256SUMS-android.txt
-
+      - name: Preparar nome final do APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk PCFlow-Android.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: PCFlow-Android-v1.0.0
-          path: |
-            android/app/build/outputs/apk/release/app-release.apk
-            android/app/build/outputs/apk/debug/app-debug.apk
-            android/app/build/outputs/apk/SHA256SUMS-android.txt
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: resultados-testes-android
-          path: android/app/build/reports/tests/
+          name: PCFlow-Android
+          path: PCFlow-Android.apk

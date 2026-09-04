@@ -1,424 +1,301 @@
+using PCFlow.Windows.Core;
+using System.Collections.Concurrent;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
+using System.Net.NetworkInformation;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
-using PCFlow.Core;
-using PCFlow.Windows.Plataforma;
 using Forms = System.Windows.Forms;
+using WpfButton = System.Windows.Controls.Button;
+using WpfBrush = System.Windows.Media.Brush;
+using WpfMessageBox = System.Windows.MessageBox;
 
 namespace PCFlow.Windows;
 
 public partial class MainWindow : Window
 {
-    private readonly ServidorPcFlow _servidor;
-    private readonly Forms.NotifyIcon _bandeja;
-    private readonly System.Windows.Threading.DispatcherTimer _relogio;
+    private readonly ServidorPcFlow _servidor = new();
+    private readonly ServidorArquivosPcFlow _servidorArquivos = new();
+    private readonly Forms.NotifyIcon _tray;
+    private readonly ConcurrentQueue<string> _eventos = new();
+    private MolduraSessaoWindow? _moldura;
     private bool _encerrando;
     private bool _carregado;
-    private int _pagina;
+    private bool _aplicandoConfiguracao;
+    private string _pagina = "visao";
+    private bool? _firewallOk;
+    private int _sessoesAtivas;
 
-    public MainWindow(ServidorPcFlow servidor)
+    public MainWindow()
     {
-        _servidor = servidor;
         InitializeComponent();
-
         AjustarParaTela();
 
-        _bandeja = new Forms.NotifyIcon
+        _tray = new Forms.NotifyIcon
         {
-            Text = "PCFlow",
+            Text = "PCFlow — acesso remoto local",
             Visible = true,
             Icon = System.Drawing.SystemIcons.Application,
-            ContextMenuStrip = MontarMenuBandeja()
+            ContextMenuStrip = CriarMenuTray()
         };
-        _bandeja.DoubleClick += (_, _) => Restaurar();
+        _tray.DoubleClick += (_, _) => Restaurar();
 
-        // BeginInvoke e não Invoke: estes eventos chegam de threads do servidor.
-        // Com Invoke, um evento disparado durante o encerramento (quando a thread
-        // da interface está bloqueada esperando o servidor parar) travava o app.
-        _servidor.EstadoAlterado += e => Dispatcher.BeginInvoke(() => AplicarEstado(e));
-        _servidor.DispositivosAlterados += () => Dispatcher.BeginInvoke(AtualizarDispositivos);
-        _servidor.Log.Adicionado += _ => Dispatcher.BeginInvoke(AtualizarLog);
-        _servidor.AutorizarNovoDispositivo = PerguntarAutorizacao;
-
-        _relogio = new System.Windows.Threading.DispatcherTimer
+        // BeginInvoke: estes eventos chegam de threads do servidor. Com Invoke,
+        // um evento durante o encerramento travaria a thread da interface.
+        _servidor.StatusAlterado += status => Dispatcher.BeginInvoke(() => RegistrarEvento(status));
+        _servidorArquivos.Status += status => Dispatcher.BeginInvoke(() => RegistrarEvento(status));
+        _servidor.DispositivosAlterados += () => Dispatcher.BeginInvoke(AtualizarTela);
+        _servidor.SessoesAlteradas += quantidade => Dispatcher.BeginInvoke(() =>
         {
-            Interval = TimeSpan.FromSeconds(1)
-        };
-        _relogio.Tick += (_, _) => AtualizarPin(false);
+            _sessoesAtivas = quantidade;
+            AtualizarMoldura(quantidade);
+            AtualizarStatusVisual();
+        });
+        _servidor.SolicitarAceiteAsync = SolicitarAceiteAsync;
+        _servidor.JanelaVisivel = () => Dispatcher.Invoke(() => IsVisible && WindowState != WindowState.Minimized);
 
         Loaded += AoCarregar;
         SizeChanged += (_, _) => AjustarLayoutResponsivo();
     }
 
     // ------------------------------------------------------------------
-    // Dimensionamento
+    // Janela
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// A versão anterior fixava 1180x760 com mínimo de 960x640. Em notebooks de
-    /// 1366x768 com escala de 125% a área útil do WPF fica em torno de 1092x568,
-    /// então a janela nascia maior que a tela e o mínimo impedia encolher.
-    /// Aqui a janela é sempre limitada à área de trabalho real e recentralizada.
+    /// A janela era fixa em 1280x800 com mínimo de 1040x680. Num notebook de
+    /// 1366x768 com escala de 125% a área útil do WPF fica em torno de 1092x568:
+    /// a janela nascia maior que a tela e o mínimo impedia encolher.
+    /// Aqui ela é sempre limitada à área de trabalho real e recentralizada.
     /// </summary>
     private void AjustarParaTela()
     {
         var area = SystemParameters.WorkArea;
         if (area.Width <= 0 || area.Height <= 0) return;
 
-        // Nunca exigir mais do que a tela oferece.
-        MinWidth = Math.Min(600, Math.Max(360, area.Width - 40));
-        MinHeight = Math.Min(420, Math.Max(300, area.Height - 40));
+        MinWidth = Math.Min(620, Math.Max(380, area.Width - 40));
+        MinHeight = Math.Min(440, Math.Max(320, area.Height - 40));
 
-        var larguraDesejada = _servidor.Configuracao.JanelaLargura > 0
-            ? _servidor.Configuracao.JanelaLargura : 1020;
-        var alturaDesejada = _servidor.Configuracao.JanelaAltura > 0
-            ? _servidor.Configuracao.JanelaAltura : 680;
+        var largura = _servidor.Configuracao.JanelaLargura > 0 ? _servidor.Configuracao.JanelaLargura : 1100;
+        var altura = _servidor.Configuracao.JanelaAltura > 0 ? _servidor.Configuracao.JanelaAltura : 720;
 
-        Width = Math.Max(MinWidth, Math.Min(larguraDesejada, area.Width - 20));
-        Height = Math.Max(MinHeight, Math.Min(alturaDesejada, area.Height - 20));
-
+        Width = Math.Max(MinWidth, Math.Min(largura, area.Width - 20));
+        Height = Math.Max(MinHeight, Math.Min(altura, area.Height - 20));
         Left = area.Left + Math.Max(0, (area.Width - Width) / 2);
         Top = area.Top + Math.Max(0, (area.Height - Height) / 2);
-
-        MaxWidth = double.PositiveInfinity;
-        MaxHeight = double.PositiveInfinity;
     }
 
-    /// <summary>Esconde rótulos e o QR quando a janela fica estreita, em vez de estourar o layout.</summary>
     private void AjustarLayoutResponsivo()
     {
         if (!_carregado) return;
-        var estreita = ActualWidth < 780;
-        ColunaNav.Width = new GridLength(estreita ? 64 : 176);
+        var estreita = ActualWidth < 820;
+        ColunaNav.Width = new GridLength(estreita ? 70 : 192);
         RotuloLogo.Visibility = estreita ? Visibility.Collapsed : Visibility.Visible;
         RodapeVersao.Visibility = estreita ? Visibility.Collapsed : Visibility.Visible;
-
-        foreach (var b in new[] { NavInicio, NavDispositivos, NavConexao, NavDiagnostico, NavAjustes })
+        foreach (var b in Menus())
             b.HorizontalContentAlignment = estreita
                 ? System.Windows.HorizontalAlignment.Center
                 : System.Windows.HorizontalAlignment.Left;
-
-        ColunaQr.Width = ActualWidth < 900 ? new GridLength(0) : GridLength.Auto;
+        ColunaQr.Width = ActualWidth < 940 ? new GridLength(0) : GridLength.Auto;
     }
+
+    private WpfButton[] Menus() =>
+        [MenuVisaoGeral, MenuConexao, MenuAcessoRemoto, MenuDispositivos, MenuSeguranca, MenuRecursos];
 
     // ------------------------------------------------------------------
     // Ciclo de vida
     // ------------------------------------------------------------------
 
-    private void AoCarregar(object? remetente, RoutedEventArgs e)
+    private async void AoCarregar(object? remetente, RoutedEventArgs e)
     {
         _carregado = true;
-        var cfg = _servidor.Configuracao;
+        RodapeVersao.Text = $"v{VersaoPcFlow.App} · protocolo 2";
 
-        NomePc.Text = _servidor.NomeMaquina;
-        RodapeVersao.Text = $"v{Protocolo.VersaoApp} · protocolo {Protocolo.Versao}";
-        InfoSobre.Text = $"PCFlow {Protocolo.VersaoApp}\nProtocolo v{Protocolo.Versao}\n" +
-                         $"Configuração: {new ArmazenamentoConfiguracao().Caminho}\n" +
-                         "Funciona sem conta, sem nuvem e sem anúncios.";
+        await _servidor.IniciarAsync();
+        await _servidorArquivos.IniciarAsync();
 
-        ComboAoFechar.SelectedIndex = (int)cfg.AoFechar;
-        ChkIniciarWindows.IsChecked = IntegracaoWindows.IniciaComWindows();
-        ChkIniciarServidor.IsChecked = cfg.IniciarServidorAutomaticamente;
-        ChkAbrirMinimizado.IsChecked = cfg.AbrirMinimizado;
-        ChkPerguntarNovo.IsChecked = cfg.PerguntarAntesDeNovoDispositivo;
-        ChkConfirmarEnergia.IsChecked = cfg.ConfirmarDesligarReiniciar;
-        ChkEnergia.IsChecked = cfg.PermitirEnergia;
-        ChkArquivos.IsChecked = cfg.PermitirArquivos;
-        ChkTela.IsChecked = cfg.PermitirTelaRemota;
-        ChkClipboard.IsChecked = cfg.SincronizarAreaTransferencia;
-        ChkSomenteLan.IsChecked = cfg.SomenteRedeLocal;
-        CampoPorta.Text = _servidor.PortaEmUso.ToString();
+        // Primeira execução: cria a regra do firewall sem pedir nada.
+        // Se o Windows recusar por falta de elevação, a página Conexão mostra o botão.
+        GarantirFirewallSilencioso();
 
-        AplicarEstado(new EstadoServidor(_servidor.Ativo, _servidor.Pausado, _servidor.Conectados,
-            _servidor.UltimoErro ?? (_servidor.Ativo ? "Servidor ativo" : "Servidor parado")));
-        SelecionarPagina(0);
-        AtualizarDispositivos();
-        AtualizarPin(true);
-        AtualizarConexao();
+        CarregarConfiguracaoNaTela();
+        AtualizarTela();
+        SelecionarPagina("visao");
+        AtualizarDiagnostico();
         AtualizarLog();
         AjustarLayoutResponsivo();
-        _relogio.Start();
-
-        if (cfg.AbrirMinimizado && !_encerrando)
-        {
-            Hide();
-            _bandeja.ShowBalloonTip(1500, "PCFlow", "O servidor está rodando na bandeja.", Forms.ToolTipIcon.Info);
-        }
+        AtualizarStatusVisual();
     }
 
-    protected override void OnClosing(CancelEventArgs e)
+    private void GarantirFirewallSilencioso()
     {
-        if (_encerrando) { base.OnClosing(e); return; }
-
-        GuardarTamanhoJanela();
-        var acao = _servidor.Configuracao.AoFechar;
-        if (acao == AcaoAoFechar.PerguntarSempre)
+        Task.Run(() =>
         {
-            var r = System.Windows.MessageBox.Show(this,
-                "Deseja manter o PCFlow rodando na bandeja?\n\n" +
-                "Sim — continua controlando o PC pelo celular.\n" +
-                "Não — encerra o servidor.",
-                "PCFlow", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
-            if (r == MessageBoxResult.Cancel) { e.Cancel = true; return; }
-            acao = r == MessageBoxResult.Yes ? AcaoAoFechar.MinimizarParaBandeja : AcaoAoFechar.Encerrar;
-        }
-
-        if (acao == AcaoAoFechar.MinimizarParaBandeja)
-        {
-            e.Cancel = true;
-            Hide();
-            _bandeja.ShowBalloonTip(1500, "PCFlow continua ativo",
-                "O servidor segue rodando. Clique no ícone para reabrir.", Forms.ToolTipIcon.Info);
-            return;
-        }
-
-        Encerrar();
-        base.OnClosing(e);
+            var jaExiste = IntegracaoWindows.RegrasExistem();
+            if (!jaExiste) IntegracaoWindows.GarantirRegrasFirewall(out var detalhe);
+            var ok = IntegracaoWindows.RegrasExistem();
+            Dispatcher.BeginInvoke(() =>
+            {
+                _firewallOk = ok;
+                RegistrarEvento(ok
+                    ? "Firewall: regras do PCFlow ativas para a rede privada."
+                    : "Firewall: sem regra do PCFlow. Use Conexão → Liberar no firewall.");
+                AtualizarInfoFirewall();
+            });
+        });
     }
 
-    private void GuardarTamanhoJanela()
-    {
-        if (WindowState != WindowState.Normal) return;
-        _servidor.Configuracao.JanelaLargura = ActualWidth;
-        _servidor.Configuracao.JanelaAltura = ActualHeight;
-        _servidor.SalvarConfiguracao();
-    }
-
-    private void Encerrar()
-    {
-        if (_encerrando) return;
-        _encerrando = true;
-        _relogio.Stop();
-        _bandeja.Visible = false;
-        _bandeja.Dispose();
-        // Limite de tempo: fechar o app nunca pode depender de o socket cooperar.
-        try { _servidor.PararAsync().Wait(TimeSpan.FromSeconds(3)); } catch (Exception) { }
-        System.Windows.Application.Current.Shutdown();
-    }
-
-    private Forms.ContextMenuStrip MontarMenuBandeja()
+    private Forms.ContextMenuStrip CriarMenuTray()
     {
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add("Abrir PCFlow", null, (_, _) => Restaurar());
-        menu.Items.Add("Dispositivos", null, (_, _) => { Restaurar(); SelecionarPagina(1); });
-        menu.Items.Add("Configurações", null, (_, _) => { Restaurar(); SelecionarPagina(4); });
+        menu.Items.Add("Dispositivos", null, (_, _) => { Restaurar(); SelecionarPagina("dispositivos"); });
+        menu.Items.Add("Conexão", null, (_, _) => { Restaurar(); SelecionarPagina("conexao"); });
         menu.Items.Add(new Forms.ToolStripSeparator());
         var pausar = new Forms.ToolStripMenuItem("Pausar servidor");
         pausar.Click += (_, _) =>
         {
             _servidor.AlternarPausa();
             pausar.Text = _servidor.Pausado ? "Retomar servidor" : "Pausar servidor";
+            Dispatcher.BeginInvoke(AtualizarStatusVisual);
         };
         menu.Items.Add(pausar);
         menu.Items.Add("Reiniciar servidor", null, async (_, _) => await _servidor.ReiniciarAsync());
         menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add("Sair", null, (_, _) => Dispatcher.Invoke(Encerrar));
+        menu.Items.Add("Sair", null, async (_, _) => await EncerrarAsync());
         return menu;
     }
 
-    private void Restaurar()
+    private Task<bool> SolicitarAceiteAsync(SolicitacaoConexao solicitacao)
     {
-        Show();
-        if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
-        AjustarParaTela();
-        Activate();
-        Topmost = true;
-        Topmost = false;
+        return Dispatcher.InvokeAsync(() =>
+        {
+            Restaurar();
+            _tray.ShowBalloonTip(1500, "Solicitação de acesso",
+                $"{solicitacao.Nome} quer controlar este computador.", Forms.ToolTipIcon.Info);
+            var conhecido = solicitacao.DispositivoConhecido ? "Dispositivo já conhecido." : "Novo dispositivo.";
+            return WpfMessageBox.Show(this,
+                $"{solicitacao.Nome} ({solicitacao.EnderecoIp}) quer iniciar uma sessão remota.\n\n{conhecido}\n\nPermitir acesso?",
+                "PCFlow — Solicitação de conexão", MessageBoxButton.YesNo,
+                MessageBoxImage.Question, MessageBoxResult.No) == MessageBoxResult.Yes;
+        }).Task;
     }
 
     // ------------------------------------------------------------------
-    // Estado e páginas
+    // Status e registro
     // ------------------------------------------------------------------
 
-    private void AplicarEstado(EstadoServidor e)
+    private void RegistrarEvento(string mensagem)
     {
-        TextoStatus.Text = e.Conectados > 0
-            ? $"{e.Mensagem} · {e.Conectados} dispositivo(s) conectado(s)"
-            : e.Mensagem;
+        TextoStatus.Text = mensagem;
+        _eventos.Enqueue($"{DateTime.Now:HH:mm:ss}  {mensagem}");
+        while (_eventos.Count > 300) _eventos.TryDequeue(out _);
+        if (_pagina == "recursos") AtualizarLog();
+        AtualizarStatusVisual();
+    }
 
-        var cor = !e.Ativo ? (Brush)FindResource("Alerta")
-            : e.Pausado ? (Brush)FindResource("Destaque")
-            : e.Conectados > 0 ? (Brush)FindResource("Sucesso")
-            : (Brush)FindResource("Sucesso");
+    private void AtualizarStatusVisual()
+    {
+        if (!_carregado) return;
+        var cor = !_servidor.Ativo ? (WpfBrush)FindResource("Alerta")
+            : _servidor.Pausado ? (WpfBrush)FindResource("Destaque")
+            : (WpfBrush)FindResource("Sucesso");
         LuzStatus.Fill = cor;
         TextoStatus.Foreground = cor;
-
-        BotaoPausar.Content = e.Pausado ? "Retomar" : "Pausar";
-        BotaoPausar.IsEnabled = e.Ativo;
-        BotaoLigar.Content = e.Ativo ? "Parar servidor" : "Iniciar servidor";
-
-        _bandeja.Text = e.Ativo
-            ? (e.Conectados > 0 ? $"PCFlow — {e.Conectados} conectado(s)" : "PCFlow — aguardando")
+        BotaoPausar.Content = _servidor.Pausado ? "Retomar" : "Pausar";
+        _tray.Text = _servidor.Ativo
+            ? (_sessoesAtivas > 0 ? $"PCFlow — {_sessoesAtivas} sessão(ões)" : "PCFlow — aguardando")
             : "PCFlow — parado";
-        AtualizarConexao();
     }
 
-    private void Navegar_Click(object sender, RoutedEventArgs e)
+    private void AtualizarLog()
+        => ListaLog.ItemsSource = _eventos.Reverse().Take(200).ToList();
+
+    // ------------------------------------------------------------------
+    // Navegação
+    // ------------------------------------------------------------------
+
+    private void NavegarMenu_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is Button b && int.TryParse(b.Tag?.ToString(), out var i)) SelecionarPagina(i);
+        if (sender is WpfButton botao) SelecionarPagina(botao.Tag?.ToString() ?? "visao");
     }
 
-    private void SelecionarPagina(int indice)
+    private void SelecionarPagina(string pagina)
     {
-        _pagina = indice;
-        PaginaInicio.Visibility = indice == 0 ? Visibility.Visible : Visibility.Collapsed;
-        PaginaDispositivos.Visibility = indice == 1 ? Visibility.Visible : Visibility.Collapsed;
-        PaginaConexao.Visibility = indice == 2 ? Visibility.Visible : Visibility.Collapsed;
-        PaginaDiagnostico.Visibility = indice == 3 ? Visibility.Visible : Visibility.Collapsed;
-        PaginaAjustes.Visibility = indice == 4 ? Visibility.Visible : Visibility.Collapsed;
+        _pagina = pagina;
+        PaginaVisao.Visibility = pagina == "visao" ? Visibility.Visible : Visibility.Collapsed;
+        PaginaConexao.Visibility = pagina == "conexao" ? Visibility.Visible : Visibility.Collapsed;
+        PaginaRemoto.Visibility = pagina == "remoto" ? Visibility.Visible : Visibility.Collapsed;
+        PaginaDispositivos.Visibility = pagina == "dispositivos" ? Visibility.Visible : Visibility.Collapsed;
+        PaginaSeguranca.Visibility = pagina == "seguranca" ? Visibility.Visible : Visibility.Collapsed;
+        PaginaRecursos.Visibility = pagina == "recursos" ? Visibility.Visible : Visibility.Collapsed;
 
-        TituloPagina.Text = indice switch
+        TituloPagina.Text = pagina switch
         {
-            1 => "Dispositivos",
-            2 => "Conexão",
-            3 => "Diagnóstico",
-            4 => "Ajustes",
-            _ => "Início"
+            "conexao" => "Conexão",
+            "remoto" => "Acesso remoto",
+            "dispositivos" => "Dispositivos",
+            "seguranca" => "Segurança",
+            "recursos" => "Diagnóstico",
+            _ => "Visão geral"
         };
 
-        var botoes = new[] { NavInicio, NavDispositivos, NavConexao, NavDiagnostico, NavAjustes };
-        for (var i = 0; i < botoes.Length; i++)
+        var destaque = (WpfBrush)FindResource("Destaque");
+        var normal = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0xC8, 0xCF, 0xD8));
+        var bordaAtiva = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x6C, 0x53, 0x23));
+        foreach (var menu in Menus())
         {
-            botoes[i].Foreground = i == indice
-                ? (Brush)FindResource("Destaque")
-                : new SolidColorBrush(Color.FromRgb(0xC8, 0xCF, 0xD8));
-            botoes[i].BorderBrush = i == indice
-                ? (Brush)FindResource("DestaqueFraco")
-                : System.Windows.Media.Brushes.Transparent;
+            var ativo = (menu.Tag?.ToString() ?? "") == pagina;
+            menu.Foreground = ativo ? destaque : normal;
+            menu.BorderBrush = ativo ? bordaAtiva : System.Windows.Media.Brushes.Transparent;
         }
 
-        if (indice == 2) { AtualizarConexao(); AtualizarInfoFirewall(); }
-        if (indice == 3) AtualizarLog();
+        ScrollPrincipal.ScrollToTop();
+        if (pagina == "conexao") { AtualizarConexao(); AtualizarInfoFirewall(); }
+        if (pagina == "recursos") { AtualizarDiagnostico(); AtualizarLog(); }
     }
 
     // ------------------------------------------------------------------
-    // Início
+    // Visão geral
     // ------------------------------------------------------------------
 
-    private void AtualizarPin(bool forcarQr)
+    private void AtualizarTela()
     {
-        var pin = _servidor.Pin.Pin;
-        var novoTexto = GerenciadorPin.Formatar(pin);
-        var mudou = TextoPin.Text != novoTexto;
-        TextoPin.Text = novoTexto;
+        TextoMaquinaId.Text = FormatarId(_servidor.MaquinaId);
+        TextoPin.Text = FormatarPin(_servidor.CodigoPareamento);
+        TextoEndereco.Text = $"{Environment.MachineName} · {_servidor.EnderecoLocal}:{ServidorPcFlow.PortaControle}";
 
-        var restante = _servidor.Pin.TempoRestante;
-        TextoExpira.Text = restante > TimeSpan.Zero
-            ? $"Expira em {restante:mm\\:ss}"
-            : "Gerando novo código…";
+        var lista = _servidor.Dispositivos.OrderByDescending(d => d.UltimaConexao).ToList();
+        ListaDispositivos.ItemsSource = null;
+        ListaDispositivos.ItemsSource = lista;
+        AvisoSemDispositivos.Visibility = lista.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
 
-        EnderecoPc.Text = $"{RedeUtil.EnderecoLocal()} · porta {_servidor.PortaEmUso} · rede local";
-        if (mudou || forcarQr) DesenharQr(pin);
+        var payload = $"pcflow://connect?host={Uri.EscapeDataString(_servidor.EnderecoLocal)}" +
+                      $"&port={ServidorPcFlow.PortaControle}&id={_servidor.MaquinaId}" +
+                      $"&pin={_servidor.CodigoPareamento}&tls={_servidor.ImpressaoTls}";
+        ImagemQr.Source = QrCodeVisual.Criar(payload);
     }
 
-    private void DesenharQr(string pin)
+    private void CopiarId_Click(object sender, RoutedEventArgs e)
     {
-        try
-        {
-            var conteudo = $"pcflow://{RedeUtil.EnderecoLocal()}:{_servidor.PortaEmUso}" +
-                           $"?pin={pin}&nome={Uri.EscapeDataString(_servidor.NomeMaquina)}&v={Protocolo.Versao}";
-            ImagemQr.Source = GeradorQr.Gerar(conteudo, 168);
-        }
-        catch (Exception)
-        {
-            ImagemQr.Source = null;
-        }
-    }
-
-    private void NovoPin_Click(object sender, RoutedEventArgs e)
-    {
-        _servidor.Pin.Renovar();
-        AtualizarPin(true);
-        _servidor.Log.Escrever(Categoria.Autenticacao, "Novo código de pareamento gerado");
+        System.Windows.Clipboard.SetText(_servidor.MaquinaId);
+        RegistrarEvento("ID copiado para a área de transferência");
     }
 
     private void CopiarEndereco_Click(object sender, RoutedEventArgs e)
     {
-        try
-        {
-            System.Windows.Clipboard.SetText($"{RedeUtil.EnderecoLocal()}:{_servidor.PortaEmUso}");
-            System.Windows.MessageBox.Show(this,
-                "Endereço copiado. No app Android use “Digitar endereço manualmente”.",
-                "PCFlow", MessageBoxButton.OK, MessageBoxImage.Information);
-        }
-        catch (Exception) { }
+        System.Windows.Clipboard.SetText($"{_servidor.EnderecoLocal}:{ServidorPcFlow.PortaControle}");
+        RegistrarEvento("Endereço copiado para a área de transferência");
     }
 
-    // ------------------------------------------------------------------
-    // Dispositivos
-    // ------------------------------------------------------------------
-
-    private sealed record LinhaDispositivo(string Id, string Nome, string Situacao, string Quando,
-        string Detalhe, string TextoBloqueio, Brush Cor);
-
-    private void AtualizarDispositivos()
+    private void NovoCodigo_Click(object sender, RoutedEventArgs e)
     {
-        var itens = _servidor.Dispositivos.Select(d => new LinhaDispositivo(
-            d.Id,
-            d.Nome,
-            d.Bloqueado ? "Bloqueado" : d.Conectado ? "Conectado agora" : "Autorizado",
-            d.UltimaConexao.Date == DateTime.Today
-                ? $"Hoje, {d.UltimaConexao:HH:mm}"
-                : d.UltimaConexao.ToString("dd/MM HH:mm"),
-            $"{(string.IsNullOrWhiteSpace(d.Modelo) ? "Android" : d.Modelo)} · IP {(string.IsNullOrWhiteSpace(d.UltimoIp) ? "—" : d.UltimoIp)} · pareado em {d.PareadoEm:dd/MM/yyyy}",
-            d.Bloqueado ? "Desbloquear" : "Bloquear",
-            d.Bloqueado ? (Brush)FindResource("Alerta")
-                : d.Conectado ? (Brush)FindResource("Sucesso")
-                : (Brush)FindResource("Secundario"))).ToList();
-
-        ListaDispositivos.ItemsSource = itens;
-        ListaResumo.ItemsSource = itens.Take(5).ToList();
-        AvisoDispositivosVazio.Visibility = itens.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        AvisoSemDispositivos.Visibility = itens.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        _servidor.GerarNovoCodigo();
+        AtualizarTela();
+        RegistrarEvento("Novo código de pareamento gerado");
     }
-
-    private static string? IdDoBotao(object remetente)
-        => (remetente as Button)?.Tag?.ToString();
-
-    private void Renomear_Click(object sender, RoutedEventArgs e)
-    {
-        var id = IdDoBotao(sender);
-        if (id is null) return;
-        var atual = _servidor.Dispositivos.FirstOrDefault(d => d.Id == id);
-        if (atual is null) return;
-
-        var novo = DialogoTexto.Perguntar(this, "Renomear dispositivo",
-            "Como você quer chamar este celular?", atual.Nome);
-        if (!string.IsNullOrWhiteSpace(novo)) _servidor.RenomearDispositivo(id, novo);
-    }
-
-    private void Bloquear_Click(object sender, RoutedEventArgs e)
-    {
-        var id = IdDoBotao(sender);
-        if (id is null) return;
-        var atual = _servidor.Dispositivos.FirstOrDefault(d => d.Id == id);
-        if (atual is null) return;
-        _servidor.DefinirBloqueio(id, !atual.Bloqueado);
-    }
-
-    private void Remover_Click(object sender, RoutedEventArgs e)
-    {
-        var id = IdDoBotao(sender);
-        if (id is null) return;
-        var atual = _servidor.Dispositivos.FirstOrDefault(d => d.Id == id);
-        if (atual is null) return;
-        var r = System.Windows.MessageBox.Show(this,
-            $"Remover “{atual.Nome}”?\n\nEle precisará do PIN para conectar de novo.",
-            "PCFlow", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-        if (r == MessageBoxResult.Yes) _servidor.RemoverDispositivo(id);
-    }
-
-    private bool PerguntarAutorizacao(string nome, string ip)
-        => Dispatcher.Invoke(() =>
-        {
-            Restaurar();
-            var r = System.Windows.MessageBox.Show(this,
-                $"“{nome}” ({ip}) informou o PIN correto e quer controlar este PC.\n\nPermitir?",
-                "Novo dispositivo", MessageBoxButton.YesNo, MessageBoxImage.Question);
-            return r == MessageBoxResult.Yes;
-        });
 
     // ------------------------------------------------------------------
     // Conexão
@@ -427,43 +304,41 @@ public partial class MainWindow : Window
     private void AtualizarConexao()
     {
         if (!_carregado) return;
-        var ips = RedeUtil.EnderecosLocais();
-        InfoRede.Text = ips.Count > 0
-            ? "Endereços deste PC: " + string.Join(", ", ips.Select(i => i.ToString()))
-            : "Nenhuma rede ativa encontrada.";
-        InfoPortas.Text = $"Controle: TCP {_servidor.PortaEmUso} · Descoberta: UDP {Protocolo.PortaDescoberta}";
-        InfoDescoberta.Text = _servidor.DescobertaAtiva
-            ? "Descoberta automática ativa — o celular encontra este PC sozinho."
-            : "Descoberta automática indisponível. Use “Digitar endereço manualmente” no celular.";
+        try
+        {
+            var enderecos = NetworkInterface.GetAllNetworkInterfaces()
+                .Where(n => n.OperationalStatus == OperationalStatus.Up &&
+                            n.NetworkInterfaceType != NetworkInterfaceType.Loopback)
+                .SelectMany(n => n.GetIPProperties().UnicastAddresses)
+                .Where(a => a.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                .Select(a => a.Address.ToString())
+                .Distinct().ToList();
 
-        AtualizarInfoFirewall();
+            InfoRede.Text = enderecos.Count > 0
+                ? "Endereços deste PC: " + string.Join(", ", enderecos) +
+                  "\n\nO celular só precisa estar no mesmo Wi‑Fi. É normal e esperado que o último " +
+                  "número do IP seja diferente do daqui — o PCFlow aceita qualquer endereço da rede local."
+                : "Nenhuma rede ativa encontrada.";
+        }
+        catch (Exception ex)
+        {
+            InfoRede.Text = $"Não foi possível listar a rede: {ex.Message}";
+        }
 
-        InfoDiagnostico.Text =
-            $"Servidor: {(_servidor.Ativo ? (_servidor.Pausado ? "pausado" : "ativo") : "parado")}\n" +
-            $"Dispositivos conectados: {_servidor.Conectados}\n" +
-            $"Pareados: {_servidor.Dispositivos.Count}\n" +
-            $"Protocolo: v{Protocolo.Versao} · App v{Protocolo.VersaoApp}\n" +
-            $"Endereço: {RedeUtil.EnderecoLocal()}:{_servidor.PortaEmUso}";
+        InfoPortas.Text = $"Controle TCP {ServidorPcFlow.PortaControle} · Tela TCP {ServidorPcFlow.PortaTela} · " +
+                          $"Arquivos TCP {ServidorArquivosPcFlow.Porta} · Descoberta UDP {ServidorPcFlow.PortaDescoberta}";
+        InfoTls.Text = $"Identidade TLS desta máquina: {_servidor.ImpressaoTls[..16]}…";
     }
 
-    private bool? _firewallOk;
-
-    /// <summary>
-    /// Consultar o firewall roda "netsh", que custa centenas de milissegundos.
-    /// A consulta acontece em segundo plano e só quando a página Conexão está
-    /// aberta — antes, cada conexão de celular travava a interface por um instante.
-    /// </summary>
     private void AtualizarInfoFirewall(bool forcar = false)
     {
         if (_firewallOk is not null && !forcar)
         {
             InfoFirewall.Text = _firewallOk == true
                 ? "Regras do PCFlow encontradas no firewall."
-                : "Nenhuma regra do PCFlow encontrada. Se a conexão falhar, use o botão abaixo.";
+                : "Nenhuma regra do PCFlow encontrada. Use o botão abaixo.";
             return;
         }
-        if (_pagina != 2 && !forcar) return;
-
         InfoFirewall.Text = "Verificando as regras do firewall…";
         Task.Run(() => IntegracaoWindows.RegrasExistem()).ContinueWith(t =>
         {
@@ -476,160 +351,315 @@ public partial class MainWindow : Window
     {
         if (!IntegracaoWindows.EhAdministrador())
         {
-            var r = System.Windows.MessageBox.Show(this,
-                "Para criar a regra do firewall o PCFlow precisa ser aberto como administrador uma única vez.\n\n" +
+            var r = WpfMessageBox.Show(this,
+                "Para gravar a regra do firewall o PCFlow precisa ser aberto como administrador uma única vez.\n\n" +
                 "Reabrir agora com permissão de administrador?",
                 "Firewall", MessageBoxButton.YesNo, MessageBoxImage.Question);
             if (r != MessageBoxResult.Yes) return;
             if (IntegracaoWindows.ReabrirComoAdministrador("--firewall"))
             {
-                Encerrar();
+                _encerrando = true;
+                Task.Run(async () =>
+                {
+                    await _servidorArquivos.DisposeAsync();
+                    await _servidor.DisposeAsync();
+                    Dispatcher.Invoke(() => System.Windows.Application.Current.Shutdown());
+                });
                 return;
             }
-            System.Windows.MessageBox.Show(this, "A elevação foi cancelada.", "Firewall",
+            WpfMessageBox.Show(this, "A elevação foi cancelada.", "Firewall",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
-        var ok = IntegracaoWindows.GarantirRegrasFirewall(_servidor.PortaEmUso, out var detalhe);
-        _servidor.Log.Escrever(ok ? Categoria.Conexao : Categoria.Erro, detalhe);
+        var ok = IntegracaoWindows.GarantirRegrasFirewall(out var detalhe);
+        RegistrarEvento(detalhe);
         _firewallOk = null;
-        AtualizarConexao();
         AtualizarInfoFirewall(forcar: true);
-        System.Windows.MessageBox.Show(this, detalhe, "Firewall", MessageBoxButton.OK,
+        WpfMessageBox.Show(this, detalhe, "Firewall", MessageBoxButton.OK,
             ok ? MessageBoxImage.Information : MessageBoxImage.Warning);
     }
 
-    private async void TestarPorta_Click(object sender, RoutedEventArgs e)
+    private async void TestarPortas_Click(object sender, RoutedEventArgs e)
     {
-        var porta = _servidor.PortaEmUso;
         var mensagem = await Task.Run(() =>
         {
-            try
+            string Testar(int porta)
             {
-                using var cliente = new System.Net.Sockets.TcpClient();
-                var conectou = cliente.ConnectAsync(System.Net.IPAddress.Loopback, porta)
-                    .Wait(TimeSpan.FromSeconds(3));
-                return conectou
-                    ? $"A porta {porta} está aceitando conexões neste PC.\n\n" +
-                      "Se o celular ainda falhar, o bloqueio está no firewall ou o Wi‑Fi é outro."
-                    : $"A porta {porta} não respondeu. O servidor está parado?";
+                try
+                {
+                    using var c = new System.Net.Sockets.TcpClient();
+                    return c.ConnectAsync(System.Net.IPAddress.Loopback, porta).Wait(TimeSpan.FromSeconds(2))
+                        ? "OK" : "sem resposta";
+                }
+                catch (Exception) { return "sem resposta"; }
             }
-            catch (Exception ex) { return $"Falha no teste: {ex.Message}"; }
+            return $"Controle {ServidorPcFlow.PortaControle}: {Testar(ServidorPcFlow.PortaControle)}\n" +
+                   $"Tela {ServidorPcFlow.PortaTela}: {Testar(ServidorPcFlow.PortaTela)}\n" +
+                   $"Arquivos {ServidorArquivosPcFlow.Porta}: {Testar(ServidorArquivosPcFlow.Porta)}\n\n" +
+                   "Se todas estiverem OK e o celular ainda falhar, o bloqueio está no firewall " +
+                   "ou os dois não estão no mesmo Wi‑Fi.";
         });
-        System.Windows.MessageBox.Show(this, mensagem, "Teste de porta",
-            MessageBoxButton.OK, MessageBoxImage.Information);
+        WpfMessageBox.Show(this, mensagem, "Teste de portas", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
     private async void Reiniciar_Click(object sender, RoutedEventArgs e)
     {
-        var ok = await _servidor.ReiniciarAsync();
-        if (!ok && _servidor.UltimoErro is not null)
-            System.Windows.MessageBox.Show(this, _servidor.UltimoErro, "PCFlow",
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+        await _servidor.ReiniciarAsync();
         AtualizarConexao();
+        AtualizarDiagnostico();
+        AtualizarStatusVisual();
     }
 
-    private async void AplicarPorta_Click(object sender, RoutedEventArgs e)
+    // ------------------------------------------------------------------
+    // Configuração
+    // ------------------------------------------------------------------
+
+    private void CarregarConfiguracaoNaTela()
     {
-        if (!int.TryParse(CampoPorta.Text.Trim(), out var porta) || porta < 1024 || porta > 65535)
+        _aplicandoConfiguracao = true;
+        var c = _servidor.Configuracao;
+        ComboAcesso.SelectedIndex = c.AcessoInterativo switch { "janela" => 1, "nunca" => 2, _ => 0 };
+        CheckTela.IsChecked = c.PermitirTela;
+        CheckEntrada.IsChecked = c.PermitirEntrada;
+        CheckClipboard.IsChecked = c.PermitirClipboard;
+        CheckEnergia.IsChecked = c.PermitirEnergia;
+        CheckArquivos.IsChecked = c.PermitirArquivos;
+        CheckDescoberta.IsChecked = c.DescobertaRede;
+        CheckMoldura.IsChecked = c.MolduraSessao;
+        CheckMinimizar.IsChecked = c.MinimizarParaBandeja;
+        _aplicandoConfiguracao = false;
+    }
+
+    /// <summary>Cada mudança é salva na hora — não existe mais "esqueci de salvar".</summary>
+    private void Config_Click(object sender, RoutedEventArgs e) => SalvarConfiguracao();
+    private void Config_Changed(object sender, SelectionChangedEventArgs e) => SalvarConfiguracao();
+
+    private void SalvarConfiguracao()
+    {
+        if (!_carregado || _aplicandoConfiguracao) return;
+        var c = _servidor.Configuracao;
+        c.AcessoInterativo = (ComboAcesso.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "sempre";
+        c.PermitirTela = CheckTela.IsChecked == true;
+        c.PermitirEntrada = CheckEntrada.IsChecked == true;
+        c.PermitirClipboard = CheckClipboard.IsChecked == true;
+        c.PermitirEnergia = CheckEnergia.IsChecked == true;
+        c.PermitirArquivos = CheckArquivos.IsChecked == true;
+        c.DescobertaRede = CheckDescoberta.IsChecked == true;
+        c.MolduraSessao = CheckMoldura.IsChecked == true;
+        c.MinimizarParaBandeja = CheckMinimizar.IsChecked == true;
+        _servidor.SalvarConfiguracao();
+        RegistrarEvento("Configuração salva");
+    }
+
+    private void DefinirSenha_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_servidor.DefinirSenhaNaoSupervisionada(CampoSenha.Password))
         {
-            System.Windows.MessageBox.Show(this, "Informe uma porta entre 1024 e 65535.", "PCFlow",
+            WpfMessageBox.Show(this, "Use uma senha com pelo menos 8 caracteres.", "PCFlow",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
-            CampoPorta.Text = _servidor.PortaEmUso.ToString();
             return;
         }
-        _servidor.Configuracao.PortaControle = porta;
+        CampoSenha.Clear();
+        RegistrarEvento("Senha de acesso não supervisionado definida");
+        WpfMessageBox.Show(this, "Acesso não supervisionado ativado com senha.", "PCFlow",
+            MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    private void RemoverSenha_Click(object sender, RoutedEventArgs e)
+    {
+        _servidor.RemoverSenhaNaoSupervisionada();
+        CampoSenha.Clear();
+        RegistrarEvento("Senha de acesso não supervisionado removida");
+        WpfMessageBox.Show(this, "Senha removida. As conexões voltam a depender das regras de acesso.",
+            "PCFlow", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    // ------------------------------------------------------------------
+    // Dispositivos
+    // ------------------------------------------------------------------
+
+    private void AlternarBloqueio_Click(object sender, RoutedEventArgs e)
+    {
+        var id = (sender as WpfButton)?.Tag?.ToString();
+        var dispositivo = _servidor.Configuracao.Dispositivos.FirstOrDefault(d => d.Id == id);
+        if (dispositivo is null) return;
+        dispositivo.Bloqueado = !dispositivo.Bloqueado;
         _servidor.SalvarConfiguracao();
-        var ok = await _servidor.ReiniciarAsync();
-        CampoPorta.Text = _servidor.PortaEmUso.ToString();
-        AtualizarConexao();
-        AtualizarPin(true);
-        if (!ok)
-            System.Windows.MessageBox.Show(this, _servidor.UltimoErro ?? "Falha ao reiniciar.", "PCFlow",
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+        AtualizarTela();
+        RegistrarEvento(dispositivo.Bloqueado ? $"{dispositivo.Nome} bloqueado" : $"{dispositivo.Nome} liberado");
+    }
+
+    private void RevogarDispositivo_Click(object sender, RoutedEventArgs e)
+    {
+        var id = (sender as WpfButton)?.Tag?.ToString();
+        var dispositivo = _servidor.Configuracao.Dispositivos.FirstOrDefault(d => d.Id == id);
+        if (dispositivo is null) return;
+        var confirmar = WpfMessageBox.Show(this,
+            $"Revogar o acesso salvo de {dispositivo.Nome}?\n\nEle precisará ser autorizado de novo na próxima conexão.",
+            "PCFlow — Revogar dispositivo", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+        if (confirmar != MessageBoxResult.Yes) return;
+        _servidor.Configuracao.Dispositivos.Remove(dispositivo);
+        _servidor.SalvarConfiguracao();
+        AtualizarTela();
+        RegistrarEvento($"Acesso de {dispositivo.Nome} revogado");
     }
 
     // ------------------------------------------------------------------
     // Diagnóstico
     // ------------------------------------------------------------------
 
-    private void AtualizarLog()
+    private void Diagnostico_Click(object sender, RoutedEventArgs e) { AtualizarDiagnostico(); AtualizarLog(); }
+
+    private void Atualizar_Click(object sender, RoutedEventArgs e)
     {
-        if (!_carregado || _pagina != 3) return;
-        ListaLog.ItemsSource = _servidor.Log.Linhas.Reverse().Take(200).Select(l => l.ToString()).ToList();
+        AtualizarTela();
+        CarregarConfiguracaoNaTela();
         AtualizarConexao();
+        AtualizarDiagnostico();
+        AtualizarStatusVisual();
+    }
+
+    private void AtualizarDiagnostico()
+    {
+        try
+        {
+            var ip = IPGlobalProperties.GetIPGlobalProperties();
+            var tcp = ip.GetActiveTcpListeners().Select(x => x.Port).ToHashSet();
+            var udp = ip.GetActiveUdpListeners().Select(x => x.Port).ToHashSet();
+            string E(bool aberta) => aberta ? "OK" : "FECHADA";
+            TextoDiagnostico.Text =
+                $"Servidor: {(_servidor.Ativo ? (_servidor.Pausado ? "pausado" : "ativo") : "inativo")}\n" +
+                $"Sessões ativas: {_sessoesAtivas} · Dispositivos autorizados: {_servidor.Dispositivos.Count}\n" +
+                $"Controle {ServidorPcFlow.PortaControle}: {E(tcp.Contains(ServidorPcFlow.PortaControle))} · " +
+                $"Tela {ServidorPcFlow.PortaTela}: {E(tcp.Contains(ServidorPcFlow.PortaTela))} · " +
+                $"Arquivos {ServidorArquivosPcFlow.Porta}: {E(tcp.Contains(ServidorArquivosPcFlow.Porta))} · " +
+                $"Descoberta UDP {ServidorPcFlow.PortaDescoberta}: {E(udp.Contains(ServidorPcFlow.PortaDescoberta))}\n" +
+                $"PCFlow v{VersaoPcFlow.App} · protocolo 2 · {Environment.OSVersion}";
+        }
+        catch (Exception ex)
+        {
+            TextoDiagnostico.Text = $"Não foi possível concluir o diagnóstico: {ex.Message}";
+        }
     }
 
     private void Exportar_Click(object sender, RoutedEventArgs e)
     {
         try
         {
-            var pasta = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "PCFlow");
-            var arquivo = _servidor.Log.Exportar(pasta);
-            System.Windows.MessageBox.Show(this, $"Diagnóstico salvo em:\n{arquivo}", "PCFlow",
+            var pasta = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "PCFlow");
+            Directory.CreateDirectory(pasta);
+            var arquivo = Path.Combine(pasta, $"pcflow-diagnostico-{DateTime.Now:yyyyMMdd-HHmmss}.txt");
+            var conteudo = new List<string>
+            {
+                $"PCFlow {VersaoPcFlow.App} — protocolo 2",
+                $"Máquina: {Environment.MachineName}   SO: {Environment.OSVersion}",
+                $"Endereço: {_servidor.EnderecoLocal}:{ServidorPcFlow.PortaControle}",
+                $"Identidade TLS: {_servidor.ImpressaoTls}",
+                TextoDiagnostico.Text,
+                new string('-', 60)
+            };
+            conteudo.AddRange(_eventos);
+            File.WriteAllLines(arquivo, conteudo);
+            WpfMessageBox.Show(this, $"Diagnóstico salvo em:\n{arquivo}", "PCFlow",
                 MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
-            System.Windows.MessageBox.Show(this, $"Não foi possível exportar: {ex.Message}", "PCFlow",
+            WpfMessageBox.Show(this, $"Não foi possível exportar: {ex.Message}", "PCFlow",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 
-    private void LimparLog_Click(object sender, RoutedEventArgs e) => ListaLog.ItemsSource = null;
-
-    // ------------------------------------------------------------------
-    // Ajustes
-    // ------------------------------------------------------------------
-
-    private void AoFechar_Changed(object sender, SelectionChangedEventArgs e)
+    private void AbrirDownloads_Click(object sender, RoutedEventArgs e)
     {
-        if (!_carregado) return;
-        _servidor.Configuracao.AoFechar = (AcaoAoFechar)Math.Max(0, ComboAoFechar.SelectedIndex);
-        _servidor.SalvarConfiguracao();
+        var downloads = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+        Directory.CreateDirectory(downloads);
+        Process.Start(new ProcessStartInfo("explorer.exe", downloads) { UseShellExecute = true });
     }
 
-    private void Config_Click(object sender, RoutedEventArgs e)
+    private void AtualizarMoldura(int sessoes)
     {
-        if (!_carregado) return;
-        var cfg = _servidor.Configuracao;
-        cfg.IniciarServidorAutomaticamente = ChkIniciarServidor.IsChecked == true;
-        cfg.AbrirMinimizado = ChkAbrirMinimizado.IsChecked == true;
-        cfg.PerguntarAntesDeNovoDispositivo = ChkPerguntarNovo.IsChecked == true;
-        cfg.ConfirmarDesligarReiniciar = ChkConfirmarEnergia.IsChecked == true;
-        cfg.PermitirEnergia = ChkEnergia.IsChecked == true;
-        cfg.PermitirArquivos = ChkArquivos.IsChecked == true;
-        cfg.PermitirTelaRemota = ChkTela.IsChecked == true;
-        cfg.SincronizarAreaTransferencia = ChkClipboard.IsChecked == true;
-        cfg.SomenteRedeLocal = ChkSomenteLan.IsChecked == true;
-        _servidor.SalvarConfiguracao();
-
-        if (ReferenceEquals(sender, ChkIniciarWindows))
+        if (sessoes > 0 && _servidor.Configuracao.MolduraSessao)
         {
-            IntegracaoWindows.DefinirIniciaComWindows(ChkIniciarWindows.IsChecked == true);
-            ChkIniciarWindows.IsChecked = IntegracaoWindows.IniciaComWindows();
+            _moldura ??= new MolduraSessaoWindow();
+            if (!_moldura.IsVisible) _moldura.Show();
+        }
+        else
+        {
+            _moldura?.Close();
+            _moldura = null;
         }
     }
 
+    private static string FormatarId(string id) => id.Length == 9 ? $"{id[..3]} {id.Substring(3, 3)} {id[6..]}" : id;
+    private static string FormatarPin(string pin) => pin.Length == 6 ? $"{pin[..3]} {pin[3..]}" : pin;
+
+    // ------------------------------------------------------------------
+    // Encerramento
     // ------------------------------------------------------------------
 
-    private void Minimizar_Click(object sender, RoutedEventArgs e)
+    protected override void OnClosing(CancelEventArgs e)
     {
+        if (_encerrando) { base.OnClosing(e); return; }
         GuardarTamanhoJanela();
-        Hide();
+
+        if (_servidor.Configuracao.MinimizarParaBandeja)
+        {
+            e.Cancel = true;
+            Hide();
+            _tray.ShowBalloonTip(1200, "PCFlow continua ativo",
+                "O servidor segue disponível na bandeja.", Forms.ToolTipIcon.Info);
+            return;
+        }
+
+        _encerrando = true;
+        _tray.Visible = false;
+        _tray.Dispose();
+        try { _servidorArquivos.DisposeAsync().AsTask().Wait(TimeSpan.FromSeconds(3)); } catch (Exception) { }
+        try { _servidor.DisposeAsync().AsTask().Wait(TimeSpan.FromSeconds(3)); } catch (Exception) { }
+        System.Windows.Application.Current.Shutdown();
+        base.OnClosing(e);
     }
 
-    private void Pausar_Click(object sender, RoutedEventArgs e) => _servidor.AlternarPausa();
-
-    private async void LigarDesligar_Click(object sender, RoutedEventArgs e)
+    private void GuardarTamanhoJanela()
     {
-        if (_servidor.Ativo) await _servidor.PararAsync();
-        else if (!_servidor.Iniciar() && _servidor.UltimoErro is not null)
-            System.Windows.MessageBox.Show(this, _servidor.UltimoErro, "PCFlow",
-                MessageBoxButton.OK, MessageBoxImage.Warning);
-        AtualizarConexao();
-        AtualizarPin(true);
+        if (WindowState != WindowState.Normal) return;
+        _servidor.Configuracao.JanelaLargura = ActualWidth;
+        _servidor.Configuracao.JanelaAltura = ActualHeight;
+        _servidor.SalvarConfiguracao();
+    }
+
+    private void Minimizar_Click(object sender, RoutedEventArgs e) { GuardarTamanhoJanela(); Hide(); }
+
+    private void Pausar_Click(object sender, RoutedEventArgs e)
+    {
+        _servidor.AlternarPausa();
+        AtualizarStatusVisual();
+        AtualizarDiagnostico();
+    }
+
+    private async void Encerrar_Click(object sender, RoutedEventArgs e) => await EncerrarAsync();
+
+    private void Restaurar()
+    {
+        Show();
+        if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+        AjustarParaTela();
+        Activate();
+        Topmost = true;
+        Topmost = false;
+    }
+
+    private async Task EncerrarAsync()
+    {
+        if (_encerrando) return;
+        _encerrando = true;
+        _moldura?.Close();
+        _tray.Visible = false;
+        _tray.Dispose();
+        await _servidorArquivos.DisposeAsync();
+        await _servidor.DisposeAsync();
+        Dispatcher.Invoke(() => System.Windows.Application.Current.Shutdown());
     }
 }

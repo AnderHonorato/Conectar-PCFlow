@@ -1,115 +1,110 @@
 # PCFlow
 
-Controle o seu PC com Windows pelo celular Android, dentro da rede local.
-Sem conta, sem nuvem, sem anúncios, sem assinatura.
+PCFlow é um controle remoto local para Windows + Android, criado do zero para funcionar sem conta, sem anúncios e sem depender de nuvem.
 
-> **Requisito principal:** o computador e o celular precisam estar na **mesma rede
-> local** (mesmo roteador). Redes de convidados, VPN ligada no celular e Wi‑Fi de
-> 5 GHz separado do cabo do PC são as causas mais comuns de "não conecta". O app
-> mostra o IP do celular na tela inicial justamente para você conferir isso.
-
----
+> Estado atual: **v0.1.0-alpha**. A base funcional de conexão LAN, pareamento, touchpad, teclado, mídia, energia e execução em segundo plano já está implementada. Recursos avançados do roadmap ainda não devem ser tratados como concluídos.
 
 ## O que já funciona
 
-| Recurso | Windows | Android |
-|---|---|---|
-| Descoberta automática na LAN (UDP) | ✅ | ✅ |
-| Pareamento por QR Code | ✅ gera | ✅ escaneia |
-| Pareamento por PIN de 6 dígitos | ✅ | ✅ |
-| Endereço manual (quando a rede bloqueia broadcast) | ✅ mostra | ✅ digita |
-| Reconexão automática (troca de IP, queda de Wi‑Fi) | ✅ | ✅ |
-| Heartbeat com latência em tempo real | ✅ | ✅ |
-| Touchpad: mover, clicar, arrastar, rolar, 3 botões | — | ✅ |
-| Teclado completo: texto Unicode, F1–F12, setas, modificadores | ✅ | ✅ |
-| Atalhos prontos (Ctrl+C, Alt+Tab, Win+D…) | ✅ | ✅ |
-| Controle de mídia e volume | ✅ | ✅ |
-| Energia: bloquear, suspender, hibernar, reiniciar, desligar | ✅ | ✅ |
-| Abrir programas do Menu Iniciar | ✅ | ✅ |
-| Área de transferência compartilhada nos dois sentidos | ✅ | ✅ |
-| Explorador de arquivos + download para o celular | ✅ | ✅ |
-| Ver a tela do PC no celular (JPEG adaptativo) | ✅ | ✅ |
-| Fechar a janela minimiza para a bandeja (configurável) | ✅ | — |
-| Iniciar com o Windows | ✅ | — |
-| Regra de firewall automática | ✅ | — |
-| Gerenciar dispositivos: renomear, bloquear, remover | ✅ | — |
-| Diagnóstico exportável | ✅ | — |
+### Windows
+- servidor TCP local na porta `45456`;
+- descoberta automática por broadcast UDP na porta `45455`;
+- pareamento por PIN de 6 dígitos;
+- token persistente por dispositivo autorizado;
+- mouse remoto: movimento, clique esquerdo/direito/meio e scroll;
+- entrada de texto Unicode e teclas especiais;
+- controles de mídia do Windows;
+- bloquear, suspender, hibernar, reiniciar, desligar e desligar monitor;
+- interface WPF escura inspirada na referência visual do projeto;
+- lista de dispositivos conhecidos;
+- fechar a janela minimiza para a bandeja;
+- servidor continua funcionando enquanto o app está na bandeja.
 
-O que **não** está implementado nesta versão está listado sem enfeite em
-[`FEATURE_MATRIX.md`](FEATURE_MATRIX.md) — nada de botão que não faz nada.
+### Android
+- descoberta automática de PCs na LAN;
+- primeiro pareamento por PIN;
+- reutilização do token salvo nas próximas conexões;
+- tela de touchpad otimizada para toque;
+- teclado remoto;
+- controles de mídia;
+- controles de energia;
+- serviço em primeiro plano para reduzir encerramentos da conexão em segundo plano;
+- interface nativa Kotlin + Jetpack Compose.
 
----
+## Visual
 
-## Instalação rápida
+A identidade usa grafite/preto, dourado quente e turquesa para estado conectado, com superfícies grandes, bordas discretas e navegação simples. A referência visual enviada serviu apenas como direção de design; os componentes foram recriados no projeto.
 
-### 1. No computador
+## Estrutura
 
-Baixe `PCFlow.exe` (ou o `.zip` portátil) e execute.
-Na primeira vez, vá em **Conexão → Liberar no firewall** e aceite o pedido de
-administrador. É o passo que evita 90% das falhas de conexão.
-
-### 2. No celular
-
-Instale `PCFlow-Android-v1.0.0.apk`. O Android vai pedir para permitir
-"instalar de fontes desconhecidas" — é normal para APK fora da Play Store.
-
-### 3. Parear
-
-1. Abra o PCFlow no PC. Ele mostra o nome do computador, o IP e um QR Code.
-2. Abra o app no celular. O PC aparece sozinho na lista.
-3. Toque em **Escanear QR** (ou toque no PC da lista e digite o PIN).
-4. Confirme no PC quando ele perguntar se pode autorizar o celular.
-
-A partir daí é só abrir o app: ele reconecta sozinho, sem PIN.
-
----
-
-## Quando não conectar
-
-Na ordem, é quase sempre um destes:
-
-1. **Redes diferentes.** Compare o IP mostrado no app com o IP mostrado no PC.
-   Os três primeiros números precisam bater (`192.168.0.x` dos dois lados).
-2. **Firewall.** No PC: **Conexão → Liberar no firewall**. Depois **Testar porta**.
-3. **Broadcast bloqueado pelo roteador.** O PC não aparece na lista, mas o
-   endereço direto funciona: use **Digitar IP** no app com o IP mostrado no PC.
-4. **Servidor pausado ou parado.** A barra de status no topo do PCFlow do Windows
-   diz o estado atual.
-
-A tela **Diagnóstico** no Windows registra tudo (conexões, autenticação, erros) e
-exporta um arquivo `.txt` para você conferir.
-
----
-
-## Estrutura do repositório
-
-```
+```text
 PCFlow.sln
-windows/
-  PCFlow.Core/         núcleo sem dependência de Windows: protocolo, servidor,
-                       pareamento, arquivos, descoberta — é o que os testes cobrem
-  PCFlow.Windows/      interface WPF, bandeja, SendInput, captura de tela, firewall
-  PCFlow.Core.Tests/   75 testes unitários e de integração (rodam em Linux e Windows)
-android/
-  app/                 aplicativo Kotlin + Jetpack Compose
-tests/interop/         handshake compartilhado, verificado pelos dois lados
-docs/                  arquitetura, protocolo, segurança, build e testes
+windows/PCFlow.Windows/    Aplicativo/servidor Windows
+android/                   Aplicativo Android
+.github/workflows/         Builds automáticos
+docs/                      Arquitetura e roadmap
 ```
 
----
+## Desenvolvimento Windows
 
-## Documentação
+Requisitos:
+- Windows 10/11;
+- .NET 8 SDK.
 
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — como as peças se encaixam
-- [`docs/PROTOCOL.md`](docs/PROTOCOL.md) — o protocolo, mensagem por mensagem
-- [`docs/SECURITY.md`](docs/SECURITY.md) — pareamento, tokens, limites, o que é registrado
-- [`docs/BUILD.md`](docs/BUILD.md) — compilar do zero, assinar o APK
-- [`docs/TESTS.md`](docs/TESTS.md) — o que é testado e o que não é
-- [`FEATURE_MATRIX.md`](FEATURE_MATRIX.md) — estado real de cada recurso
-- [`BUGS.md`](BUGS.md) — os defeitos encontrados e como foram corrigidos
-- [`CHANGELOG.md`](CHANGELOG.md)
+```powershell
+dotnet restore PCFlow.sln
+dotnet build PCFlow.sln -c Release
+dotnet run --project windows/PCFlow.Windows/PCFlow.Windows.csproj
+```
 
-## Licença e origem
+## Desenvolvimento Android
 
-Implementação própria. Inspirada em funcionalidades públicas de aplicativos do
-gênero, sem reaproveitar código, marca, ícones ou protocolo de terceiros.
+Requisitos:
+- Android Studio ou JDK 17 + Gradle 8.9;
+- Android SDK 35.
+
+Abra a pasta `android/` no Android Studio ou execute:
+
+```bash
+gradle -p android :app:assembleDebug
+```
+
+APK esperado:
+
+```text
+android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+## Como conectar
+
+1. Abra PCFlow no Windows.
+2. Abra PCFlow no Android na mesma rede Wi-Fi/LAN.
+3. Toque em **Atualizar** caso o PC ainda não tenha aparecido.
+4. Selecione o computador.
+5. No primeiro acesso, digite no celular o PIN exibido na lateral do programa Windows.
+6. Depois do pareamento, o celular guarda o token do PC e não pede o PIN novamente.
+
+## Segurança atual
+
+A v0.1.0 restringe o fluxo de uso à rede local e exige pareamento/token para comandos. O protocolo ainda é TCP simples; **criptografia de transporte autenticada e pinagem de identidade estão no roadmap antes de uma versão estável 1.0**.
+
+Não exponha as portas do PCFlow diretamente para a internet nesta versão.
+
+## Próximas etapas
+
+- reconexão automática completa após troca/quedas de Wi-Fi;
+- confirmação configurável para comandos destrutivos;
+- QR Code real para pareamento;
+- clipboard bidirecional;
+- Remote Desktop com streaming de baixa latência;
+- transferência/explorador de arquivos;
+- gamepad e editor de layouts;
+- giroscópio/acelerômetro;
+- apresentação e navegador;
+- câmera virtual/projetor;
+- segundo monitor virtual;
+- painel de recursos e ajustes completo;
+- instalador Windows e APK Release assinado;
+- criptografia autenticada de ponta a ponta na LAN.
+
+Veja [`docs/ROADMAP.md`](docs/ROADMAP.md).
