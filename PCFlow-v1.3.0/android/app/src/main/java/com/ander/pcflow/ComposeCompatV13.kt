@@ -9,7 +9,7 @@ import androidx.compose.ui.Modifier
  * do Compose presentes no projeto alpha.
  */
 @Composable
-fun <T> rememberSaveable(calculation: () -> T): T = remember(calculation = calculation)
+fun <T> rememberSaveable(calculation: () -> T): T = remember { calculation() }
 
 /**
  * Fallback usado apenas quando um componente reutilizável chama weight fora de um
