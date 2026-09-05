@@ -24,6 +24,14 @@ public partial class MainWindowV13
         RemotoEnergia.Unchecked += PermissaoRemota_Changed;
 
         ConfigIdioma.SelectionChanged += Idioma_Changed;
+        ConfigIdioma.SelectedIndex = _servidor.Configuracao.Idioma switch
+        {
+            "en" => 1,
+            "es" => 2,
+            _ => 0
+        };
+        AplicarIdiomaVisualV13(_servidor.Configuracao.Idioma);
+
         PreviewKeyDown += AtalhoGlobalV13_KeyDown;
     }
 
@@ -36,7 +44,6 @@ public partial class MainWindowV13
         c.PermitirArquivos = RemotoArquivos.IsChecked == true;
         c.PermitirEnergia = RemotoEnergia.IsChecked == true;
 
-        // Mantém as duas telas de configuração sincronizadas.
         CheckEntrada.IsChecked = c.PermitirEntrada;
         CheckClipboard.IsChecked = c.PermitirClipboard;
         CheckArquivos.IsChecked = c.PermitirArquivos;
@@ -50,9 +57,11 @@ public partial class MainWindowV13
         var tag = (ConfigIdioma.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "pt-BR";
         _servidor.Configuracao.Idioma = tag;
         _servidor.SalvarConfiguracao();
+        AplicarIdiomaVisualV13(tag);
+    }
 
-        // A arquitetura principal permanece PT-BR; os itens de navegação e títulos
-        // mudam imediatamente para deixar a preferência funcional sem exigir reinício.
+    private void AplicarIdiomaVisualV13(string tag)
+    {
         if (tag == "en")
         {
             MenuInicio.Content = "⌂   Home";
