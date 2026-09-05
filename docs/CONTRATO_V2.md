@@ -11,7 +11,8 @@ existir exatamente assim.
 |---|---|
 | A — Entrada e captura no Windows | `windows/PCFlow.Windows/Core/EntradaWindows.cs`, `ExecutorComandos.cs`, `CapturaTela.cs`, `Modelos.cs` (só campos novos de `MensagemRede`), e apenas o método `TransmitirTelaFluxoAsync` de `ServidorPcFlow.cs` |
 | B — Tela de sessão do Android | `android/.../TelaRemota.kt` e novos arquivos em `android/.../sessao/` |
-| C — Casca do aplicativo Android | `android/.../PcFlowApp.kt`, `DialogoArquivos.kt` |
+| C — Casca do aplicativo Android | `android/.../PcFlowApp.kt`, `DialogoArquivos.kt`, novos arquivos em `android/.../design/` |
+| E — Visual do aplicativo Windows | `windows/PCFlow.Windows/MainWindow.xaml`, `MainWindow.xaml.cs`, `App.xaml`, `ControleRemotoWindow.xaml(.cs)`, `MolduraSessaoWindow.cs`, e novos arquivos de UI em `windows/PCFlow.Windows/` |
 | D — Transporte do Android | `android/.../SessaoPcFlow.kt`, `Modelos.kt` |
 
 Ninguém edita arquivo de outra frente. Se precisar de algo de fora, use a API
@@ -195,3 +196,85 @@ Cada frente entrega teste que roda sem hardware:
 
 `gradle -p android :app:testDebugUnitTest` e
 `dotnet test windows/PCFlow.Tests/PCFlow.Tests.csproj` precisam passar.
+
+---
+
+# 6. Sistema visual PCFlow (obrigatório nas duas plataformas)
+
+O aplicativo tem que parecer um produto só, no PC e no celular. Nada de tela
+que parece de outra época ao lado de outra. **Nenhuma caixa de diálogo nativa**
+— nem `MessageBox` do Windows, nem `AlertDialog` padrão do Android, nem
+`Toast`. Tudo é construído dentro do aplicativo, com a cara dele.
+
+## Cores (escuro, as duas plataformas)
+
+| Papel | Valor | Onde usar |
+|---|---|---|
+| Fundo | `#0E1216` | fundo da janela/tela |
+| Superfície | `#161B22` | cartões, painéis, listas |
+| Superfície elevada | `#1C232C` | campo de texto, item sob o cursor, menu |
+| Borda | `#262D37` | contorno discreto, 1px |
+| Borda em foco | `#3A434F` | item focado ou selecionado |
+| Ação (dourado) | `#F2AA2E` | botão principal, seleção, destaque |
+| Ação pressionada | `#D9931D` | estado ativo do dourado |
+| Seguro (turquesa) | `#14D3C3` | conectado, protegido, sucesso |
+| Erro | `#FF7A70` | falha, bloqueio, ação destrutiva |
+| Texto | `#ECF0F4` | conteúdo |
+| Texto secundário | `#98A2AE` | apoio, legenda, ajuda |
+| Texto desabilitado | `#5C6672` | controle inativo |
+
+Dourado e turquesa são acentos: aparecem em pouca área e com propósito.
+Vermelho **só** para erro e ação destrutiva — nunca decorativo.
+
+## Forma
+
+- Raio de canto: **8** (controle pequeno), **14** (cartão, campo, botão),
+  **20** (painel e diálogo), **999** (pílula/ícone redondo).
+- Borda de 1px em `Borda`, sem sombra pesada. Profundidade vem da diferença
+  entre `Fundo` e `Superfície`, não de sombra preta.
+- Espaçamento na escala 4 / 8 / 12 / 16 / 24 / 32. Respiro generoso: painel
+  com 24 de folga interna, itens de lista com 16.
+- Alvo de toque mínimo de 48 dp no Android e 32 px no Windows.
+
+## Tipografia
+
+- Windows: Segoe UI Variable quando existir, senão Segoe UI.
+- Android: a fonte do sistema.
+- Escala: 28 (título de tela), 20 (título de seção), 15 (corpo),
+  13 (secundário), 11 (legenda). Peso SemiBold só em título.
+- Número grande de identidade (ID, código) em fonte monoespaçada, com
+  espaçamento entre grupos de dígitos para leitura em voz alta.
+
+## Movimento
+
+- 120–180 ms para estado de controle (hover, pressão, seleção).
+- 180–260 ms para abrir/fechar painel, diálogo e menu radial.
+- Curva de saída suave (decelerate). Nada de rebote exagerado.
+- Feedback de toque some em no máximo 450 ms depois de soltar o dedo.
+- **Respeitar redução de animações do sistema**: quando ligada, transição vira
+  troca imediata. Android: `Settings.Global.ANIMATOR_DURATION_SCALE == 0`.
+  Windows: `SystemParameters.ClientAreaAnimation == false`.
+
+## Diálogos próprios
+
+Todo aviso, confirmação, erro e pedido de senha usa um componente do PCFlow:
+
+- painel centralizado, raio 20, borda 1px, fundo `Superfície`;
+- véu escuro por trás (preto a 55%), clique no véu fecha quando a ação não é
+  destrutiva;
+- título em 20, texto em 15, no máximo dois botões;
+- botão de confirmação em dourado; se a ação for destrutiva, em vermelho e
+  nunca em foco por padrão;
+- abre e fecha em 200 ms com fade e leve subida (8 px).
+
+No Windows isso é uma janela WPF própria sem borda do sistema
+(`WindowStyle=None`, `AllowsTransparency=True`), centralizada na janela dona.
+No Android é um `Dialog` com `usePlatformDefaultWidth = false` e conteúdo
+inteiramente desenhado pelo PCFlow.
+
+## Estados que toda tela precisa cobrir
+
+Normal, carregando (com o que está carregando escrito), vazio (com o próximo
+passo sugerido), erro (com o que fazer para sair dele), sucesso, desabilitado
+(com o motivo visível). Nada de tela em branco sem explicação e nada de
+"carregando" infinito.
