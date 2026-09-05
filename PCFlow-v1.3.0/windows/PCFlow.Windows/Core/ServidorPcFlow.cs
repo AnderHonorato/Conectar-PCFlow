@@ -188,9 +188,6 @@ public sealed class ServidorPcFlow : IAsyncDisposable
 
             var tokenValido = conhecido is not null && TokenIgual(conhecido.Token, ola.Token);
             var acessoNaoSupervisionado = SegurancaSenha.Verificar(ola.Senha ?? "", _configuracao.SenhaSalt, _configuracao.SenhaHash);
-
-            // QR Code ou PIN válido já são uma confirmação local de posse do código exibido no PC.
-            // Solicitação por ID/descoberta continua exigindo aceite, a menos que a senha não supervisionada seja válida.
             var aceito = pinValido || acessoNaoSupervisionado;
             if (!aceito)
             {
@@ -338,20 +335,35 @@ public sealed class ServidorPcFlow : IAsyncDisposable
                 if (pedido is null || pedido.Tipo != "stream" || string.IsNullOrWhiteSpace(pedido.SessaoId) ||
                     !_sessoes.TryGetValue(pedido.SessaoId, out var sessao) || !sessao.PermitirTela) return;
 
-                var fps = Math.Clamp(pedido.Fps, 2, 20);
-                var qualidade = Math.Clamp(pedido.Qualidade, 35, 85);
+                // A tela "Acesso Remoto" agora controla de verdade o stream enviado ao Android.
+                // O pedido do cliente continua servindo de fallback para instalações antigas.
+                var fpsConfigurado = _configuracao.FpsPadrao > 0 ? _configuracao.FpsPadrao : pedido.Fps;
+                var fps = Math.Clamp(fpsConfigurado, 2, 60);
+                var qualidadeConfigurada = _configuracao.QualidadePadrao switch
+                {
+                    "alta" => 86,
+                    "equilibrada" => 68,
+                    "economica" => 46,
+                    _ => Math.Clamp(pedido.Qualidade, 55, 82)
+                };
+                var qualidade = Math.Clamp(qualidadeConfigurada, 35, 90);
                 var monitor = Math.Clamp(pedido.Monitor, 0, Math.Max(0, CapturaTela.QuantidadeMonitores - 1));
                 var cabecalho = new byte[4];
 
                 while (!ct.IsCancellationRequested && cliente.Connected && _sessoes.ContainsKey(pedido.SessaoId))
                 {
+                    var inicio = Environment.TickCount64;
                     var quadro = CapturaTela.CapturarJpeg(monitor, qualidade);
                     if (quadro.Length == 0 || quadro.Length > 16_000_000) break;
                     BinaryPrimitives.WriteInt32BigEndian(cabecalho, quadro.Length);
                     await ssl.WriteAsync(cabecalho, ct);
                     await ssl.WriteAsync(quadro, ct);
                     await ssl.FlushAsync(ct);
-                    await Task.Delay(1000 / fps, ct);
+
+                    var alvoMs = Math.Max(1, 1000 / fps);
+                    var gasto = (int)Math.Min(int.MaxValue, Environment.TickCount64 - inicio);
+                    var espera = alvoMs - gasto;
+                    if (espera > 0) await Task.Delay(espera, ct);
                 }
             }
             catch (OperationCanceledException) { }
