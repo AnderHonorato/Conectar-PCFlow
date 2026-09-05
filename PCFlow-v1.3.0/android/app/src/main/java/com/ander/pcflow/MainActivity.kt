@@ -11,7 +11,7 @@ class MainActivity : ComponentActivity() {
         SessaoPcFlow.inicializar(this)
         RepositorioPcFlowV13.inicializar(this)
         processarIntent(intent)
-        setContent { PcFlowV13CompletoApp() }
+        setContent { PcFlowEntradaFinalV13() }
     }
 
     override fun onNewIntent(intent: Intent) {
