@@ -1,0 +1,70 @@
+PCFlow 1.2.0
+============
+
+O PC e o celular precisam estar NA MESMA VERSÃO. Instale os dois arquivos
+deste pacote; misturar versões faz a conexão cair sem explicação.
+
+ARQUIVOS
+  PCFlow.exe            aplicativo do Windows
+  PCFlow-Android.apk    aplicativo do celular
+  servidor/             servidor de retransmissão, para hospedar quando quiser
+
+REQUISITO DO PC
+  .NET 8 Desktop Runtime. Se o Windows reclamar ao abrir, instale por:
+  https://dotnet.microsoft.com/download/dotnet/8.0  (Desktop Runtime x64)
+
+------------------------------------------------------------------
+1. NA MESMA REDE WI-FI  (é o caminho mais simples)
+------------------------------------------------------------------
+  1. Abra o PCFlow.exe. Na primeira vez ele cria a regra do firewall.
+     Se o Windows perguntar, marque REDE PRIVADA e permita.
+  2. Instale o APK no celular e abra.
+  3. O PC aparece na lista: toque nele. Ou toque em Escanear QR.
+  4. Aceite a solicitação no computador.
+
+  O último número do IP ser diferente entre o PC e o celular é normal.
+  O PCFlow aceita qualquer endereço da rede local.
+
+------------------------------------------------------------------
+2. DE FORA DE CASA, PELA INTERNET
+------------------------------------------------------------------
+  No PC:
+  1. Vá em SEGURANÇA e defina uma senha de acesso (mínimo 8 caracteres).
+     Sem senha, nenhuma conexão de fora é aceita. É de propósito.
+  2. Vá em PELA INTERNET, marque "Aceitar conexões de fora da rede local"
+     e clique em "Preparar acesso pela internet".
+  3. Copie o CÓDIGO DE ACESSO que aparecer.
+
+  No celular:
+  4. Toque em "Conectar por código (fora do Wi-Fi)".
+  5. Cole o código, digite a senha e conecte.
+
+  Se o PC avisar CGNAT, a operadora não deixa abrir porta. Nesse caso use o
+  servidor de retransmissão (pasta servidor/, instruções em COMO-HOSPEDAR.md).
+  O servidor só emenda os dois lados: ele não vê a sua tela nem o que você
+  digita, porque a criptografia é de ponta a ponta.
+
+------------------------------------------------------------------
+3. CONTROLAR OUTRO COMPUTADOR
+------------------------------------------------------------------
+  Abra CONTROLAR OUTRO PC e clique em "Procurar na rede" — os computadores
+  com PCFlow aberto aparecem na lista. Para um PC fora da rede, cole o
+  código de acesso dele junto com a senha.
+
+  A janela que abre tem a tela do outro PC com mouse, roda e teclado.
+
+------------------------------------------------------------------
+4. PERMISSÕES
+------------------------------------------------------------------
+  ACESSO REMOTO   permissões gerais desta máquina.
+  DISPOSITIVOS    permissões de cada celular, uma a uma, e se ele pode ou
+                  não entrar de fora da rede.
+
+  O que estiver desmarcado é bloqueado no servidor, não só escondido na
+  tela do celular.
+
+------------------------------------------------------------------
+SE ALGO DER ERRADO
+------------------------------------------------------------------
+  DIAGNÓSTICO > Exportar diagnóstico gera um arquivo com o estado das
+  portas, do firewall e o registro de eventos.
