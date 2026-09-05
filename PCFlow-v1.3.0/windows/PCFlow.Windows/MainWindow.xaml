@@ -1,104 +1,159 @@
 <Window x:Class="PCFlow.Windows.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="PCFlow" Width="1280" Height="800" MinWidth="1040" MinHeight="680"
-        WindowStartupLocation="CenterScreen" Background="#0F1318" Foreground="#F5F7FA">
+        Title="PCFlow 1.3" Width="1320" Height="840" MinWidth="1080" MinHeight="700"
+        WindowStartupLocation="CenterScreen" Background="#090D12" Foreground="#F4F7FA">
     <Window.Resources>
-        <SolidColorBrush x:Key="Painel" Color="#151A21"/>
-        <SolidColorBrush x:Key="Painel2" Color="#1A2028"/>
-        <SolidColorBrush x:Key="Destaque" Color="#F2AA2E"/>
-        <SolidColorBrush x:Key="Sucesso" Color="#13D4C4"/>
+        <SolidColorBrush x:Key="Fundo" Color="#090D12"/>
+        <SolidColorBrush x:Key="Nav" Color="#0E1319"/>
+        <SolidColorBrush x:Key="Painel" Color="#141B22"/>
+        <SolidColorBrush x:Key="Painel2" Color="#1A232C"/>
+        <SolidColorBrush x:Key="Borda" Color="#303B46"/>
+        <SolidColorBrush x:Key="Destaque" Color="#F3B13F"/>
+        <SolidColorBrush x:Key="Sucesso" Color="#24D2C2"/>
+        <SolidColorBrush x:Key="Texto2" Color="#9EABB8"/>
+        <SolidColorBrush x:Key="Perigo" Color="#FF716A"/>
+
         <Style TargetType="Button">
-            <Setter Property="Foreground" Value="#F6F7F9"/><Setter Property="Background" Value="#1A2028"/>
-            <Setter Property="BorderBrush" Value="#3B414A"/><Setter Property="Padding" Value="14,10"/><Setter Property="Margin" Value="4"/><Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="13" Padding="{TemplateBinding Padding}"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></ControlTemplate></Setter.Value></Setter>
+            <Setter Property="Foreground" Value="#F6F8FA"/>
+            <Setter Property="Background" Value="#1A232C"/>
+            <Setter Property="BorderBrush" Value="#35414D"/>
+            <Setter Property="Padding" Value="14,10"/>
+            <Setter Property="Margin" Value="4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Raiz" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="{TemplateBinding Padding}" RenderTransformOrigin="0.5,0.5">
+                            <Border.RenderTransform><ScaleTransform x:Name="Escala" ScaleX="1" ScaleY="1"/></Border.RenderTransform>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Raiz" Property="Background" Value="#222D38"/>
+                                <Setter TargetName="Raiz" Property="BorderBrush" Value="#526171"/>
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard><Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Escala" Storyboard.TargetProperty="ScaleX" To="1.018" Duration="0:0:0.12"/>
+                                        <DoubleAnimation Storyboard.TargetName="Escala" Storyboard.TargetProperty="ScaleY" To="1.018" Duration="0:0:0.12"/>
+                                    </Storyboard></BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard><Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Escala" Storyboard.TargetProperty="ScaleX" To="1" Duration="0:0:0.12"/>
+                                        <DoubleAnimation Storyboard.TargetName="Escala" Storyboard.TargetProperty="ScaleY" To="1" Duration="0:0:0.12"/>
+                                    </Storyboard></BeginStoryboard>
+                                </Trigger.ExitActions>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True"><Setter TargetName="Escala" Property="ScaleX" Value="0.985"/><Setter TargetName="Escala" Property="ScaleY" Value="0.985"/></Trigger>
+                            <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Raiz" Property="Opacity" Value="0.45"/></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
-        <Style TargetType="CheckBox"><Setter Property="Foreground" Value="#C8CDD4"/><Setter Property="Margin" Value="0,6"/></Style>
-        <Style TargetType="TextBox"><Setter Property="Background" Value="#11161C"/><Setter Property="Foreground" Value="#F5F7FA"/><Setter Property="BorderBrush" Value="#3B414A"/><Setter Property="Padding" Value="10,8"/></Style>
-        <Style TargetType="PasswordBox"><Setter Property="Background" Value="#11161C"/><Setter Property="Foreground" Value="#F5F7FA"/><Setter Property="BorderBrush" Value="#3B414A"/><Setter Property="Padding" Value="10,8"/></Style>
-        <Style TargetType="ComboBox"><Setter Property="Background" Value="#1A2028"/><Setter Property="Foreground" Value="#11161C"/><Setter Property="Padding" Value="8"/></Style>
+
+        <Style TargetType="CheckBox"><Setter Property="Foreground" Value="#CCD3DA"/><Setter Property="Margin" Value="0,7"/></Style>
+        <Style TargetType="TextBox"><Setter Property="Background" Value="#0E141A"/><Setter Property="Foreground" Value="#F5F7FA"/><Setter Property="BorderBrush" Value="#35414D"/><Setter Property="Padding" Value="11,9"/></Style>
+        <Style TargetType="PasswordBox"><Setter Property="Background" Value="#0E141A"/><Setter Property="Foreground" Value="#F5F7FA"/><Setter Property="BorderBrush" Value="#35414D"/><Setter Property="Padding" Value="11,9"/></Style>
+        <Style TargetType="ComboBox"><Setter Property="Background" Value="#1A232C"/><Setter Property="Foreground" Value="#11161C"/><Setter Property="Padding" Value="9"/></Style>
     </Window.Resources>
 
     <Grid>
-        <Grid.ColumnDefinitions><ColumnDefinition Width="210"/><ColumnDefinition Width="*"/><ColumnDefinition Width="340"/></Grid.ColumnDefinitions>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="232"/><ColumnDefinition Width="*"/><ColumnDefinition Width="360"/></Grid.ColumnDefinitions>
 
-        <Border Grid.Column="0" Background="#12171D" BorderBrush="#2A3038" BorderThickness="0,0,1,0">
-            <Grid Margin="16"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                <StackPanel Orientation="Horizontal" Margin="6,10,0,30"><Border Width="31" Height="23" BorderBrush="{StaticResource Destaque}" BorderThickness="2" CornerRadius="4"/><TextBlock Text="PCFlow" FontSize="20" Margin="12,0,0,0" VerticalAlignment="Center"/></StackPanel>
-                <StackPanel Grid.Row="1">
+        <Border Grid.Column="0" Background="{StaticResource Nav}" BorderBrush="#252E37" BorderThickness="0,0,1,0">
+            <Grid Margin="17"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                <StackPanel Orientation="Horizontal" Margin="5,12,0,18">
+                    <Border Width="42" Height="42" Background="#202A34" CornerRadius="13" BorderBrush="#3A4652" BorderThickness="1">
+                        <Grid>
+                            <Path Stroke="{StaticResource Destaque}" StrokeThickness="2.4" Data="M10,23 L20,13 L29,22 M15,29 L24,20 L33,29" Stretch="None"/>
+                        </Grid>
+                    </Border>
+                    <StackPanel Margin="11,1,0,0"><TextBlock Text="PCFlow" FontSize="21" FontWeight="SemiBold"/><TextBlock Text="Remote Control · V1.3" Foreground="{StaticResource Texto2}" FontSize="10" Margin="0,2,0,0"/></StackPanel>
+                </StackPanel>
+
+                <Border Grid.Row="1" Background="#121A21" BorderBrush="#28333D" BorderThickness="1" CornerRadius="13" Padding="11" Margin="0,0,0,17">
+                    <StackPanel>
+                        <TextBlock Text="STATUS DO HOST" Foreground="{StaticResource Texto2}" FontSize="9" FontWeight="SemiBold"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,7,0,0"><Ellipse Width="8" Height="8" Fill="{StaticResource Sucesso}" Margin="0,0,7,0"/><TextBlock Text="Disponível na rede" Foreground="{StaticResource Sucesso}" FontSize="11"/></StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <StackPanel Grid.Row="2">
+                    <TextBlock Text="CONTROLE" Foreground="#697784" FontSize="9" Margin="9,0,0,7"/>
                     <Button x:Name="MenuVisaoGeral" Content="Visão geral" Tag="visao" Click="NavegarMenu_Click" Foreground="{StaticResource Destaque}" BorderBrush="#6C5323" HorizontalContentAlignment="Left"/>
                     <Button x:Name="MenuAcessoRemoto" Content="Acesso remoto" Tag="remoto" Click="NavegarMenu_Click" HorizontalContentAlignment="Left"/>
                     <Button x:Name="MenuDispositivos" Content="Dispositivos" Tag="dispositivos" Click="NavegarMenu_Click" HorizontalContentAlignment="Left"/>
-                    <Button x:Name="MenuSeguranca" Content="Segurança" Tag="seguranca" Click="NavegarMenu_Click" HorizontalContentAlignment="Left"/>
-                    <Button x:Name="MenuRecursos" Content="Recursos" Tag="recursos" Click="NavegarMenu_Click" HorizontalContentAlignment="Left"/>
+                    <Button x:Name="MenuSeguranca" Content="Segurança e permissões" Tag="seguranca" Click="NavegarMenu_Click" HorizontalContentAlignment="Left"/>
+                    <Button x:Name="MenuRecursos" Content="Diagnóstico" Tag="recursos" Click="NavegarMenu_Click" HorizontalContentAlignment="Left"/>
                 </StackPanel>
-                <StackPanel Grid.Row="2">
+
+                <StackPanel Grid.Row="3">
                     <Button Content="Minimizar para a bandeja" Click="Minimizar_Click"/>
-                    <Button Content="Encerrar PCFlow" Click="Encerrar_Click" Foreground="#FF8A80" BorderBrush="#6A3535"/>
+                    <Button Content="Encerrar PCFlow" Click="Encerrar_Click" Foreground="{StaticResource Perigo}" BorderBrush="#6A3538"/>
                 </StackPanel>
             </Grid>
         </Border>
 
-        <ScrollViewer x:Name="ScrollPrincipal" Grid.Column="1" VerticalScrollBarVisibility="Auto">
-            <StackPanel Margin="36,34,36,30">
-                <DockPanel>
-                    <StackPanel DockPanel.Dock="Left"><TextBlock Text="Seu PC está pronto" FontSize="34" FontWeight="Light"/><StackPanel Orientation="Horizontal" Margin="0,8,0,0"><Ellipse Width="10" Height="10" Fill="{StaticResource Sucesso}" Margin="0,0,8,0"/><TextBlock x:Name="TextoStatus" Text="Servidor ativo" Foreground="{StaticResource Sucesso}" FontSize="16"/></StackPanel></StackPanel>
-                    <Button x:Name="BotaoPausar" DockPanel.Dock="Right" Content="Ⅱ" FontSize="22" Foreground="{StaticResource Destaque}" Click="Pausar_Click" ToolTip="Pausar ou retomar conexões"/>
+        <ScrollViewer x:Name="ScrollPrincipal" Grid.Column="1" VerticalScrollBarVisibility="Auto" Background="{StaticResource Fundo}">
+            <StackPanel Margin="34,30,34,30">
+                <DockPanel LastChildFill="False">
+                    <StackPanel DockPanel.Dock="Left">
+                        <TextBlock Text="Central de acesso remoto" FontSize="31" FontWeight="Light"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,7,0,0"><Ellipse Width="9" Height="9" Fill="{StaticResource Sucesso}" Margin="0,0,8,0"/><TextBlock x:Name="TextoStatus" Text="Servidor ativo" Foreground="{StaticResource Sucesso}" FontSize="14"/></StackPanel>
+                    </StackPanel>
+                    <Button x:Name="BotaoPausar" DockPanel.Dock="Right" Content="Ⅱ  Pausar" Foreground="{StaticResource Destaque}" BorderBrush="#715729" Click="Pausar_Click" ToolTip="Pausar ou retomar novas ações remotas" Padding="15,9"/>
                 </DockPanel>
 
-                <Border x:Name="SecaoVisaoGeral" Background="#151A21" BorderBrush="#3A3327" BorderThickness="1" CornerRadius="22" Padding="24" Margin="0,34,0,18">
+                <Border x:Name="SecaoVisaoGeral" Background="{StaticResource Painel}" BorderBrush="#55472D" BorderThickness="1" CornerRadius="24" Padding="23" Margin="0,27,0,13">
                     <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                        <StackPanel><TextBlock Text="Seu endereço PCFlow" Foreground="#8E96A0"/><TextBlock x:Name="TextoMaquinaId" FontSize="40" FontFamily="Consolas" Foreground="{StaticResource Destaque}" Margin="0,5,0,4"/><TextBlock x:Name="TextoEndereco" Foreground="#A7AFB8"/>
-                            <WrapPanel Margin="0,14,0,0"><Button Content="Copiar ID" Click="CopiarId_Click" Padding="10,7"/><Button Content="Copiar endereço" Click="CopiarEndereco_Click" Padding="10,7"/><Button Content="Copiar código" Click="CopiarPin_Click" Padding="10,7"/></WrapPanel>
+                        <StackPanel>
+                            <TextBlock Text="SEU ENDEREÇO PCFLOW" Foreground="{StaticResource Texto2}" FontSize="10" FontWeight="SemiBold"/>
+                            <TextBlock x:Name="TextoMaquinaId" FontSize="39" FontFamily="Consolas" Foreground="{StaticResource Destaque}" Margin="0,7,0,3"/>
+                            <TextBlock x:Name="TextoEndereco" Foreground="#B2BCC5"/>
+                            <TextBlock Text="Use este ID no celular ou escaneie o QR ao lado. O ID sozinho não libera acesso." Foreground="#7E8B97" FontSize="11" Margin="0,9,0,0" TextWrapping="Wrap"/>
+                            <WrapPanel Margin="0,13,0,0"><Button Content="Copiar ID" Click="CopiarId_Click" Padding="11,7"/><Button Content="Copiar endereço" Click="CopiarEndereco_Click" Padding="11,7"/><Button Content="Copiar código" Click="CopiarPin_Click" Padding="11,7"/></WrapPanel>
                         </StackPanel>
-                        <Border Grid.Column="1" Width="74" Height="56" BorderBrush="{StaticResource Destaque}" BorderThickness="3" CornerRadius="8" VerticalAlignment="Center">
-                            <Grid><Border Width="18" Height="4" Background="{StaticResource Destaque}" CornerRadius="2" VerticalAlignment="Bottom" Margin="0,0,0,-12"/></Grid>
+                        <Border Grid.Column="1" Width="92" Height="92" Background="#1C252E" BorderBrush="#3A4652" BorderThickness="1" CornerRadius="24" Margin="20,0,0,0" VerticalAlignment="Center">
+                            <Grid><TextBlock Text="PC" Foreground="{StaticResource Destaque}" FontSize="25" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/><Ellipse Width="11" Height="11" Fill="{StaticResource Sucesso}" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,14"/></Grid>
                         </Border>
                     </Grid>
                 </Border>
 
-                <Border x:Name="SecaoAcessoRemoto" Background="#151A21" BorderBrush="#303842" BorderThickness="1" CornerRadius="22" Padding="24" Margin="0,0,0,18">
-                    <StackPanel><TextBlock Text="Controle remoto visual" FontSize="21"/><TextBlock Text="O Android recebe a tela do PC em tempo real e envia toque, arraste, clique, scroll e teclado. A transmissão usa TLS com pinagem da identidade desta máquina e só aceita endereços da rede local." Foreground="#A6ADB6" TextWrapping="Wrap" Margin="0,8,0,0"/>
-                        <WrapPanel Margin="0,14,0,0"><Button Content="Ir para segurança" Tag="seguranca" Click="NavegarMenu_Click"/><Button Content="Atualizar QR/código" Click="NovoCodigo_Click"/></WrapPanel>
-                    </StackPanel>
+                <Grid Margin="0,0,0,13"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+                    <Border x:Name="SecaoAcessoRemoto" Grid.Column="0" Background="{StaticResource Painel}" BorderBrush="{StaticResource Borda}" BorderThickness="1" CornerRadius="21" Padding="20" Margin="0,0,7,0">
+                        <StackPanel><TextBlock Text="Desktop remoto" FontSize="19"/><TextBlock Text="Tela, mouse, toque direto, touchpad, teclado e múltiplos monitores no Android." Foreground="{StaticResource Texto2}" TextWrapping="Wrap" Margin="0,7,0,0" FontSize="11"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,14,0,0"><Border Width="7" Height="7" CornerRadius="4" Background="{StaticResource Sucesso}" VerticalAlignment="Center"/><TextBlock Text="TLS com identidade fixada" Foreground="{StaticResource Sucesso}" FontSize="10" Margin="7,0,0,0"/></StackPanel>
+                            <WrapPanel Margin="0,10,0,0"><Button Content="Segurança" Tag="seguranca" Click="NavegarMenu_Click"/><Button Content="Novo QR/código" Click="NovoCodigo_Click"/></WrapPanel>
+                        </StackPanel>
+                    </Border>
+                    <Border x:Name="SecaoRecursos" Grid.Column="1" Background="{StaticResource Painel}" BorderBrush="{StaticResource Borda}" BorderThickness="1" CornerRadius="21" Padding="20" Margin="7,0,0,0">
+                        <StackPanel><TextBlock Text="Saúde do PCFlow" FontSize="19"/><TextBlock Text="Confira portas e serviços antes de iniciar uma sessão." Foreground="{StaticResource Texto2}" TextWrapping="Wrap" Margin="0,7,0,0" FontSize="11"/>
+                            <WrapPanel Margin="0,12,0,0"><Button Content="Executar diagnóstico" Click="Diagnostico_Click"/><Button Content="Atualizar" Click="Atualizar_Click"/></WrapPanel>
+                            <Button Content="Abrir Downloads" Click="AbrirDownloads_Click" HorizontalAlignment="Left"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <Border Background="#10171E" BorderBrush="#28333D" BorderThickness="1" CornerRadius="16" Padding="15" Margin="0,0,0,19">
+                    <TextBlock x:Name="TextoDiagnostico" Text="Clique em Executar diagnóstico para conferir portas e o estado do servidor." Foreground="#8E9AA6" TextWrapping="Wrap" FontFamily="Consolas" FontSize="10"/>
                 </Border>
 
-                <Border x:Name="SecaoRecursos" Background="#151A21" BorderBrush="#303842" BorderThickness="1" CornerRadius="22" Padding="24" Margin="0,0,0,18">
-                    <StackPanel>
-                        <TextBlock Text="Recursos do PC" FontSize="21"/>
-                        <TextBlock Text="Ferramentas locais úteis para confirmar que esta versão está pronta para receber o celular." Foreground="#A6ADB6" TextWrapping="Wrap" Margin="0,8,0,12"/>
-                        <WrapPanel><Button Content="Diagnóstico" Click="Diagnostico_Click"/><Button Content="Abrir Downloads" Click="AbrirDownloads_Click"/><Button Content="Atualizar informações" Click="Atualizar_Click"/></WrapPanel>
-                        <TextBlock x:Name="TextoDiagnostico" Text="Clique em Diagnóstico para conferir as portas e o estado do servidor." Foreground="#8E96A0" TextWrapping="Wrap" Margin="4,10,0,0"/>
-                    </StackPanel>
-                </Border>
-
-                <DockPanel x:Name="TituloDispositivos" Margin="0,18,0,12">
-                    <TextBlock DockPanel.Dock="Left" Text="Dispositivos conhecidos" FontSize="19"/>
-                    <TextBlock DockPanel.Dock="Right" Text="Bloqueie ou revogue acessos salvos" Foreground="#8E96A0" FontSize="11" VerticalAlignment="Center"/>
+                <DockPanel x:Name="TituloDispositivos" Margin="2,7,2,12">
+                    <StackPanel DockPanel.Dock="Left"><TextBlock Text="Dispositivos conhecidos" FontSize="20"/><TextBlock Text="Acessos já vistos por este computador" Foreground="{StaticResource Texto2}" FontSize="10" Margin="0,3,0,0"/></StackPanel>
+                    <TextBlock DockPanel.Dock="Right" Text="Bloquear ou revogar" Foreground="#798692" FontSize="10" VerticalAlignment="Center"/>
                 </DockPanel>
                 <ItemsControl x:Name="ListaDispositivos">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Border Background="#151A21" BorderBrush="#343A43" BorderThickness="1" CornerRadius="14" Padding="14" Margin="0,0,0,9">
+                            <Border Background="{StaticResource Painel}" BorderBrush="{StaticResource Borda}" BorderThickness="1" CornerRadius="16" Padding="14" Margin="0,0,0,9">
                                 <Grid>
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="48"/><ColumnDefinition/><ColumnDefinition Width="110"/><ColumnDefinition Width="190"/></Grid.ColumnDefinitions>
-                                    <Border Width="31" Height="40" BorderBrush="{StaticResource Destaque}" BorderThickness="2" CornerRadius="5" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Nome}" FontSize="16"/>
-                                        <TextBlock Margin="0,4,0,0" FontSize="11">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="Text" Value="Autorizado"/><Setter Property="Foreground" Value="{StaticResource Sucesso}"/>
-                                                    <Style.Triggers><DataTrigger Binding="{Binding Bloqueado}" Value="True"><Setter Property="Text" Value="Bloqueado"/><Setter Property="Foreground" Value="#FF8A80"/></DataTrigger></Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
-                                    </StackPanel>
-                                    <TextBlock Grid.Column="2" Text="{Binding UltimaConexao, StringFormat={}{0:dd/MM HH:mm}}" Foreground="#8E96A0" VerticalAlignment="Center" HorizontalAlignment="Right"/>
-                                    <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                        <Button Content="Bloquear / liberar" Tag="{Binding Id}" Click="AlternarBloqueio_Click" Padding="9,7" FontSize="10"/>
-                                        <Button Content="Revogar" Tag="{Binding Id}" Click="RevogarDispositivo_Click" Padding="9,7" FontSize="10" Foreground="#FF8A80" BorderBrush="#6A3535"/>
-                                    </StackPanel>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="50"/><ColumnDefinition/><ColumnDefinition Width="118"/><ColumnDefinition Width="205"/></Grid.ColumnDefinitions>
+                                    <Border Width="38" Height="38" Background="#202A34" BorderBrush="#3A4652" BorderThickness="1" CornerRadius="12" HorizontalAlignment="Left" VerticalAlignment="Center"><TextBlock Text="M" Foreground="{StaticResource Destaque}" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="{Binding Nome}" FontSize="15"/><TextBlock Margin="0,4,0,0" FontSize="10"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Text" Value="Autorizado"/><Setter Property="Foreground" Value="{StaticResource Sucesso}"/><Style.Triggers><DataTrigger Binding="{Binding Bloqueado}" Value="True"><Setter Property="Text" Value="Bloqueado"/><Setter Property="Foreground" Value="{StaticResource Perigo}"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></StackPanel>
+                                    <TextBlock Grid.Column="2" Text="{Binding UltimaConexao, StringFormat={}{0:dd/MM HH:mm}}" Foreground="{StaticResource Texto2}" VerticalAlignment="Center" HorizontalAlignment="Right" FontSize="10"/>
+                                    <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"><Button Content="Bloquear / liberar" Tag="{Binding Id}" Click="AlternarBloqueio_Click" Padding="8,7" FontSize="9"/><Button Content="Revogar" Tag="{Binding Id}" Click="RevogarDispositivo_Click" Padding="8,7" FontSize="9" Foreground="{StaticResource Perigo}" BorderBrush="#69383B"/></StackPanel>
                                 </Grid>
                             </Border>
                         </DataTemplate>
@@ -107,26 +162,36 @@
             </StackPanel>
         </ScrollViewer>
 
-        <Border x:Name="PainelSeguranca" Grid.Column="2" Background="#12171D" BorderBrush="#2A3038" BorderThickness="1,0,0,0">
-            <ScrollViewer x:Name="ScrollSeguranca" VerticalScrollBarVisibility="Auto"><StackPanel Margin="26,30">
-                <TextBlock Text="Conectar celular" FontSize="22"/>
-                <TextBlock Text="Escaneie o QR no Android ou use o ID desta máquina. Toda conexão interativa precisa ser aceita no PC, exceto quando uma senha de acesso não supervisionado é usada." TextWrapping="Wrap" Foreground="#AAB1BA" Margin="0,9,0,18"/>
-                <Border Background="#F5F7FA" CornerRadius="16" Padding="10"><Image x:Name="ImagemQr" Width="210" Height="210" Stretch="Uniform"/></Border>
-                <TextBlock Text="Código de pareamento" Foreground="#7F8791" HorizontalAlignment="Center" Margin="0,14,0,2"/><TextBlock x:Name="TextoPin" FontSize="31" Foreground="{StaticResource Destaque}" FontFamily="Consolas" HorizontalAlignment="Center"/>
-                <Button Content="Gerar novo código" Click="NovoCodigo_Click" Margin="0,8,0,20"/>
+        <Border x:Name="PainelSeguranca" Grid.Column="2" Background="#0D1218" BorderBrush="#252E37" BorderThickness="1,0,0,0">
+            <ScrollViewer x:Name="ScrollSeguranca" VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="25,28">
+                    <TextBlock Text="Conectar celular" FontSize="21"/>
+                    <TextBlock Text="Escaneie o QR no Android ou use o ID. Sem código/senha, o acesso depende da aprovação neste computador." TextWrapping="Wrap" Foreground="{StaticResource Texto2}" FontSize="11" Margin="0,8,0,16"/>
+                    <Border Background="#F5F7FA" CornerRadius="18" Padding="10" HorizontalAlignment="Center"><Image x:Name="ImagemQr" Width="218" Height="218" Stretch="Uniform"/></Border>
+                    <TextBlock Text="CÓDIGO DE PAREAMENTO" Foreground="#75828E" HorizontalAlignment="Center" FontSize="9" Margin="0,13,0,2"/>
+                    <TextBlock x:Name="TextoPin" FontSize="30" Foreground="{StaticResource Destaque}" FontFamily="Consolas" HorizontalAlignment="Center"/>
+                    <Button Content="Gerar novo código" Click="NovoCodigo_Click" Margin="0,8,0,18"/>
 
-                <Separator Background="#303740" Margin="0,2,0,18"/>
-                <TextBlock Text="Acesso e privacidade" FontSize="19"/>
-                <TextBlock Text="Solicitações interativas" Foreground="#8E96A0" Margin="0,12,0,5"/>
-                <ComboBox x:Name="ComboAcesso"><ComboBoxItem Content="Sempre solicitar" Tag="sempre"/><ComboBoxItem Content="Somente com a janela aberta" Tag="janela"/><ComboBoxItem Content="Nunca solicitar" Tag="nunca"/></ComboBox>
+                    <Separator Background="#2B353F" Margin="0,2,0,17"/>
+                    <TextBlock Text="Acesso e privacidade" FontSize="18"/>
+                    <TextBlock Text="Solicitações interativas" Foreground="{StaticResource Texto2}" FontSize="10" Margin="0,12,0,5"/>
+                    <ComboBox x:Name="ComboAcesso"><ComboBoxItem Content="Sempre solicitar" Tag="sempre"/><ComboBoxItem Content="Somente com a janela aberta" Tag="janela"/><ComboBoxItem Content="Nunca solicitar" Tag="nunca"/></ComboBox>
 
-                <TextBlock Text="Senha de acesso não supervisionado" Foreground="#8E96A0" Margin="0,14,0,5"/><PasswordBox x:Name="CampoSenha"/>
-                <StackPanel Orientation="Horizontal"><Button Content="Definir senha" Click="DefinirSenha_Click"/><Button Content="Remover" Click="RemoverSenha_Click"/></StackPanel>
+                    <TextBlock Text="Senha de acesso não supervisionado" Foreground="{StaticResource Texto2}" FontSize="10" Margin="0,13,0,5"/>
+                    <PasswordBox x:Name="CampoSenha"/>
+                    <StackPanel Orientation="Horizontal"><Button Content="Definir senha" Click="DefinirSenha_Click"/><Button Content="Remover" Click="RemoverSenha_Click"/></StackPanel>
 
-                <TextBlock Text="Permissões padrão" Foreground="#8E96A0" Margin="0,14,0,4"/>
-                <CheckBox x:Name="CheckTela" Content="Exibir tela"/><CheckBox x:Name="CheckEntrada" Content="Controlar teclado e mouse"/><CheckBox x:Name="CheckClipboard" Content="Sincronizar área de transferência"/><CheckBox x:Name="CheckEnergia" Content="Comandos de energia"/><CheckBox x:Name="CheckArquivos" Content="Transferência de arquivos"/><CheckBox x:Name="CheckDescoberta" Content="Ser encontrado na rede local"/><CheckBox x:Name="CheckMoldura" Content="Mostrar moldura durante sessão"/>
-                <Button Content="Salvar segurança" Foreground="{StaticResource Destaque}" BorderBrush="#7C5D2A" Click="SalvarSeguranca_Click" Margin="0,12,0,0"/>
-            </StackPanel></ScrollViewer>
+                    <TextBlock Text="Permissões padrão" Foreground="{StaticResource Texto2}" FontSize="10" Margin="0,13,0,3"/>
+                    <CheckBox x:Name="CheckTela" Content="Exibir tela"/>
+                    <CheckBox x:Name="CheckEntrada" Content="Controlar teclado e mouse"/>
+                    <CheckBox x:Name="CheckClipboard" Content="Sincronizar área de transferência"/>
+                    <CheckBox x:Name="CheckEnergia" Content="Comandos de energia"/>
+                    <CheckBox x:Name="CheckArquivos" Content="Transferência de arquivos"/>
+                    <CheckBox x:Name="CheckDescoberta" Content="Ser encontrado na rede local"/>
+                    <CheckBox x:Name="CheckMoldura" Content="Mostrar moldura durante sessão"/>
+                    <Button Content="Salvar segurança" Foreground="{StaticResource Destaque}" BorderBrush="#755A28" Click="SalvarSeguranca_Click" Margin="0,11,0,0"/>
+                </StackPanel>
+            </ScrollViewer>
         </Border>
     </Grid>
 </Window>
