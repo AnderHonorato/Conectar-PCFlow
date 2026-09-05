@@ -31,6 +31,7 @@ public sealed class DispositivoAutorizado
     public string Nome { get; set; } = "Celular";
     public string Token { get; set; } = "";
     public bool Bloqueado { get; set; }
+    public bool Favorito { get; set; }
     public DateTime PareadoEm { get; set; } = DateTime.UtcNow;
     public DateTime UltimaConexao { get; set; } = DateTime.UtcNow;
 }
@@ -40,6 +41,7 @@ public sealed class ConfiguracaoPcFlow
     public string MaquinaId { get; set; } = "";
     public bool MinimizarParaBandeja { get; set; } = true;
     public bool IniciarServidorAutomaticamente { get; set; } = true;
+    public bool IniciarComWindows { get; set; }
     public bool DescobertaRede { get; set; } = true;
     public bool MolduraSessao { get; set; } = true;
     public string AcessoInterativo { get; set; } = "sempre";
@@ -50,6 +52,21 @@ public sealed class ConfiguracaoPcFlow
     public bool PermitirClipboard { get; set; } = true;
     public bool PermitirEnergia { get; set; } = true;
     public bool PermitirArquivos { get; set; } = true;
+
+    // Preferências do novo painel visual V1.3.
+    public string Tema { get; set; } = "escuro";
+    public string CorDestaque { get; set; } = "dourado";
+    public bool MostrarDispositivosOffline { get; set; } = true;
+    public bool SonsInterface { get; set; } = true;
+    public bool ColetarUsoAnonimo { get; set; }
+    public bool NotificarConexoes { get; set; } = true;
+    public bool NotificarTransferencias { get; set; } = true;
+    public bool NotificarNovosDispositivos { get; set; } = true;
+    public string Idioma { get; set; } = "pt-BR";
+    public string QualidadePadrao { get; set; } = "automatica";
+    public int FpsPadrao { get; set; } = 60;
+    public string ModoToquePadrao { get; set; } = "touch";
+
     public List<DispositivoAutorizado> Dispositivos { get; set; } = [];
 }
 
