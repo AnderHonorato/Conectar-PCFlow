@@ -16,6 +16,8 @@ public static class ExecutorComandos
     private const ushort VK_MENU = 0x12;
     private const ushort VK_LWIN = 0x5B;
 
+    public static event Action<string>? ChatRecebido;
+
     public static void Executar(MensagemRede m)
     {
         switch (m.Tipo)
@@ -30,6 +32,7 @@ public static class ExecutorComandos
             case "tecla": ExecutarTecla(m.Tecla); break;
             case "media": ExecutarMedia(m.Acao); break;
             case "power": ExecutarEnergia(m.Acao); break;
+            case "chat": if (!string.IsNullOrWhiteSpace(m.Texto)) ChatRecebido?.Invoke(m.Texto.Trim()); break;
         }
     }
 
