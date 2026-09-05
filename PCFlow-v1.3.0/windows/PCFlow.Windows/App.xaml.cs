@@ -9,7 +9,7 @@ public partial class App : System.Windows.Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
-        const string nomeMutex = "Local\\PCFlow.Windows.Singleton.v1";
+        const string nomeMutex = "Local\\PCFlow.Windows.Singleton.v13";
         _mutex = new Mutex(true, nomeMutex, out var primeiraInstancia);
         if (!primeiraInstancia)
         {
@@ -24,7 +24,7 @@ public partial class App : System.Windows.Application
 
         base.OnStartup(e);
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
-        new MainWindow().Show();
+        new MainWindowV13().Show();
     }
 
     protected override void OnExit(ExitEventArgs e)
