@@ -24,8 +24,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="Raiz" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="{TemplateBinding Padding}" RenderTransformOrigin="0.5,0.5">
-                            <Border.RenderTransform><ScaleTransform x:Name="Escala" ScaleX="1" ScaleY="1"/></Border.RenderTransform>
+                        <Border x:Name="Raiz" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="{TemplateBinding Padding}" Opacity="1">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
@@ -33,19 +32,13 @@
                                 <Setter TargetName="Raiz" Property="Background" Value="#222D38"/>
                                 <Setter TargetName="Raiz" Property="BorderBrush" Value="#526171"/>
                                 <Trigger.EnterActions>
-                                    <BeginStoryboard><Storyboard>
-                                        <DoubleAnimation Storyboard.TargetName="Escala" Storyboard.TargetProperty="ScaleX" To="1.018" Duration="0:0:0.12"/>
-                                        <DoubleAnimation Storyboard.TargetName="Escala" Storyboard.TargetProperty="ScaleY" To="1.018" Duration="0:0:0.12"/>
-                                    </Storyboard></BeginStoryboard>
+                                    <BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetName="Raiz" Storyboard.TargetProperty="Opacity" To="0.93" Duration="0:0:0.12"/></Storyboard></BeginStoryboard>
                                 </Trigger.EnterActions>
                                 <Trigger.ExitActions>
-                                    <BeginStoryboard><Storyboard>
-                                        <DoubleAnimation Storyboard.TargetName="Escala" Storyboard.TargetProperty="ScaleX" To="1" Duration="0:0:0.12"/>
-                                        <DoubleAnimation Storyboard.TargetName="Escala" Storyboard.TargetProperty="ScaleY" To="1" Duration="0:0:0.12"/>
-                                    </Storyboard></BeginStoryboard>
+                                    <BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetName="Raiz" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.12"/></Storyboard></BeginStoryboard>
                                 </Trigger.ExitActions>
                             </Trigger>
-                            <Trigger Property="IsPressed" Value="True"><Setter TargetName="Escala" Property="ScaleX" Value="0.985"/><Setter TargetName="Escala" Property="ScaleY" Value="0.985"/></Trigger>
+                            <Trigger Property="IsPressed" Value="True"><Setter TargetName="Raiz" Property="Opacity" Value="0.78"/></Trigger>
                             <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Raiz" Property="Opacity" Value="0.45"/></Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
