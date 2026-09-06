@@ -1,0 +1,77 @@
+name: Build PCFlow V1.3 Temporario
+
+on:
+  push:
+    branches: ["feat/pcflow-v1.3-ui-imagens"]
+  workflow_dispatch:
+
+jobs:
+  windows-v13:
+    name: Windows V1.3
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: PCFlow-v1.3.0
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restaurar solução V1.3
+        run: dotnet restore PCFlow.sln
+
+      - name: Compilar solução V1.3
+        run: dotnet build PCFlow.sln -c Release --no-restore
+
+      - name: Testar handshake TLS real V1.3
+        run: dotnet run --project windows/PCFlow.TlsSmoke/PCFlow.TlsSmoke.csproj -c Release
+
+      - name: Publicar Windows portátil V1.3
+        run: dotnet publish windows/PCFlow.Windows/PCFlow.Windows.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o release/windows
+
+      - name: Preparar EXE final
+        shell: pwsh
+        run: Copy-Item release/windows/PCFlow.exe release/PCFlow-v1.3-Windows-x64.exe -Force
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PCFlow-v1.3-Windows-x64
+          path: PCFlow-v1.3.0/release/PCFlow-v1.3-Windows-x64.exe
+          if-no-files-found: error
+
+  android-v13:
+    name: Android V1.3
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: PCFlow-v1.3.0
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Testes Android V1.3
+        run: gradle -p android :app:testDebugUnitTest --stacktrace
+
+      - name: Compilar APK Debug V1.3
+        run: gradle -p android :app:assembleDebug --stacktrace
+
+      - name: Preparar APK final
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk release/PCFlow-v1.3-Android.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PCFlow-v1.3-Android
+          path: PCFlow-v1.3.0/release/PCFlow-v1.3-Android.apk
+          if-no-files-found: error
