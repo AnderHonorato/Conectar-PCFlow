@@ -57,3 +57,22 @@ data class EstadoArquivos(
     val itens: List<ArquivoRemoto> = emptyList(),
     val mensagem: String = ""
 )
+
+/** Como a área de transferência do PC e a do celular conversam. */
+enum class ModoClipboard { DESLIGADO, AUTOMATICO, MANUAL }
+
+/**
+ * Ajuste de captura pedido ao PC. Reduzir a largura é o que mais derruba
+ * latência em Wi‑Fi ruim, por isso cada perfil traz a sua própria.
+ */
+enum class PerfilVideo(val fps: Int, val qualidade: Int, val larguraMaxima: Int) {
+    RESPOSTA(30, 48, 1280),
+    EQUILIBRADO(24, 62, 1600),
+    IMAGEM(15, 82, 0)
+}
+
+data class EstatisticasSessao(
+    val quadrosPorSegundo: Int = 0,
+    val latenciaMs: Int = 0,
+    val bytesPorSegundo: Long = 0
+)

@@ -14,10 +14,16 @@
   </ItemGroup>
 
   <!-- Compila os arquivos independentes de Windows direto do app, para que a
-       lógica de TLS e de rede seja testada sem precisar de um host Windows. -->
+       lógica de TLS e de rede seja testada sem precisar de um host Windows.
+       ExecutorComandos.cs e CapturaTela.cs só entram aqui pela metade: o que
+       fala com user32 e com o GDI+ fica atrás de #if WINDOWS, que este projeto
+       (net8.0) não define. -->
   <ItemGroup>
     <Compile Include="..\PCFlow.Windows\Core\TlsPcFlow.cs" Link="Core\TlsPcFlow.cs" />
     <Compile Include="..\PCFlow.Windows\Core\CodigoAcesso.cs" Link="Core\CodigoAcesso.cs" />
+    <Compile Include="..\PCFlow.Windows\Core\Modelos.cs" Link="Core\Modelos.cs" />
+    <Compile Include="..\PCFlow.Windows\Core\ExecutorComandos.cs" Link="Core\ExecutorComandos.cs" />
+    <Compile Include="..\PCFlow.Windows\Core\CapturaTela.cs" Link="Core\CapturaTela.cs" />
   </ItemGroup>
 
   <!-- O servidor de retransmissão é iniciado de verdade pelos testes. -->

@@ -447,20 +447,48 @@ public sealed class ServidorPcFlow : IAsyncDisposable
                 if (pedido is null || pedido.Tipo != "stream" || string.IsNullOrWhiteSpace(pedido.SessaoId) ||
                     !_sessoes.TryGetValue(pedido.SessaoId, out var sessao) || !sessao.PermitirTela) return;
 
-                var fps = Math.Clamp(pedido.Fps, 2, 20);
+                var fps = Math.Clamp(pedido.Fps, 2, 30);
                 var qualidade = Math.Clamp(pedido.Qualidade, 35, 85);
                 var monitor = Math.Clamp(pedido.Monitor, 0, Math.Max(0, CapturaTela.QuantidadeMonitores - 1));
+                var larguraMaxima = Math.Max(0, pedido.LarguraMaxima);
                 var cabecalho = new byte[4];
+
+                // O ritmo sai do relógio, não da soma das esperas: capturar e
+                // comprimir já gastam parte do orçamento do quadro, então dormir
+                // 1000/fps depois disso deixava o intervalo real sempre maior que
+                // o pedido — 24 fps viravam 17 na prática.
+                var orcamento = TimeSpan.FromSeconds(1.0 / fps);
+                var intervaloDeVida = TimeSpan.FromSeconds(1);
+                var relogio = System.Diagnostics.Stopwatch.StartNew();
+                var prazo = relogio.Elapsed;
+                var ultimoEnvio = relogio.Elapsed;
+                byte[]? anterior = null;
 
                 while (!ct.IsCancellationRequested && conectado() && _sessoes.ContainsKey(pedido.SessaoId))
                 {
-                    var quadro = CapturaTela.CapturarJpeg(monitor, qualidade);
+                    var quadro = CapturaTela.CapturarJpeg(monitor, qualidade, larguraMaxima);
                     if (quadro.Length == 0 || quadro.Length > 16_000_000) break;
-                    BinaryPrimitives.WriteInt32BigEndian(cabecalho, quadro.Length);
-                    await ssl.WriteAsync(cabecalho, ct);
-                    await ssl.WriteAsync(quadro, ct);
-                    await ssl.FlushAsync(ct);
-                    await Task.Delay(1000 / fps, ct);
+
+                    // Tela parada é o caso comum (ler, escrever, apresentar) e
+                    // reenviar o mesmo JPEG só gasta a rede, que é o gargalo no
+                    // Wi-Fi ruim. Comparar os bytes custa muito menos que enviá-los.
+                    // Ainda assim vai um quadro por segundo: sem ele o celular não
+                    // distingue tela parada de conexão morta.
+                    var repetido = anterior is not null && quadro.AsSpan().SequenceEqual(anterior);
+                    if (!repetido || relogio.Elapsed - ultimoEnvio >= intervaloDeVida)
+                    {
+                        BinaryPrimitives.WriteInt32BigEndian(cabecalho, quadro.Length);
+                        await ssl.WriteAsync(cabecalho, ct);
+                        await ssl.WriteAsync(quadro, ct);
+                        await ssl.FlushAsync(ct);
+                        ultimoEnvio = relogio.Elapsed;
+                    }
+                    anterior = quadro;
+
+                    prazo += orcamento;
+                    var espera = prazo - relogio.Elapsed;
+                    if (espera > TimeSpan.Zero) await Task.Delay(espera, ct);
+                    else prazo = relogio.Elapsed; // estourou o orçamento: recomeça a contagem em vez de acumular dívida
                 }
             }
             catch (OperationCanceledException) { }

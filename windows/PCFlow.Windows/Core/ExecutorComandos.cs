@@ -1,92 +1,189 @@
+#if WINDOWS
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+#endif
 
 namespace PCFlow.Windows.Core;
 
-public static class ExecutorComandos
+// Este arquivo tem duas metades. A de cima traduz a mensagem que chegou da rede
+// em uma intenção de entrada e não depende de nada do Windows — é ela que o
+// projeto de testes compila em net8.0 para rodar em Linux. A de baixo, atrás de
+// #if WINDOWS, é a que de fato mexe no mouse e no teclado da máquina.
+
+public enum AcaoEntrada
 {
-    [DllImport("user32.dll")] private static extern bool LockWorkStation();
-    [DllImport("user32.dll", SetLastError = true)] private static extern IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
-    private static readonly IntPtr HWND_BROADCAST = new(0xffff);
-    private const uint WM_SYSCOMMAND = 0x0112;
-    private static readonly IntPtr SC_MONITORPOWER = new(0xF170);
+    Nenhuma,
+    MoverRelativo,
+    MoverAbsoluto,
+    Clicar,
+    PressionarBotao,
+    SoltarBotao,
+    Rolar,
+    Digitar,
+    Teclar
+}
 
-    private const ushort VK_CONTROL = 0x11;
-    private const ushort VK_SHIFT = 0x10;
-    private const ushort VK_MENU = 0x12;
-    private const ushort VK_LWIN = 0x5B;
+public enum BotaoMouse { Esquerdo, Direito, Meio }
 
-    public static void Executar(MensagemRede m)
+public enum EixoRolagem { Vertical, Horizontal }
+
+/// <summary>
+/// O que fazer com o mouse ou o teclado, já resolvido a partir da mensagem de
+/// rede: sem strings soltas, sem nome de tecla e sem apelido de botão.
+/// </summary>
+public sealed record InstrucaoEntrada
+{
+    /// <summary>Clique triplo ainda é útil (seleciona parágrafo); acima disso é engano.</summary>
+    public const int MaximoCliques = 3;
+
+    public static readonly InstrucaoEntrada Nenhuma = new();
+
+    public AcaoEntrada Acao { get; init; } = AcaoEntrada.Nenhuma;
+    public BotaoMouse Botao { get; init; } = BotaoMouse.Esquerdo;
+    public int Cliques { get; init; } = 1;
+    public double X { get; init; }
+    public double Y { get; init; }
+    public int Monitor { get; init; }
+    public int Delta { get; init; }
+    public EixoRolagem Eixo { get; init; } = EixoRolagem.Vertical;
+    public string Texto { get; init; } = "";
+    public IReadOnlyList<ushort> Modificadores { get; init; } = [];
+    public ushort Tecla { get; init; }
+
+    /// <summary>
+    /// Ordem exata de acionamento: os modificadores na ordem recebida, a tecla,
+    /// e tudo solto na ordem inversa. É essa ordem que faz Ctrl+C ser Ctrl+C e
+    /// não um C seguido de um Ctrl perdido.
+    /// </summary>
+    public IReadOnlyList<(ushort Tecla, bool Soltar)> SequenciaDeTeclas()
     {
-        switch (m.Tipo)
+        if (Tecla == 0) return [];
+
+        var passos = new List<(ushort, bool)>((Modificadores.Count + 1) * 2);
+        foreach (var vk in Modificadores) passos.Add((vk, false));
+        passos.Add((Tecla, false));
+        passos.Add((Tecla, true));
+        for (var i = Modificadores.Count - 1; i >= 0; i--) passos.Add((Modificadores[i], true));
+        return passos;
+    }
+}
+
+/// <summary>Converte <see cref="MensagemRede"/> em <see cref="InstrucaoEntrada"/>.</summary>
+public static class TradutorEntrada
+{
+    public const ushort VkShift = 0x10;
+    public const ushort VkControl = 0x11;
+    public const ushort VkAlt = 0x12;
+    public const ushort VkWin = 0x5B;
+
+    private static readonly Dictionary<string, (ushort[] Modificadores, ushort Tecla)> Atalhos = new()
+    {
+        ["NEW_TAB"] = ([VkControl], 'T'),
+        ["CLOSE_TAB"] = ([VkControl], 'W'),
+        ["REOPEN_TAB"] = ([VkControl, VkShift], 'T'),
+        ["BROWSER_BACK"] = ([], 0xA6),
+        ["BROWSER_FORWARD"] = ([], 0xA7),
+        ["BROWSER_REFRESH"] = ([], 0xA8),
+        ["BROWSER_HOME"] = ([], 0xAC),
+        ["ALT_TAB"] = ([VkAlt], 0x09),
+        ["SHOW_DESKTOP"] = ([VkWin], 'D'),
+        ["TASK_MANAGER"] = ([VkControl, VkShift], 0x1B),
+        ["START_MENU"] = ([], VkWin),
+        ["WIN_E"] = ([VkWin], 'E'),
+        ["WIN_R"] = ([VkWin], 'R'),
+        ["PPT_START"] = ([], 0x74),
+        ["PPT_END"] = ([], 0x1B),
+        ["PPT_NEXT"] = ([], 0x22),
+        ["PPT_PREVIOUS"] = ([], 0x21)
+    };
+
+    public static InstrucaoEntrada Traduzir(MensagemRede m) => m.Tipo switch
+    {
+        "mouse_move" => new InstrucaoEntrada { Acao = AcaoEntrada.MoverRelativo, X = m.X, Y = m.Y },
+        "mouse_abs" => new InstrucaoEntrada { Acao = AcaoEntrada.MoverAbsoluto, X = m.X, Y = m.Y, Monitor = m.Monitor },
+        "mouse_click" => new InstrucaoEntrada { Acao = AcaoEntrada.Clicar, Botao = LerBotao(m.Botao), Cliques = LerCliques(m.Cliques) },
+        "mouse_down" => new InstrucaoEntrada { Acao = AcaoEntrada.PressionarBotao, Botao = LerBotao(m.Botao) },
+        "mouse_up" => new InstrucaoEntrada { Acao = AcaoEntrada.SoltarBotao, Botao = LerBotao(m.Botao) },
+        "scroll" => new InstrucaoEntrada { Acao = AcaoEntrada.Rolar, Delta = m.Delta, Eixo = LerEixo(m.Eixo) },
+        "texto" => string.IsNullOrEmpty(m.Texto)
+            ? InstrucaoEntrada.Nenhuma
+            : new InstrucaoEntrada { Acao = AcaoEntrada.Digitar, Texto = m.Texto },
+        "tecla" => TraduzirTecla(m.Tecla, m.Modificadores),
+        "media" => TraduzirMedia(m.Acao),
+        _ => InstrucaoEntrada.Nenhuma
+    };
+
+    public static BotaoMouse LerBotao(string? botao) => botao?.Trim().ToLowerInvariant() switch
+    {
+        "right" or "direito" => BotaoMouse.Direito,
+        "middle" or "meio" => BotaoMouse.Meio,
+        _ => BotaoMouse.Esquerdo
+    };
+
+    public static EixoRolagem LerEixo(string? eixo) => eixo?.Trim().ToLowerInvariant() switch
+    {
+        "horizontal" or "h" => EixoRolagem.Horizontal,
+        _ => EixoRolagem.Vertical
+    };
+
+    private static int LerCliques(int cliques) => cliques < 1 ? 1 : Math.Min(cliques, InstrucaoEntrada.MaximoCliques);
+
+    /// <summary>
+    /// Nomes aceitos para cada modificador. Vem tudo do celular, então vale
+    /// aceitar o apelido em português além do nome do protocolo.
+    /// </summary>
+    private static ushort ModificadorDe(string nome) => nome.Trim().ToLowerInvariant() switch
+    {
+        "ctrl" or "control" or "controle" => VkControl,
+        "alt" => VkAlt,
+        "shift" => VkShift,
+        "win" or "windows" or "meta" or "super" => VkWin,
+        _ => 0
+    };
+
+    private static List<ushort> LerModificadores(IEnumerable<string>? nomes)
+    {
+        var teclas = new List<ushort>(4);
+        if (nomes is null) return teclas;
+        foreach (var nome in nomes)
         {
-            case "mouse_move": EntradaWindows.Mover(m.X, m.Y); break;
-            case "mouse_abs": EntradaWindows.MoverAbsoluto(m.X, m.Y, m.Monitor); break;
-            case "mouse_click": EntradaWindows.Clique(m.Botao ?? "left"); break;
-            case "mouse_down": EntradaWindows.BotaoBaixar(m.Botao ?? "left"); break;
-            case "mouse_up": EntradaWindows.BotaoSoltar(m.Botao ?? "left"); break;
-            case "scroll": EntradaWindows.Scroll(m.Delta); break;
-            case "texto": if (!string.IsNullOrEmpty(m.Texto)) EntradaWindows.Texto(m.Texto); break;
-            case "tecla": ExecutarTecla(m.Tecla); break;
-            case "media": ExecutarMedia(m.Acao); break;
-            case "power": ExecutarEnergia(m.Acao); break;
+            if (string.IsNullOrWhiteSpace(nome)) continue;
+            var vk = ModificadorDe(nome);
+            if (vk != 0 && !teclas.Contains(vk)) teclas.Add(vk);
         }
+        return teclas;
     }
 
-    private static void ExecutarTecla(string? tecla)
+    private static InstrucaoEntrada TraduzirTecla(string? tecla, IEnumerable<string>? modificadores)
     {
-        var t = tecla?.Trim().ToUpperInvariant();
-        if (string.IsNullOrEmpty(t)) return;
+        var nome = tecla?.Trim().ToUpperInvariant();
+        if (string.IsNullOrEmpty(nome)) return InstrucaoEntrada.Nenhuma;
 
-        if (t.Length == 1)
+        var mods = LerModificadores(modificadores);
+
+        if (nome.Length == 1)
         {
-            var c = t[0];
-            if ((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))
-            {
-                EntradaWindows.Tecla(c);
-                return;
-            }
+            var c = nome[0];
+            if ((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) return Acionar(mods, c);
         }
 
-        switch (t)
+        // Os atalhos nomeados já trazem os próprios modificadores; os que
+        // vieram na mensagem entram antes, para que "ctrl" + ALT_TAB vire
+        // Ctrl+Alt+Tab e não duas combinações concorrentes.
+        if (Atalhos.TryGetValue(nome, out var atalho))
         {
-            case "NEW_TAB": EntradaWindows.Combo(VK_CONTROL, (ushort)'T'); return;
-            case "CLOSE_TAB": EntradaWindows.Combo(VK_CONTROL, (ushort)'W'); return;
-            case "REOPEN_TAB": EntradaWindows.Combo(VK_CONTROL, VK_SHIFT, (ushort)'T'); return;
-            case "BROWSER_BACK": EntradaWindows.Tecla(0xA6); return;
-            case "BROWSER_FORWARD": EntradaWindows.Tecla(0xA7); return;
-            case "BROWSER_REFRESH": EntradaWindows.Tecla(0xA8); return;
-            case "BROWSER_HOME": EntradaWindows.Tecla(0xAC); return;
-            case "ALT_TAB": EntradaWindows.Combo(VK_MENU, 0x09); return;
-            case "SHOW_DESKTOP": EntradaWindows.Combo(VK_LWIN, (ushort)'D'); return;
-            case "TASK_MANAGER": EntradaWindows.Combo(VK_CONTROL, VK_SHIFT, 0x1B); return;
-            case "START_MENU": EntradaWindows.Tecla(VK_LWIN); return;
-            case "WIN_E": EntradaWindows.Combo(VK_LWIN, (ushort)'E'); return;
-            case "WIN_R": EntradaWindows.Combo(VK_LWIN, (ushort)'R'); return;
-            case "PPT_START": EntradaWindows.Tecla(0x74); return;
-            case "PPT_END": EntradaWindows.Tecla(0x1B); return;
-            case "PPT_NEXT": EntradaWindows.Tecla(0x22); return;
-            case "PPT_PREVIOUS": EntradaWindows.Tecla(0x21); return;
+            foreach (var vk in atalho.Modificadores)
+                if (!mods.Contains(vk)) mods.Add(vk);
+            return Acionar(mods, atalho.Tecla);
         }
 
-        var vk = t switch
-        {
-            "ENTER" => (ushort)0x0D, "ESC" => (ushort)0x1B, "TAB" => (ushort)0x09,
-            "BACKSPACE" => (ushort)0x08, "DELETE" => (ushort)0x2E, "SPACE" => (ushort)0x20,
-            "LEFT" => (ushort)0x25, "UP" => (ushort)0x26, "RIGHT" => (ushort)0x27, "DOWN" => (ushort)0x28,
-            "HOME" => (ushort)0x24, "END" => (ushort)0x23, "PAGEUP" => (ushort)0x21, "PAGEDOWN" => (ushort)0x22,
-            "INSERT" => (ushort)0x2D,
-            "F1" => (ushort)0x70, "F2" => (ushort)0x71, "F3" => (ushort)0x72, "F4" => (ushort)0x73,
-            "F5" => (ushort)0x74, "F6" => (ushort)0x75, "F7" => (ushort)0x76, "F8" => (ushort)0x77,
-            "F9" => (ushort)0x78, "F10" => (ushort)0x79, "F11" => (ushort)0x7A, "F12" => (ushort)0x7B,
-            _ => (ushort)0
-        };
-        if (vk != 0) EntradaWindows.Tecla(vk);
+        var codigo = TeclaNomeada(nome);
+        return codigo == 0 ? InstrucaoEntrada.Nenhuma : Acionar(mods, codigo);
     }
 
-    private static void ExecutarMedia(string? acao)
+    private static InstrucaoEntrada TraduzirMedia(string? acao)
     {
-        var vk = acao?.ToLowerInvariant() switch
+        var vk = acao?.Trim().ToLowerInvariant() switch
         {
             "playpause" => (ushort)0xB3,
             "next" => (ushort)0xB0,
@@ -97,7 +194,54 @@ public static class ExecutorComandos
             "mute" => (ushort)0xAD,
             _ => (ushort)0
         };
-        if (vk != 0) EntradaWindows.Tecla(vk);
+        return vk == 0 ? InstrucaoEntrada.Nenhuma : Acionar([], vk);
+    }
+
+    private static InstrucaoEntrada Acionar(IReadOnlyList<ushort> modificadores, ushort tecla)
+        => new() { Acao = AcaoEntrada.Teclar, Modificadores = modificadores, Tecla = tecla };
+
+    private static ushort TeclaNomeada(string nome) => nome switch
+    {
+        "ENTER" => 0x0D, "ESC" => 0x1B, "TAB" => 0x09,
+        "BACKSPACE" => 0x08, "DELETE" => 0x2E, "SPACE" => 0x20,
+        "LEFT" => 0x25, "UP" => 0x26, "RIGHT" => 0x27, "DOWN" => 0x28,
+        "HOME" => 0x24, "END" => 0x23, "PAGEUP" => 0x21, "PAGEDOWN" => 0x22,
+        "INSERT" => 0x2D,
+        "F1" => 0x70, "F2" => 0x71, "F3" => 0x72, "F4" => 0x73,
+        "F5" => 0x74, "F6" => 0x75, "F7" => 0x76, "F8" => 0x77,
+        "F9" => 0x78, "F10" => 0x79, "F11" => 0x7A, "F12" => 0x7B,
+        _ => (ushort)0
+    };
+}
+
+#if WINDOWS
+public static class ExecutorComandos
+{
+    [DllImport("user32.dll")] private static extern bool LockWorkStation();
+    [DllImport("user32.dll", SetLastError = true)] private static extern IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+    private static readonly IntPtr HWND_BROADCAST = new(0xffff);
+    private const uint WM_SYSCOMMAND = 0x0112;
+    private static readonly IntPtr SC_MONITORPOWER = new(0xF170);
+
+    public static void Executar(MensagemRede m)
+    {
+        if (m.Tipo == "power") { ExecutarEnergia(m.Acao); return; }
+        Aplicar(TradutorEntrada.Traduzir(m));
+    }
+
+    private static void Aplicar(InstrucaoEntrada instrucao)
+    {
+        switch (instrucao.Acao)
+        {
+            case AcaoEntrada.MoverRelativo: EntradaWindows.Mover(instrucao.X, instrucao.Y); break;
+            case AcaoEntrada.MoverAbsoluto: EntradaWindows.MoverAbsoluto(instrucao.X, instrucao.Y, instrucao.Monitor); break;
+            case AcaoEntrada.Clicar: EntradaWindows.Clique(instrucao.Botao, instrucao.Cliques); break;
+            case AcaoEntrada.PressionarBotao: EntradaWindows.BotaoBaixar(instrucao.Botao); break;
+            case AcaoEntrada.SoltarBotao: EntradaWindows.BotaoSoltar(instrucao.Botao); break;
+            case AcaoEntrada.Rolar: EntradaWindows.Scroll(instrucao.Delta, instrucao.Eixo); break;
+            case AcaoEntrada.Digitar: EntradaWindows.Texto(instrucao.Texto); break;
+            case AcaoEntrada.Teclar: EntradaWindows.AcionarTeclas(instrucao.SequenciaDeTeclas()); break;
+        }
     }
 
     private static void ExecutarEnergia(string? acao)
@@ -114,3 +258,4 @@ public static class ExecutorComandos
         }
     }
 }
+#endif

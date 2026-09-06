@@ -10,6 +10,7 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.provider.OpenableColumns
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,9 +20,242 @@ import java.net.*
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
+import java.util.Collections
 import java.util.UUID
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 import javax.net.ssl.*
+
+/**
+ * Monta as mensagens do canal de controle (contrato v2, seção 1). Fica fora do
+ * objeto de sessão de propósito: o formato é acordo entre celular e PC, então
+ * ele precisa ser testável sem Android, sem rede e sem PC do outro lado.
+ */
+object MontadorMensagens {
+    fun normalizarBotao(botao: String): String = when (botao.trim().lowercase()) {
+        "direito", "right" -> "direito"
+        "meio", "middle", "central" -> "meio"
+        else -> "esquerdo"
+    }
+
+    fun normalizarModificador(modificador: String): String = when (modificador.trim().lowercase()) {
+        "ctrl", "control", "controle" -> "ctrl"
+        "alt", "menu" -> "alt"
+        "shift" -> "shift"
+        "win", "windows", "meta", "super", "cmd" -> "win"
+        else -> modificador.trim().lowercase()
+    }
+
+    fun mouseAbsoluto(x: Double, y: Double, monitor: Int): JSONObject = JSONObject()
+        .put("tipo", "mouse_abs")
+        .put("x", normalizada(x))
+        .put("y", normalizada(y))
+        .put("monitor", monitor.coerceAtLeast(0))
+
+    fun mouseRelativo(dx: Double, dy: Double): JSONObject = JSONObject()
+        .put("tipo", "mouse_move")
+        .put("x", finita(dx))
+        .put("y", finita(dy))
+
+    fun mouseClique(botao: String, cliques: Int): JSONObject = JSONObject()
+        .put("tipo", "mouse_click")
+        .put("botao", normalizarBotao(botao))
+        .put("cliques", cliques.coerceIn(1, 2))
+
+    fun mouseBaixar(botao: String): JSONObject = JSONObject()
+        .put("tipo", "mouse_down")
+        .put("botao", normalizarBotao(botao))
+
+    fun mouseSoltar(botao: String): JSONObject = JSONObject()
+        .put("tipo", "mouse_up")
+        .put("botao", normalizarBotao(botao))
+
+    fun rolagem(delta: Int, horizontal: Boolean): JSONObject = JSONObject()
+        .put("tipo", "scroll")
+        .put("delta", delta)
+        .put("eixo", if (horizontal) "horizontal" else "vertical")
+
+    fun texto(texto: String): JSONObject = JSONObject()
+        .put("tipo", "texto")
+        .put("texto", texto)
+
+    /** Sem modificador o campo nem aparece — é assim que a versão antiga entende. */
+    fun tecla(tecla: String, modificadores: List<String> = emptyList()): JSONObject {
+        val json = JSONObject().put("tipo", "tecla").put("tecla", tecla)
+        val limpos = modificadores.map { normalizarModificador(it) }.filter { it.isNotBlank() }
+        if (limpos.isNotEmpty()) json.put("modificadores", org.json.JSONArray(limpos))
+        return json
+    }
+
+    fun clipboardPegar(): JSONObject = JSONObject().put("tipo", "clipboard_get")
+
+    fun clipboardDefinir(texto: String): JSONObject = JSONObject()
+        .put("tipo", "clipboard_set")
+        .put("texto", texto)
+
+    fun clipboardModo(modo: ModoClipboard): JSONObject = JSONObject()
+        .put("tipo", "clipboard_modo")
+        .put("modo", when (modo) {
+            ModoClipboard.DESLIGADO -> "desligado"
+            ModoClipboard.AUTOMATICO -> "auto"
+            ModoClipboard.MANUAL -> "manual"
+        })
+
+    fun pedidoStream(sessaoId: String, monitor: Int, perfil: PerfilVideo): JSONObject = JSONObject()
+        .put("tipo", "stream")
+        .put("sessaoId", sessaoId)
+        .put("monitor", monitor.coerceAtLeast(0))
+        .put("fps", perfil.fps)
+        .put("qualidade", perfil.qualidade)
+        .put("larguraMaxima", perfil.larguraMaxima)
+
+    private fun normalizada(valor: Double) = if (valor.isNaN()) 0.0 else valor.coerceIn(0.0, 1.0)
+    private fun finita(valor: Double) = if (valor.isFinite()) valor else 0.0
+}
+
+/**
+ * Um evento de entrada esperando a vez de ir para o PC. Só movimento e rolagem
+ * podem ser agrupados; clique, botão e tecla saem inteiros e na ordem
+ * (contrato v2, seção 4, regra 4).
+ */
+sealed class EventoEntrada {
+    abstract fun paraJson(): JSONObject
+    open val agrupavel: Boolean get() = false
+
+    /** Devolve o evento resultante quando `proximo` continua este; null quando não dá para juntar. */
+    open fun agrupar(proximo: EventoEntrada): EventoEntrada? = null
+
+    data class Absoluto(val x: Double, val y: Double, val monitor: Int) : EventoEntrada() {
+        override val agrupavel: Boolean get() = true
+        // Posição absoluta não soma: a última apaga as anteriores.
+        override fun agrupar(proximo: EventoEntrada): EventoEntrada? = proximo as? Absoluto
+        override fun paraJson(): JSONObject = MontadorMensagens.mouseAbsoluto(x, y, monitor)
+    }
+
+    data class Relativo(val dx: Double, val dy: Double) : EventoEntrada() {
+        override val agrupavel: Boolean get() = true
+        override fun agrupar(proximo: EventoEntrada): EventoEntrada? =
+            (proximo as? Relativo)?.let { Relativo(dx + it.dx, dy + it.dy) }
+        override fun paraJson(): JSONObject = MontadorMensagens.mouseRelativo(dx, dy)
+    }
+
+    data class Rolagem(val delta: Int, val horizontal: Boolean) : EventoEntrada() {
+        override val agrupavel: Boolean get() = true
+        // Roda vertical e horizontal são canais diferentes: só soma com a igual.
+        override fun agrupar(proximo: EventoEntrada): EventoEntrada? =
+            (proximo as? Rolagem)?.takeIf { it.horizontal == horizontal }?.let { Rolagem(delta + it.delta, horizontal) }
+        override fun paraJson(): JSONObject = MontadorMensagens.rolagem(delta, horizontal)
+    }
+
+    data class Clique(val botao: String, val cliques: Int) : EventoEntrada() {
+        override fun paraJson(): JSONObject = MontadorMensagens.mouseClique(botao, cliques)
+    }
+
+    data class Pressao(val botao: String, val solta: Boolean) : EventoEntrada() {
+        override fun paraJson(): JSONObject =
+            if (solta) MontadorMensagens.mouseSoltar(botao) else MontadorMensagens.mouseBaixar(botao)
+    }
+
+    data class Texto(val texto: String) : EventoEntrada() {
+        override fun paraJson(): JSONObject = MontadorMensagens.texto(texto)
+    }
+
+    data class Tecla(val tecla: String, val modificadores: List<String>) : EventoEntrada() {
+        override fun paraJson(): JSONObject = MontadorMensagens.tecla(tecla, modificadores)
+    }
+
+    /** Mensagem já pronta (mídia, energia, área de transferência). Nunca é agrupada. */
+    class Bruto(private val json: JSONObject) : EventoEntrada() {
+        override fun paraJson(): JSONObject = json
+    }
+}
+
+/**
+ * Fila de saída da entrada do usuário.
+ *
+ * O agrupamento só acontece contra o ÚLTIMO evento da fila. É isso que mantém
+ * a ordem: um movimento que chegou antes do clique continua antes dele, e um
+ * movimento que chegou depois vira um item novo em vez de se somar ao de trás.
+ * Se a soma pudesse pular por cima do clique, o clique aconteceria no lugar
+ * errado.
+ */
+class FilaEntrada(private val limite: Int = 240) {
+    private val itens = ArrayDeque<EventoEntrada>()
+
+    /** Devolve true quando a fila tem que ser despachada já, sem esperar o quadro. */
+    @Synchronized fun enfileirar(evento: EventoEntrada): Boolean {
+        val agrupado = if (evento.agrupavel) itens.lastOrNull()?.agrupar(evento) else null
+        if (agrupado != null) {
+            itens.removeLast()
+            itens.addLast(agrupado)
+        } else {
+            itens.addLast(evento)
+        }
+        return !evento.agrupavel || itens.size >= limite
+    }
+
+    @Synchronized fun drenar(): List<EventoEntrada> {
+        if (itens.isEmpty()) return emptyList()
+        val copia = itens.toList()
+        itens.clear()
+        return copia
+    }
+
+    @Synchronized fun limpar() = itens.clear()
+
+    @get:Synchronized val vazia: Boolean get() = itens.isEmpty()
+    @get:Synchronized val tamanho: Int get() = itens.size
+}
+
+/**
+ * Guarda um único item à espera: o que chega joga fora o que ainda não foi
+ * consumido. Latência importa mais que completude — quadro atrasado só serve
+ * para atrasar o próximo.
+ */
+class CaixaUltimoQuadro<T> {
+    private var pendente: T? = null
+    private var descartados = 0
+
+    /** Devolve o item atropelado (útil para reaproveitar o buffer dele). */
+    @Synchronized fun publicar(item: T): T? {
+        val antigo = pendente
+        if (antigo != null) descartados++
+        pendente = item
+        return antigo
+    }
+
+    @Synchronized fun consumir(): T? {
+        val item = pendente
+        pendente = null
+        return item
+    }
+
+    @get:Synchronized val quantidadeDescartada: Int get() = descartados
+    @get:Synchronized val vazia: Boolean get() = pendente == null
+}
+
+/**
+ * Rodízio dos quadros já publicados. Só devolve para reúso o quadro publicado
+ * há `capacidade` publicações, porque a interface pode ainda estar desenhando
+ * os últimos — reaproveitar cedo demais rasga a imagem na tela.
+ */
+class RodizioDeQuadros<T>(private val capacidade: Int = 3) {
+    private val circulando = ArrayDeque<T>()
+
+    @Synchronized fun publicar(novo: T): T? {
+        circulando.addLast(novo)
+        return if (circulando.size > capacidade) circulando.removeFirst() else null
+    }
+
+    @Synchronized fun limpar() = circulando.clear()
+
+    @get:Synchronized val emCirculacao: Int get() = circulando.size
+}
+
+/** Quadro comprimido recém-chegado. O buffer pode ser maior que `tamanho` porque é reaproveitado. */
+class QuadroBruto(val bytes: ByteArray, val tamanho: Int)
 
 object SessaoPcFlow {
     /** Deve casar com VersaoPcFlow.App no Windows: o servidor recusa versões diferentes. */
@@ -30,6 +264,14 @@ object SessaoPcFlow {
     private const val PORTA_DESCOBERTA = 45455
     private const val PORTA_RELAY = 45460
     private const val TEMPO_DESCOBERTA_MS = 1800
+
+    /** Um quadro de 60 Hz: movimento e rolagem viram no máximo uma mensagem por vez desta. */
+    private const val INTERVALO_AGRUPAMENTO_MS = 16L
+    private const val INTERVALO_PING_MS = 4_000L
+    /** Depois disso sem quadro a interface precisa dizer que está reconectando. */
+    private const val LIMITE_SEM_QUADRO_MS = 5_000L
+    private const val MENSAGEM_CONECTADO = "Conectado"
+    private const val MENSAGEM_SEM_TELA = "Reconectando a tela…"
 
     private val escopo = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val _estado = MutableStateFlow(EstadoSessao())
@@ -44,19 +286,54 @@ object SessaoPcFlow {
     val monitorAtual: StateFlow<Int> = _monitorAtual.asStateFlow()
     private val _arquivos = MutableStateFlow(EstadoArquivos())
     val arquivos: StateFlow<EstadoArquivos> = _arquivos.asStateFlow()
+    private val _estatisticas = MutableStateFlow(EstatisticasSessao())
+    val estatisticas: StateFlow<EstatisticasSessao> = _estatisticas.asStateFlow()
+    private val _perfilVideo = MutableStateFlow(PerfilVideo.EQUILIBRADO)
+    val perfilVideo: StateFlow<PerfilVideo> = _perfilVideo.asStateFlow()
+    private val _modoClipboard = MutableStateFlow(ModoClipboard.MANUAL)
+    val modoClipboard: StateFlow<ModoClipboard> = _modoClipboard.asStateFlow()
 
     private var socket: SSLSocket? = null
     private var writer: BufferedWriter? = null
     private var streamSocket: SSLSocket? = null
     private var streamJob: Job? = null
     private var heartbeatJob: Job? = null
+    private var estatisticasJob: Job? = null
     private var contexto: Context? = null
     private val conectando = AtomicBoolean(false)
     @Volatile private var desconexaoManual = false
     @Volatile private var ultimoPc: PcEncontrado? = null
     private var tentativaReconexao = 0
 
-    fun inicializar(context: Context) { contexto = context.applicationContext }
+    private val filaEntrada = FilaEntrada()
+    private val tickerEntradaAtivo = AtomicBoolean(false)
+    /** Botões que o dedo deixou pressionados no PC — precisam ser soltos ao cair a sessão. */
+    private val botoesPressionados = Collections.synchronizedSet(LinkedHashSet<String>())
+
+    /**
+     * Decodificar JPEG na thread da interface é o que faz a tela parecer travada:
+     * a 24 fps o desenho fica esperando o decodificador. Aqui ele tem thread só
+     * dele, um pouco acima da prioridade normal.
+     */
+    private val despachanteVideo by lazy {
+        Executors.newSingleThreadExecutor { tarefa ->
+            Thread(tarefa, "pcflow-video").apply { isDaemon = true; priority = Thread.NORM_PRIORITY + 1 }
+        }.asCoroutineDispatcher()
+    }
+    private val quadrosNaJanela = AtomicInteger(0)
+    private val bytesNaJanela = AtomicLong(0)
+    @Volatile private var instanteUltimoQuadro = 0L
+    @Volatile private var instanteUltimoPing = 0L
+    @Volatile private var latenciaMs = 0
+
+    fun inicializar(context: Context) {
+        contexto = context.applicationContext
+        val p = prefs()
+        _perfilVideo.value = runCatching { PerfilVideo.valueOf(p.getString("perfil_video", "") ?: "") }
+            .getOrDefault(PerfilVideo.EQUILIBRADO)
+        _modoClipboard.value = runCatching { ModoClipboard.valueOf(p.getString("modo_clipboard", "") ?: "") }
+            .getOrDefault(ModoClipboard.MANUAL)
+    }
 
     fun descobrir() {
         escopo.launch {
@@ -191,9 +468,14 @@ object SessaoPcFlow {
                 )
                 tentativaReconexao = 0
                 _monitorAtual.value = 0
-                _estado.value = EstadoSessao(EstadoConexao.CONECTADO, pc, "Conectado", sessaoId, monitores, permissoes)
+                botoesPressionados.clear()
+                filaEntrada.limpar()
+                _estatisticas.value = EstatisticasSessao()
+                _estado.value = EstadoSessao(EstadoConexao.CONECTADO, pc, MENSAGEM_CONECTADO, sessaoId, monitores, permissoes)
                 contexto?.let { ServicoConexao.iniciar(it) }
                 iniciarHeartbeat()
+                iniciarEstatisticas()
+                if (permissoes.clipboard) definirModoClipboard(_modoClipboard.value)
                 if (permissoes.tela) iniciarStream(pc, sessaoId, 0)
 
                 while (novoSocket.isConnected && !novoSocket.isClosed) {
@@ -201,15 +483,20 @@ object SessaoPcFlow {
                     if (linha.isBlank()) continue
                     val evento = JSONObject(linha)
                     when (evento.optString("tipo")) {
+                        // Em modo automático o PC empurra a área de transferência dele sozinho.
                         "clipboard" -> _clipboardRemoto.value = evento.optString("texto", "")
-                        "pong" -> Unit
+                        "pong" -> registrarPong(evento.optLong("t", 0L))
                     }
                 }
             } catch (e: Exception) {
                 if (!desconexaoManual) _estado.value = EstadoSessao(EstadoConexao.ERRO, pc, mensagemAmigavel(e))
             } finally {
                 conectando.set(false)
+                // Antes de fechar: solta o que ficou pressionado, senão o PC fica
+                // com o botão preso e arrastando ícones sozinho.
+                soltarTudoPendente()
                 pararHeartbeat()
+                pararEstatisticas()
                 pararStream()
                 desconectarSockets()
                 if (!desconexaoManual && ultimoPc == pc) agendarReconexao(pc)
@@ -217,13 +504,17 @@ object SessaoPcFlow {
         }
     }
 
+    /** O ping também é o cronômetro da latência mostrada na interface. */
     private fun iniciarHeartbeat() {
         heartbeatJob?.cancel()
         heartbeatJob = escopo.launch {
             while (isActive && _estado.value.estado == EstadoConexao.CONECTADO) {
-                delay(15_000)
-                try { escreverLinha(JSONObject().put("tipo", "ping").put("t", System.currentTimeMillis())) }
-                catch (_: Exception) { break }
+                delay(INTERVALO_PING_MS)
+                val agora = System.currentTimeMillis()
+                try {
+                    escreverLinha(JSONObject().put("tipo", "ping").put("t", agora))
+                    instanteUltimoPing = agora
+                } catch (_: Exception) { break }
             }
         }
     }
@@ -233,12 +524,51 @@ object SessaoPcFlow {
         heartbeatJob = null
     }
 
+    /** O servidor devolve o `t` que mandamos; quando não devolve, vale o último envio. */
+    private fun registrarPong(carimbo: Long) {
+        val partida = if (carimbo > 0) carimbo else instanteUltimoPing
+        if (partida <= 0) return
+        val ida = System.currentTimeMillis() - partida
+        if (ida in 0..60_000) latenciaMs = ida.toInt()
+    }
+
+    private fun iniciarEstatisticas() {
+        estatisticasJob?.cancel()
+        estatisticasJob = escopo.launch {
+            while (isActive && _estado.value.estado == EstadoConexao.CONECTADO) {
+                delay(1_000)
+                val quadros = quadrosNaJanela.getAndSet(0)
+                val bytes = bytesNaJanela.getAndSet(0)
+                _estatisticas.value = EstatisticasSessao(quadros, latenciaMs, bytes)
+
+                // Tela parada sem aviso parece aplicativo travado. Se o canal de
+                // vídeo sumiu, a interface precisa poder dizer que está voltando.
+                val atual = _estado.value
+                if (atual.estado != EstadoConexao.CONECTADO || !atual.permissoes.tela) continue
+                val semQuadro = instanteUltimoQuadro > 0 &&
+                    System.currentTimeMillis() - instanteUltimoQuadro > LIMITE_SEM_QUADRO_MS
+                val mensagem = if (semQuadro) MENSAGEM_SEM_TELA else MENSAGEM_CONECTADO
+                if (atual.mensagem != mensagem && (atual.mensagem == MENSAGEM_CONECTADO || atual.mensagem == MENSAGEM_SEM_TELA))
+                    _estado.value = atual.copy(mensagem = mensagem)
+            }
+        }
+    }
+
+    private fun pararEstatisticas() {
+        estatisticasJob?.cancel()
+        estatisticasJob = null
+        quadrosNaJanela.set(0)
+        bytesNaJanela.set(0)
+        _estatisticas.value = EstatisticasSessao()
+    }
+
+    /**
+     * Mensagem avulsa (mídia, energia, arquivos). Vai pela mesma fila da entrada
+     * para nunca ultrapassar um movimento que já estava esperando.
+     */
     fun enviar(tipo: String, preencher: JSONObject.() -> Unit = {}) {
         if (_estado.value.estado != EstadoConexao.CONECTADO) return
-        escopo.launch {
-            try { escreverLinha(JSONObject().put("tipo", tipo).apply(preencher)) }
-            catch (_: Exception) { if (!desconexaoManual) _estado.value = _estado.value.copy(estado = EstadoConexao.ERRO, mensagem = "Conexão perdida. Tentando reconectar…") }
-        }
+        enfileirar(EventoEntrada.Bruto(JSONObject().put("tipo", tipo).apply(preencher)))
     }
 
     fun alterarMonitor(indice: Int) {
@@ -251,12 +581,134 @@ object SessaoPcFlow {
         iniciarStream(pc, sessao, novo)
     }
 
+    /** Mesmo destino de `alterarMonitor`; nome novo do contrato v2. */
+    fun alternarMonitor(indice: Int) = alterarMonitor(indice)
+
+    // ---- ponteiro ----
+
     /** Posiciona o ponteiro do PC sem clicar, em coordenada normalizada 0..1. */
-    fun enviarPosicao(x: Double, y: Double, monitor: Int) =
-        enviar("mouse_abs") { put("x", x); put("y", y); put("monitor", monitor) }
+    fun posicionar(x: Double, y: Double, monitor: Int) = enfileirar(EventoEntrada.Absoluto(x, y, monitor))
+
+    /** Nome antigo de `posicionar`, ainda usado pela tela de sessão. */
+    fun enviarPosicao(x: Double, y: Double, monitor: Int) = posicionar(x, y, monitor)
+
+    /** Movimento relativo, do modo touchpad. */
+    fun mover(dx: Double, dy: Double) = enfileirar(EventoEntrada.Relativo(dx, dy))
+
+    /**
+     * `cliques = 2` manda um clique duplo só, resolvido no Windows com o
+     * intervalo do sistema. Dois cliques separados daqui viram dois cliques
+     * soltos e não abrem pasta nem selecionam palavra.
+     */
+    fun clicar(botao: String, cliques: Int = 1) =
+        enfileirar(EventoEntrada.Clique(MontadorMensagens.normalizarBotao(botao), cliques))
+
+    fun pressionar(botao: String) {
+        val normalizado = MontadorMensagens.normalizarBotao(botao)
+        botoesPressionados.add(normalizado)
+        enfileirar(EventoEntrada.Pressao(normalizado, solta = false))
+    }
+
+    fun soltar(botao: String) {
+        val normalizado = MontadorMensagens.normalizarBotao(botao)
+        botoesPressionados.remove(normalizado)
+        enfileirar(EventoEntrada.Pressao(normalizado, solta = true))
+    }
+
+    fun rolar(delta: Int, horizontal: Boolean = false) = enfileirar(EventoEntrada.Rolagem(delta, horizontal))
+
+    // ---- teclado ----
+
+    fun digitar(texto: String) {
+        if (texto.isEmpty()) return
+        enfileirar(EventoEntrada.Texto(texto))
+    }
+
+    fun teclaEspecial(tecla: String, modificadores: List<String> = emptyList()) {
+        if (tecla.isBlank()) return
+        enfileirar(EventoEntrada.Tecla(tecla, modificadores))
+    }
+
+    // ---- área de transferência ----
+
+    fun definirModoClipboard(modo: ModoClipboard) {
+        _modoClipboard.value = modo
+        runCatching { prefs().edit().putString("modo_clipboard", modo.name).apply() }
+        if (_estado.value.estado == EstadoConexao.CONECTADO)
+            enfileirar(EventoEntrada.Bruto(MontadorMensagens.clipboardModo(modo)))
+    }
+
+    fun enviarClipboardParaPc(texto: String) = enviarClipboard(texto)
+
+    fun puxarClipboardDoPc() = solicitarClipboard()
 
     fun solicitarClipboard() = enviar("clipboard_get")
     fun enviarClipboard(texto: String) = enviar("clipboard_set") { put("texto", texto) }
+
+    // ---- fila de saída ----
+
+    /**
+     * Entrada do usuário nunca é escrita direto no socket: entra na fila e sai
+     * por um único caminho. Assim a ordem que o dedo produziu é a ordem que o
+     * PC recebe, mesmo com várias corrotinas empurrando ao mesmo tempo.
+     */
+    private fun enfileirar(evento: EventoEntrada) {
+        if (_estado.value.estado != EstadoConexao.CONECTADO) return
+        if (filaEntrada.enfileirar(evento)) escopo.launch { despachar() }
+        else garantirTickerEntrada()
+    }
+
+    /** Movimento e rolagem esperam no máximo um quadro para sair somados. */
+    private fun garantirTickerEntrada() {
+        if (!tickerEntradaAtivo.compareAndSet(false, true)) return
+        escopo.launch {
+            try {
+                while (isActive) {
+                    delay(INTERVALO_AGRUPAMENTO_MS)
+                    if (filaEntrada.vazia) break
+                    despachar()
+                }
+            } finally {
+                tickerEntradaAtivo.set(false)
+                if (!filaEntrada.vazia) garantirTickerEntrada()
+            }
+        }
+    }
+
+    /**
+     * Drenar e escrever acontecem sob o mesmo cadeado: se duas corrotinas
+     * despacharem juntas, uma delas leva a fila inteira na ordem e a outra não
+     * acha nada — nunca dá para uma mensagem passar na frente da outra.
+     */
+    @Synchronized private fun despachar() {
+        if (_estado.value.estado != EstadoConexao.CONECTADO) { filaEntrada.limpar(); return }
+        for (evento in filaEntrada.drenar()) {
+            try {
+                escreverLinha(evento.paraJson())
+            } catch (_: Exception) {
+                filaEntrada.limpar()
+                if (!desconexaoManual) _estado.value = _estado.value.copy(
+                    estado = EstadoConexao.ERRO,
+                    mensagem = "Conexão perdida. Tentando reconectar…"
+                )
+                return
+            }
+        }
+    }
+
+    /**
+     * Solta o que ficou pressionado. Os modificadores não precisam de mensagem:
+     * o contrato manda `tecla` com a lista dentro, e o Windows já solta na ordem
+     * inversa dentro da mesma mensagem — nenhum fica pendurado aqui.
+     */
+    private fun soltarTudoPendente() {
+        val presos = synchronized(botoesPressionados) { botoesPressionados.toList() }
+        botoesPressionados.clear()
+        filaEntrada.limpar()
+        if (presos.isEmpty()) return
+        for (botao in presos.asReversed())
+            runCatching { escreverLinha(MontadorMensagens.mouseSoltar(botao)) }
+    }
 
     fun listarArquivos(caminho: String = "") {
         if (!_estado.value.permissoes.arquivos) return
@@ -405,7 +857,9 @@ object SessaoPcFlow {
         desconexaoManual = true
         ultimoPc = null
         escopo.launch {
+            soltarTudoPendente()
             pararHeartbeat()
+            pararEstatisticas()
             pararStream()
             desconectarSockets()
             _quadro.value = null
@@ -415,34 +869,131 @@ object SessaoPcFlow {
         }
     }
 
+    /** Troca o ajuste de captura e reabre o canal de tela com os números do perfil. */
+    fun definirPerfilVideo(perfil: PerfilVideo) {
+        if (_perfilVideo.value == perfil) return
+        _perfilVideo.value = perfil
+        runCatching { prefs().edit().putString("perfil_video", perfil.name).apply() }
+        val atual = _estado.value
+        val pc = atual.pc ?: return
+        val sessao = atual.sessaoId ?: return
+        if (atual.estado == EstadoConexao.CONECTADO && atual.permissoes.tela)
+            iniciarStream(pc, sessao, _monitorAtual.value)
+    }
+
+    /**
+     * Canal de tela. O laço de rede só lê bytes e entrega o quadro mais recente;
+     * quem decodifica é outra corrotina, em thread própria. Quadro que chega
+     * enquanto o anterior ainda não foi decodificado atropela o anterior — fila
+     * de quadro velho vira atraso acumulado, que é exatamente o que faz a tela
+     * parecer travada.
+     */
     private fun iniciarStream(pc: PcEncontrado, sessaoId: String, monitor: Int) {
         streamJob?.cancel()
         try { streamSocket?.close() } catch (_: Exception) { }
+        val perfil = _perfilVideo.value
+        instanteUltimoQuadro = System.currentTimeMillis()
         streamJob = escopo.launch {
+            val caixa = CaixaUltimoQuadro<QuadroBruto>()
+            val aviso = Channel<Unit>(Channel.CONFLATED)
+            val decodificador = launch(despachanteVideo) { decodificarEnquantoChega(caixa, aviso, perfil) }
             var atraso = 300L
-            while (isActive && _estado.value.estado == EstadoConexao.CONECTADO && _estado.value.sessaoId == sessaoId && _monitorAtual.value == monitor) {
-                try {
-                    val s = abrirTls(pc, pc.portaTela)
-                    streamSocket = s
-                    val out = BufferedWriter(OutputStreamWriter(s.getOutputStream(), Charsets.UTF_8))
-                    out.write(JSONObject().put("tipo", "stream").put("sessaoId", sessaoId).put("monitor", monitor).put("qualidade", 70).put("fps", 12).toString())
-                    out.newLine(); out.flush()
-                    val input = DataInputStream(BufferedInputStream(s.getInputStream(), 128 * 1024))
-                    atraso = 300L
-                    while (isActive && !s.isClosed && _monitorAtual.value == monitor) {
-                        val tamanho = input.readInt()
-                        if (tamanho <= 0 || tamanho > 16_000_000) error("Quadro inválido")
-                        val bytes = ByteArray(tamanho)
-                        input.readFully(bytes)
-                        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.let { _quadro.value = it }
+            try {
+                while (isActive && _estado.value.estado == EstadoConexao.CONECTADO && _estado.value.sessaoId == sessaoId && _monitorAtual.value == monitor) {
+                    try {
+                        val s = abrirTls(pc, pc.portaTela)
+                        streamSocket = s
+                        val out = BufferedWriter(OutputStreamWriter(s.getOutputStream(), Charsets.UTF_8))
+                        out.write(MontadorMensagens.pedidoStream(sessaoId, monitor, perfil).toString())
+                        out.newLine(); out.flush()
+                        val input = DataInputStream(BufferedInputStream(s.getInputStream(), 128 * 1024))
+                        atraso = 300L
+                        var reserva: ByteArray? = null
+                        while (isActive && !s.isClosed && _monitorAtual.value == monitor) {
+                            val tamanho = input.readInt()
+                            if (tamanho <= 0 || tamanho > 16_000_000) error("Quadro inválido")
+                            val destino = reserva?.takeIf { it.size >= tamanho } ?: ByteArray(tamanho)
+                            reserva = null
+                            input.readFully(destino, 0, tamanho)
+                            bytesNaJanela.addAndGet(tamanho.toLong())
+                            // O quadro atropelado morre aqui, e o buffer dele volta para o reúso.
+                            reserva = caixa.publicar(QuadroBruto(destino, tamanho))?.bytes
+                            aviso.trySend(Unit)
+                        }
+                    } catch (_: CancellationException) { break }
+                    catch (_: Exception) {
+                        try { streamSocket?.close() } catch (_: Exception) { }
+                        delay(atraso)
+                        // Espera progressiva, mas com teto baixo: a interface avisa
+                        // que está reconectando depois de 5 s sem quadro.
+                        atraso = (atraso * 2).coerceAtMost(3000)
                     }
-                } catch (_: CancellationException) { break }
-                catch (_: Exception) {
-                    try { streamSocket?.close() } catch (_: Exception) { }
-                    delay(atraso)
-                    atraso = (atraso * 2).coerceAtMost(3000)
+                }
+            } finally {
+                decodificador.cancel()
+                aviso.close()
+            }
+        }
+    }
+
+    /**
+     * Decodifica sempre o quadro mais recente e reaproveita o Bitmap anterior.
+     * Sem `inBitmap` cada quadro aloca alguns megabytes: a 24 fps isso enche o
+     * coletor de lixo e a interface engasga entre um quadro e outro.
+     */
+    private suspend fun decodificarEnquantoChega(
+        caixa: CaixaUltimoQuadro<QuadroBruto>,
+        aviso: Channel<Unit>,
+        perfil: PerfilVideo
+    ) {
+        val rodizio = RodizioDeQuadros<Bitmap>(3)
+        val livres = ArrayDeque<Bitmap>()
+        // Metade da memória e decodificação bem mais rápida quando o que importa
+        // é a resposta; só o perfil de imagem paga o preço da cor completa.
+        val formato = if (perfil == PerfilVideo.IMAGEM) Bitmap.Config.ARGB_8888 else Bitmap.Config.RGB_565
+        try {
+            for (@Suppress("UNUSED_PARAMETER") ignorado in aviso) {
+                var bruto = caixa.consumir()
+                while (bruto != null) {
+                    val bitmap = decodificarQuadro(bruto, livres, formato)
+                    if (bitmap != null) {
+                        rodizio.publicar(bitmap)?.let { if (livres.size < 2) livres.addLast(it) }
+                        _quadro.value = bitmap
+                        quadrosNaJanela.incrementAndGet()
+                        instanteUltimoQuadro = System.currentTimeMillis()
+                    }
+                    // Enquanto decodificava pode ter chegado outro: pega o mais novo.
+                    bruto = caixa.consumir()
                 }
             }
+        } catch (_: CancellationException) {
+            // encerramento normal do canal de tela
+        } finally {
+            rodizio.limpar()
+            livres.clear()
+        }
+    }
+
+    private fun decodificarQuadro(bruto: QuadroBruto, livres: ArrayDeque<Bitmap>, formato: Bitmap.Config): Bitmap? {
+        val opcoes = BitmapFactory.Options().apply {
+            inMutable = true
+            inPreferredConfig = formato
+            inSampleSize = 1
+        }
+        val candidato = livres.removeFirstOrNull()
+        if (candidato != null && !candidato.isRecycled && candidato.isMutable && candidato.config == formato)
+            opcoes.inBitmap = candidato
+
+        return try {
+            BitmapFactory.decodeByteArray(bruto.bytes, 0, bruto.tamanho, opcoes)
+        } catch (_: IllegalArgumentException) {
+            // Reúso só vale quando o tamanho bate. Mudou a resolução do PC:
+            // joga fora os buffers antigos e aloca de novo.
+            livres.clear()
+            opcoes.inBitmap = null
+            runCatching { BitmapFactory.decodeByteArray(bruto.bytes, 0, bruto.tamanho, opcoes) }.getOrNull()
+        } catch (_: Exception) {
+            null
         }
     }
 

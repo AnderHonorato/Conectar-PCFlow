@@ -16,12 +16,28 @@ public sealed class MensagemRede
     [JsonPropertyName("x")] public double X { get; set; }
     [JsonPropertyName("y")] public double Y { get; set; }
     [JsonPropertyName("delta")] public int Delta { get; set; }
+
+    /// <summary>Eixo da rolagem: "vertical" (padrão) ou "horizontal".</summary>
+    [JsonPropertyName("eixo")] public string? Eixo { get; set; }
+
     [JsonPropertyName("botao")] public string? Botao { get; set; }
+
+    /// <summary>1 = clique simples, 2 = clique duplo de verdade.</summary>
+    [JsonPropertyName("cliques")] public int Cliques { get; set; } = 1;
+
     [JsonPropertyName("texto")] public string? Texto { get; set; }
     [JsonPropertyName("tecla")] public string? Tecla { get; set; }
+
+    /// <summary>"ctrl", "alt", "shift" e "win" em qualquer combinação.</summary>
+    [JsonPropertyName("modificadores")] public List<string>? Modificadores { get; set; }
+
     [JsonPropertyName("monitor")] public int Monitor { get; set; }
     [JsonPropertyName("qualidade")] public int Qualidade { get; set; } = 68;
     [JsonPropertyName("fps")] public int Fps { get; set; } = 12;
+
+    /// <summary>Teto de largura do quadro; 0 mantém o tamanho nativo da tela.</summary>
+    [JsonPropertyName("larguraMaxima")] public int LarguraMaxima { get; set; }
+
     [JsonPropertyName("mensagem")] public string? Mensagem { get; set; }
     [JsonPropertyName("appVersao")] public string? AppVersao { get; set; }
 }
