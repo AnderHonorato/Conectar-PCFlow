@@ -189,22 +189,26 @@ object RepositorioPcFlowV13 {
         .appendQueryParameter("tls", dispositivo.tls)
         .build().toString()
 
-    fun lerDeepLink(texto: String): PcEncontrado? = try {
-        val uri = Uri.parse(texto)
-        if (!uri.scheme.equals("pcflow", true)) return null
-        val host = uri.getQueryParameter("host") ?: return null
-        val porta = uri.getQueryParameter("port")?.toIntOrNull() ?: 45456
-        PcEncontrado(
-            nome = uri.getQueryParameter("nome") ?: "PCFlow compartilhado",
-            host = host,
-            porta = porta,
-            portaTela = uri.getQueryParameter("portaTela")?.toIntOrNull() ?: 45457,
-            portaArquivos = uri.getQueryParameter("portaArquivos")?.toIntOrNull() ?: 45458,
-            maquinaId = uri.getQueryParameter("id").orEmpty(),
-            tls = uri.getQueryParameter("tls").orEmpty(),
-            monitores = uri.getQueryParameter("monitores")?.toIntOrNull() ?: 1
-        )
-    } catch (_: Exception) { null }
+    fun lerDeepLink(texto: String): PcEncontrado? {
+        return try {
+            val uri = Uri.parse(texto)
+            if (!uri.scheme.equals("pcflow", true)) return null
+            val host = uri.getQueryParameter("host") ?: return null
+            val porta = uri.getQueryParameter("port")?.toIntOrNull() ?: 45456
+            PcEncontrado(
+                nome = uri.getQueryParameter("nome") ?: "PCFlow compartilhado",
+                host = host,
+                porta = porta,
+                portaTela = uri.getQueryParameter("portaTela")?.toIntOrNull() ?: 45457,
+                portaArquivos = uri.getQueryParameter("portaArquivos")?.toIntOrNull() ?: 45458,
+                maquinaId = uri.getQueryParameter("id").orEmpty(),
+                tls = uri.getQueryParameter("tls").orEmpty(),
+                monitores = uri.getQueryParameter("monitores")?.toIntOrNull() ?: 1
+            )
+        } catch (_: Exception) {
+            null
+        }
+    }
 
     private fun carregar() {
         val p = prefs()
