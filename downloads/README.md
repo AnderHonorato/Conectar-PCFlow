@@ -1,13 +1,13 @@
-# Downloads do PCFlow 1.2.0
+# Downloads do PCFlow 1.3.0
 
 Baixe clicando no arquivo e depois no botão **Download** (ícone de seta), ou
 pelos links diretos abaixo.
 
 | Arquivo | Para quê | Link direto |
 |---|---|---|
-| `PCFlow-v1.2.0.exe` | computador (Windows) | [baixar](https://github.com/AnderHonorato/Conectar-PCFlow/raw/claude/pc-flow-conexao-fix-i1nw9z/downloads/PCFlow-v1.2.0.exe) |
-| `PCFlow-v1.2.0.apk` | celular (Android) | [baixar](https://github.com/AnderHonorato/Conectar-PCFlow/raw/claude/pc-flow-conexao-fix-i1nw9z/downloads/PCFlow-v1.2.0.apk) |
-| `PCFlow-v1.2.0-servidor.zip` | servidor de retransmissão | [baixar](https://github.com/AnderHonorato/Conectar-PCFlow/raw/claude/pc-flow-conexao-fix-i1nw9z/downloads/PCFlow-v1.2.0-servidor.zip) |
+| `PCFlow-v1.3.0.exe` | computador (Windows) | [baixar](https://github.com/AnderHonorato/Conectar-PCFlow/raw/claude/pc-flow-conexao-fix-i1nw9z/downloads/PCFlow-v1.3.0.exe) |
+| `PCFlow-v1.3.0.apk` | celular (Android) | [baixar](https://github.com/AnderHonorato/Conectar-PCFlow/raw/claude/pc-flow-conexao-fix-i1nw9z/downloads/PCFlow-v1.3.0.apk) |
+| `PCFlow-v1.3.0-servidor.zip` | servidor de retransmissão | [baixar](https://github.com/AnderHonorato/Conectar-PCFlow/raw/claude/pc-flow-conexao-fix-i1nw9z/downloads/PCFlow-v1.3.0-servidor.zip) |
 | `LEIA-ME.txt` | instruções | [abrir](https://github.com/AnderHonorato/Conectar-PCFlow/blob/claude/pc-flow-conexao-fix-i1nw9z/downloads/LEIA-ME.txt) |
 
 O PC e o celular precisam estar na **mesma versão**. Instale os dois da mesma

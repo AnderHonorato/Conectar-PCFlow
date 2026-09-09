@@ -1,4 +1,5 @@
 using PCFlow.Windows.Core;
+using PCFlow.Windows.Dialogos;
 using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -186,11 +187,18 @@ public partial class MainWindow : Window
             Restaurar();
             _tray.ShowBalloonTip(1500, "Solicitação de acesso",
                 $"{solicitacao.Nome} quer controlar este computador.", Forms.ToolTipIcon.Info);
-            var conhecido = solicitacao.DispositivoConhecido ? "Dispositivo já conhecido." : "Novo dispositivo.";
-            return WpfMessageBox.Show(this,
-                $"{solicitacao.Nome} ({solicitacao.EnderecoIp}) quer iniciar uma sessão remota.\n\n{conhecido}\n\nPermitir acesso?",
-                "PCFlow — Solicitação de conexão", MessageBoxButton.YesNo,
-                MessageBoxImage.Question, MessageBoxResult.No) == MessageBoxResult.Yes;
+            // Mostra as permissões que a sessão realmente vai receber, resolvendo
+            // a herança do dispositivo — quem aceita precisa saber o que está dando.
+            var dispositivo = _servidor.Configuracao.Dispositivos
+                .FirstOrDefault(d => d.Id == solicitacao.DispositivoId);
+            var permissoes = dispositivo?.Resolver(_servidor.Configuracao)
+                ?? new PermissoesEfetivas(
+                    _servidor.Configuracao.PermitirTela,
+                    _servidor.Configuracao.PermitirEntrada,
+                    _servidor.Configuracao.PermitirClipboard,
+                    _servidor.Configuracao.PermitirEnergia,
+                    _servidor.Configuracao.PermitirArquivos);
+            return Dialogo.SolicitarConexaoAsync(this, solicitacao, permissoes).GetAwaiter().GetResult();
         }).Task;
     }
 
@@ -363,15 +371,15 @@ public partial class MainWindow : Window
         });
     }
 
-    private void Firewall_Click(object sender, RoutedEventArgs e)
+    private async void Firewall_Click(object sender, RoutedEventArgs e)
     {
         if (!IntegracaoWindows.EhAdministrador())
         {
-            var r = WpfMessageBox.Show(this,
-                "Para gravar a regra do firewall o PCFlow precisa ser aberto como administrador uma única vez.\n\n" +
-                "Reabrir agora com permissão de administrador?",
-                "Firewall", MessageBoxButton.YesNo, MessageBoxImage.Question);
-            if (r != MessageBoxResult.Yes) return;
+            var reabrir = await Dialogo.ConfirmarAsync(this, "Liberar no firewall",
+                "Para gravar a regra do firewall o PCFlow precisa ser aberto como administrador uma única vez.",
+                "Reabrir como administrador", "Agora não",
+                detalhe: "A regra vale só para a rede privada. Nada é aberto para a internet.");
+            if (!reabrir) return;
             if (IntegracaoWindows.ReabrirComoAdministrador("--firewall"))
             {
                 _encerrando = true;
@@ -383,8 +391,8 @@ public partial class MainWindow : Window
                 });
                 return;
             }
-            WpfMessageBox.Show(this, "A elevação foi cancelada.", "Firewall",
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+            await Dialogo.AvisarAsync(this, "Firewall", "A elevação foi cancelada.",
+                estilo: EstiloDialogo.Aviso);
             return;
         }
 
@@ -392,8 +400,8 @@ public partial class MainWindow : Window
         RegistrarEvento(detalhe);
         _firewallOk = null;
         AtualizarInfoFirewall(forcar: true);
-        WpfMessageBox.Show(this, detalhe, "Firewall", MessageBoxButton.OK,
-            ok ? MessageBoxImage.Information : MessageBoxImage.Warning);
+        await Dialogo.AvisarAsync(this, "Firewall", detalhe,
+            estilo: ok ? EstiloDialogo.Sucesso : EstiloDialogo.Aviso);
     }
 
     private async void TestarPortas_Click(object sender, RoutedEventArgs e)
@@ -416,7 +424,7 @@ public partial class MainWindow : Window
                    "Se todas estiverem OK e o celular ainda falhar, o bloqueio está no firewall " +
                    "ou os dois não estão no mesmo Wi‑Fi.";
         });
-        WpfMessageBox.Show(this, mensagem, "Teste de portas", MessageBoxButton.OK, MessageBoxImage.Information);
+        await Dialogo.AvisarAsync(this, "Teste de portas", mensagem);
     }
 
     private async void Reiniciar_Click(object sender, RoutedEventArgs e)
@@ -468,27 +476,27 @@ public partial class MainWindow : Window
         RegistrarEvento("Configuração salva");
     }
 
-    private void DefinirSenha_Click(object sender, RoutedEventArgs e)
+    private async void DefinirSenha_Click(object sender, RoutedEventArgs e)
     {
         if (!_servidor.DefinirSenhaNaoSupervisionada(CampoSenha.Password))
         {
-            WpfMessageBox.Show(this, "Use uma senha com pelo menos 8 caracteres.", "PCFlow",
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+            await Dialogo.AvisarAsync(this, "Senha muito curta",
+                "Use uma senha com pelo menos 8 caracteres.", estilo: EstiloDialogo.Aviso);
             return;
         }
         CampoSenha.Clear();
         RegistrarEvento("Senha de acesso não supervisionado definida");
-        WpfMessageBox.Show(this, "Acesso não supervisionado ativado com senha.", "PCFlow",
-            MessageBoxButton.OK, MessageBoxImage.Information);
+        await Dialogo.AvisarAsync(this, "Senha definida",
+            "Acesso não supervisionado ativado com senha.", estilo: EstiloDialogo.Sucesso);
     }
 
-    private void RemoverSenha_Click(object sender, RoutedEventArgs e)
+    private async void RemoverSenha_Click(object sender, RoutedEventArgs e)
     {
         _servidor.RemoverSenhaNaoSupervisionada();
         CampoSenha.Clear();
         RegistrarEvento("Senha de acesso não supervisionado removida");
-        WpfMessageBox.Show(this, "Senha removida. As conexões voltam a depender das regras de acesso.",
-            "PCFlow", MessageBoxButton.OK, MessageBoxImage.Information);
+        await Dialogo.AvisarAsync(this, "Senha removida",
+            "As conexões voltam a depender das regras de acesso.");
     }
 
     // ------------------------------------------------------------------
@@ -506,15 +514,16 @@ public partial class MainWindow : Window
         RegistrarEvento(dispositivo.Bloqueado ? $"{dispositivo.Nome} bloqueado" : $"{dispositivo.Nome} liberado");
     }
 
-    private void RevogarDispositivo_Click(object sender, RoutedEventArgs e)
+    private async void RevogarDispositivo_Click(object sender, RoutedEventArgs e)
     {
         var id = (sender as WpfButton)?.Tag?.ToString();
         var dispositivo = _servidor.Configuracao.Dispositivos.FirstOrDefault(d => d.Id == id);
         if (dispositivo is null) return;
-        var confirmar = WpfMessageBox.Show(this,
-            $"Revogar o acesso salvo de {dispositivo.Nome}?\n\nEle precisará ser autorizado de novo na próxima conexão.",
-            "PCFlow — Revogar dispositivo", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
-        if (confirmar != MessageBoxResult.Yes) return;
+        var confirmar = await Dialogo.ConfirmarAsync(this, "Revogar dispositivo",
+            $"Revogar o acesso salvo de {dispositivo.Nome}?", "Revogar", "Cancelar",
+            destrutiva: true,
+            detalhe: "Ele precisará ser autorizado de novo na próxima conexão.");
+        if (!confirmar) return;
         _servidor.Configuracao.Dispositivos.Remove(dispositivo);
         _servidor.SalvarConfiguracao();
         AtualizarTela();
@@ -580,9 +589,9 @@ public partial class MainWindow : Window
                 ? codigo : _servidor.CodigoAcessoLocal;
 
             if (resultado.Cgnat)
-                WpfMessageBox.Show(this,
-                    resultado.Detalhe + "\n\nUse a seção Servidor de retransmissão logo abaixo.",
-                    "PCFlow — CGNAT detectado", MessageBoxButton.OK, MessageBoxImage.Warning);
+                await Dialogo.AvisarAsync(this, "CGNAT detectado", resultado.Detalhe,
+                    detalhe: "Use a seção Servidor de retransmissão, logo abaixo nesta página.",
+                    estilo: EstiloDialogo.Aviso);
         }
         catch (Exception ex)
         {
@@ -676,14 +685,14 @@ public partial class MainWindow : Window
         AbrirControleRemoto(pc, null, null);
     }
 
-    private void ConectarPorCodigo_Click(object sender, RoutedEventArgs e)
+    private async void ConectarPorCodigo_Click(object sender, RoutedEventArgs e)
     {
         var destino = ClientePcFlow.DoCodigo(CampoCodigoDestino.Text);
         if (destino is null)
         {
-            WpfMessageBox.Show(this,
-                "Não reconheci esse código. Copie de novo, na página Pela internet do outro computador.",
-                "PCFlow", MessageBoxButton.OK, MessageBoxImage.Warning);
+            await Dialogo.AvisarAsync(this, "Código não reconhecido",
+                "Copie o código de novo, na página Pela internet do outro computador.",
+                estilo: EstiloDialogo.Aviso);
             return;
         }
         AbrirControleRemoto(destino,
@@ -752,7 +761,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void Exportar_Click(object sender, RoutedEventArgs e)
+    private async void Exportar_Click(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -770,13 +779,14 @@ public partial class MainWindow : Window
             };
             conteudo.AddRange(_eventos);
             File.WriteAllLines(arquivo, conteudo);
-            WpfMessageBox.Show(this, $"Diagnóstico salvo em:\n{arquivo}", "PCFlow",
-                MessageBoxButton.OK, MessageBoxImage.Information);
+            await Dialogo.AvisarAsync(this, "Diagnóstico exportado",
+                "O arquivo foi salvo e pode ser enviado para análise.",
+                detalhe: arquivo, estilo: EstiloDialogo.Sucesso);
         }
         catch (Exception ex)
         {
-            WpfMessageBox.Show(this, $"Não foi possível exportar: {ex.Message}", "PCFlow",
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+            await Dialogo.AvisarAsync(this, "Não foi possível exportar", ex.Message,
+                estilo: EstiloDialogo.Aviso);
         }
     }
 

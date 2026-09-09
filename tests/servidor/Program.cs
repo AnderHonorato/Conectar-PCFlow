@@ -152,5 +152,5 @@ static X509Certificate2 CriarCertificado()
 // Espelha a constante do aplicativo para o teste de versão.
 file static class VersaoPcFlow
 {
-    public const string App = "1.2.0";
+    public const string App = "1.3.0";
 }

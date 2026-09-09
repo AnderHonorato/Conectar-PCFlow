@@ -1,4 +1,4 @@
-PCFlow 1.2.0
+PCFlow 1.3.0
 ============
 
 O PC e o celular precisam estar NA MESMA VERSÃO. Instale os dois arquivos
@@ -54,7 +54,23 @@ REQUISITO DO PC
   A janela que abre tem a tela do outro PC com mouse, roda e teclado.
 
 ------------------------------------------------------------------
-4. PERMISSÕES
+4. NA TELA REMOTA DO CELULAR  (novo na 1.3)
+------------------------------------------------------------------
+  Toque na bolha do PCFlow para a barra; segure para o menu redondo.
+
+  MODOS      Toque direto (o dedo é o ponteiro), Touchpad e Mouse.
+  GESTOS     Toque = clique · Toque duplo = clique duplo · Segurar =
+             botão direito ou início de arraste · Dois dedos = rolagem
+             vertical E horizontal · Pinça = zoom da imagem.
+  TECLADO    Digitação ao vivo (usa o teclado do celular), Escrever e
+             enviar, teclas especiais e atalhos com Ctrl/Alt/Shift/Win.
+  COPIAR     Painel de área de transferência: traz do PC, manda para o
+             PC e cola no PC.
+  QUALIDADE  Melhor resposta, Equilibrado ou Melhor imagem, com os
+             quadros por segundo reais na tela.
+
+------------------------------------------------------------------
+5. PERMISSÕES
 ------------------------------------------------------------------
   ACESSO REMOTO   permissões gerais desta máquina.
   DISPOSITIVOS    permissões de cada celular, uma a uma, e se ele pode ou

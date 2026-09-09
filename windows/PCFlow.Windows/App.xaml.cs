@@ -1,6 +1,7 @@
 using System.IO;
 using System.Threading;
 using System.Windows;
+using PCFlow.Windows.Dialogos;
 using System.Windows.Threading;
 using PCFlow.Windows.Core;
 
@@ -16,11 +17,10 @@ public partial class App : System.Windows.Application
         _mutex = new Mutex(true, nomeMutex, out var primeiraInstancia);
         if (!primeiraInstancia)
         {
-            System.Windows.MessageBox.Show(
-                "O PCFlow já está em execução. Ele pode estar minimizado na bandeja do Windows.\n\n" +
-                "Abra o ícone do PCFlow perto do relógio, ou escolha Sair na cópia antiga antes de iniciar outra.",
-                "PCFlow já está aberto",
-                MessageBoxButton.OK, MessageBoxImage.Information);
+            Dialogo.AvisarAsync(null, "O PCFlow já está aberto",
+                "Ele pode estar minimizado na bandeja do Windows.",
+                detalhe: "Abra o ícone do PCFlow perto do relógio, ou escolha Sair na cópia " +
+                         "antiga antes de iniciar outra.");
             Shutdown();
             return;
         }
@@ -30,10 +30,9 @@ public partial class App : System.Windows.Application
         {
             Registrar(args.Exception);
             args.Handled = true;
-            System.Windows.MessageBox.Show(
-                "O PCFlow encontrou um erro, mas continua funcionando.\n\n" +
-                $"Detalhe: {args.Exception.Message}\n\nO relatório foi salvo em Documentos\\PCFlow.",
-                "PCFlow", MessageBoxButton.OK, MessageBoxImage.Warning);
+            Dialogo.AvisarAsync(MainWindow, "O PCFlow encontrou um erro",
+                "O aplicativo continua funcionando. O relatório foi salvo em Documentos\\PCFlow.",
+                detalhe: args.Exception.Message, estilo: EstiloDialogo.Aviso);
         };
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>
         {

@@ -259,7 +259,7 @@ class QuadroBruto(val bytes: ByteArray, val tamanho: Int)
 
 object SessaoPcFlow {
     /** Deve casar com VersaoPcFlow.App no Windows: o servidor recusa versões diferentes. */
-    const val VERSAO_APP = "1.2.0"
+    const val VERSAO_APP = "1.3.0"
 
     private const val PORTA_DESCOBERTA = 45455
     private const val PORTA_RELAY = 45460
