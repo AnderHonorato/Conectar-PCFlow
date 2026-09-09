@@ -10,6 +10,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
@@ -127,7 +128,7 @@ val EstiloIdentidadeMenor = TextStyle(
     letterSpacing = 1.sp
 )
 
-private fun esquemaDe(cores: CoresPcFlow) = darkColorScheme(
+private fun esquemaDe(cores: CoresPcFlow) = if (cores.escuro) darkColorScheme(
     primary = cores.acao,
     onPrimary = cores.sobreAcao,
     primaryContainer = cores.superficieElevada,
@@ -144,6 +145,24 @@ private fun esquemaDe(cores: CoresPcFlow) = darkColorScheme(
     outlineVariant = cores.bordaFoco,
     error = cores.erro,
     onError = cores.fundo,
+    scrim = androidx.compose.ui.graphics.Color.Black
+) else lightColorScheme(
+    primary = cores.acao,
+    onPrimary = cores.sobreAcao,
+    primaryContainer = cores.superficieElevada,
+    onPrimaryContainer = cores.texto,
+    secondary = cores.seguro,
+    onSecondary = cores.superficie,
+    background = cores.fundo,
+    onBackground = cores.texto,
+    surface = cores.superficie,
+    onSurface = cores.texto,
+    surfaceVariant = cores.superficieElevada,
+    onSurfaceVariant = cores.textoSecundario,
+    outline = cores.borda,
+    outlineVariant = cores.bordaFoco,
+    error = cores.erro,
+    onError = cores.superficie,
     scrim = androidx.compose.ui.graphics.Color.Black
 )
 

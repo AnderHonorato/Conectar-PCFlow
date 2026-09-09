@@ -132,6 +132,8 @@ fun Pilula(
 ) {
     val cores = PcFlow.cores
     val tom = cor ?: cores.textoSecundario
+    // O dourado de preenchimento não se lê como texto no tema claro.
+    val tomTexto = if (tom == cores.acao) cores.acaoTexto else tom
     Row(
         modifier
             .clip(PcFlow.formas.pilula)
@@ -141,8 +143,8 @@ fun Pilula(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(EspacoPcFlow.x8)
     ) {
-        if (icone != null) IconePcFlow(icone, tom, tamanho = 14.dp)
-        Text(texto, color = tom, style = MaterialTheme.typography.labelSmall)
+        if (icone != null) IconePcFlow(icone, tomTexto, tamanho = 14.dp)
+        Text(texto, color = tomTexto, style = MaterialTheme.typography.labelSmall)
     }
 }
 
@@ -157,7 +159,7 @@ fun NumeroIdentidade(
     Text(
         text = texto,
         modifier = modifier,
-        color = cor ?: PcFlow.cores.acao,
+        color = cor ?: PcFlow.cores.acaoTexto,
         style = if (grande) EstiloIdentidade else EstiloIdentidadeMenor
     )
 }

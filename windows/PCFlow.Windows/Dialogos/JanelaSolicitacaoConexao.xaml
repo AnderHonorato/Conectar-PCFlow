@@ -1,0 +1,100 @@
+<Window x:Class="PCFlow.Windows.Dialogos.JanelaSolicitacaoConexao"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None" AllowsTransparency="True" ResizeMode="NoResize"
+        Background="Transparent" ShowInTaskbar="True" SizeToContent="Manual"
+        WindowStartupLocation="Manual" UseLayoutRounding="True" SnapsToDevicePixels="True"
+        FontFamily="{DynamicResource FonteApp}" FontSize="13"
+        Title="PCFlow — solicitação de conexão">
+
+    <Grid Background="{DynamicResource Veu}">
+        <Border Style="{StaticResource Cartao}" Width="520"
+                HorizontalAlignment="Center" VerticalAlignment="Center">
+            <Border.RenderTransform>
+                <TranslateTransform x:Name="Subida" Y="8"/>
+            </Border.RenderTransform>
+
+            <StackPanel>
+                <!-- quem está pedindo -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                    <Border x:Name="Miniatura" Width="56" Height="56" CornerRadius="18"
+                            Background="{DynamicResource SuperficieElevada}" VerticalAlignment="Top">
+                        <TextBlock x:Name="Iniciais" FontSize="20" FontWeight="SemiBold"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <StackPanel Margin="16,0,0,0" Width="396">
+                        <TextBlock Style="{StaticResource Secundario}" Text="Pedido de acesso a este computador"/>
+                        <TextBlock x:Name="NomeDispositivo" Style="{StaticResource TituloSecao}" Margin="0,4,0,0"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                            <Border x:Name="PilulaConhecido" CornerRadius="999" Padding="10,5"
+                                    Background="{DynamicResource SeguroSuave}" Margin="0,0,8,0">
+                                <TextBlock x:Name="TextoConhecido" Style="{StaticResource Legenda}"
+                                           Foreground="{DynamicResource Seguro}" Text="Dispositivo já conhecido"/>
+                            </Border>
+                            <Border x:Name="PilulaOrigem" CornerRadius="999" Padding="10,5"
+                                    Background="{DynamicResource SeguroSuave}">
+                                <TextBlock x:Name="TextoOrigem" Style="{StaticResource Legenda}"
+                                           Foreground="{DynamicResource Seguro}" Text="Na sua rede local"/>
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- de onde vem -->
+                <Border Style="{StaticResource CartaoInterno}" Margin="0,0,0,16">
+                    <StackPanel Orientation="Horizontal">
+                        <Path x:Name="IconeOrigem" Width="20" Height="20" Stretch="Uniform" VerticalAlignment="Top"
+                              Data="{StaticResource IconeRede}" Stroke="{DynamicResource TextoSecundario}"
+                              StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              StrokeLineJoin="Round"/>
+                        <StackPanel Margin="14,0,0,0" Width="406">
+                            <TextBlock x:Name="Endereco" Style="{StaticResource TituloCartao}"/>
+                            <TextBlock x:Name="ExplicacaoOrigem" Style="{StaticResource Secundario}" Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- o que ele vai poder fazer -->
+                <TextBlock Style="{StaticResource Secundario}" Margin="0,0,0,10"
+                           Text="Se você aceitar, este dispositivo poderá:"/>
+                <ItemsControl x:Name="ListaPermissoes" Margin="0,0,0,20">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Path Width="18" Height="18" Stretch="Uniform" VerticalAlignment="Center"
+                                      Data="{Binding Icone}"
+                                      Stroke="{Binding Permitido, Converter={StaticResource PincelPermissao}}"
+                                      StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                      StrokeLineJoin="Round"/>
+                                <TextBlock Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center"
+                                           Text="{Binding Texto}"
+                                           Foreground="{Binding Permitido, Converter={StaticResource PincelPermissao}}"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Border Style="{StaticResource CartaoInterno}" Margin="0,0,0,20"
+                        Background="{DynamicResource AcaoSuave}" BorderBrush="{DynamicResource Acao}">
+                    <TextBlock Style="{StaticResource Legenda}" Foreground="{DynamicResource Texto}"
+                               Text="Só aceite se você está esperando esta conexão. Você pode revogar o acesso depois, em Dispositivos."/>
+                </Border>
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Button x:Name="BotaoRecusar" Grid.Column="0" Content="Recusar" Margin="0,0,8,0"
+                            Click="Recusar_Click"/>
+                    <Button x:Name="BotaoAceitar" Grid.Column="1" Content="Aceitar conexão" Margin="8,0,0,0"
+                            Style="{StaticResource BotaoPrimario}" Click="Aceitar_Click"/>
+                </Grid>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

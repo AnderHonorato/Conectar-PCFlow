@@ -28,7 +28,8 @@ enum class Icone {
     AJUSTES, BUSCAR, QR, TECLADO_NUMERICO, REDE, ESTRELA, ESTRELA_CHEIA,
     RELOGIO, CADEADO, ENERGIA, ALERTA, CHECK, FECHAR, SETA_DIREITA,
     SETA_ESQUERDA, ATUALIZAR, BAIXAR, ENVIAR, LIXEIRA, MAIS, MIDIA,
-    APRESENTACAO, NAVEGADOR, OLHO, OLHO_FECHADO, EXPANDIR, SAIR, INFO
+    APRESENTACAO, NAVEGADOR, OLHO, OLHO_FECHADO, EXPANDIR, SAIR, INFO,
+    MENU, MAIS_OPCOES, CASA, LAPIS, FILTRO, LISTA, COROA, SOL, LUA
 }
 
 /**
@@ -306,6 +307,88 @@ private fun DrawScope.desenhar(icone: Icone, cor: Color) {
             circulo(0.50f, 0.50f, 0.38f)
             circulo(0.50f, 0.30f, 0.038f, preenchido = true)
             linha(0.50f, 0.44f, 0.50f, 0.72f)
+        }
+        Icone.MENU -> {
+            linha(0.14f, 0.28f, 0.86f, 0.28f)
+            linha(0.14f, 0.50f, 0.86f, 0.50f)
+            linha(0.14f, 0.72f, 0.62f, 0.72f)
+        }
+        Icone.MAIS_OPCOES -> {
+            circulo(0.50f, 0.20f, 0.055f, preenchido = true)
+            circulo(0.50f, 0.50f, 0.055f, preenchido = true)
+            circulo(0.50f, 0.80f, 0.055f, preenchido = true)
+        }
+        Icone.CASA -> {
+            caminho {
+                moveTo(w * 0.50f, h * 0.12f)
+                lineTo(w * 0.90f, h * 0.46f)
+                lineTo(w * 0.90f, h * 0.88f)
+                lineTo(w * 0.10f, h * 0.88f)
+                lineTo(w * 0.10f, h * 0.46f)
+                close()
+            }
+            caixa(0.40f, 0.60f, 0.20f, 0.28f, 0.04f)
+        }
+        Icone.LAPIS -> {
+            caminho {
+                moveTo(w * 0.16f, h * 0.84f)
+                lineTo(w * 0.22f, h * 0.62f)
+                lineTo(w * 0.66f, h * 0.18f)
+                lineTo(w * 0.84f, h * 0.36f)
+                lineTo(w * 0.40f, h * 0.80f)
+                close()
+            }
+            linha(0.60f, 0.24f, 0.78f, 0.42f)
+        }
+        Icone.FILTRO -> {
+            linha(0.12f, 0.30f, 0.88f, 0.30f)
+            linha(0.12f, 0.70f, 0.88f, 0.70f)
+            circulo(0.34f, 0.30f, 0.10f)
+            circulo(0.66f, 0.70f, 0.10f)
+        }
+        Icone.LISTA -> {
+            circulo(0.18f, 0.26f, 0.045f, preenchido = true)
+            circulo(0.18f, 0.50f, 0.045f, preenchido = true)
+            circulo(0.18f, 0.74f, 0.045f, preenchido = true)
+            linha(0.34f, 0.26f, 0.86f, 0.26f)
+            linha(0.34f, 0.50f, 0.86f, 0.50f)
+            linha(0.34f, 0.74f, 0.86f, 0.74f)
+        }
+        Icone.COROA -> {
+            caminho {
+                moveTo(w * 0.12f, h * 0.72f)
+                lineTo(w * 0.20f, h * 0.28f)
+                lineTo(w * 0.38f, h * 0.52f)
+                lineTo(w * 0.50f, h * 0.22f)
+                lineTo(w * 0.62f, h * 0.52f)
+                lineTo(w * 0.80f, h * 0.28f)
+                lineTo(w * 0.88f, h * 0.72f)
+                close()
+            }
+            linha(0.20f, 0.84f, 0.80f, 0.84f)
+        }
+        Icone.SOL -> {
+            circulo(0.50f, 0.50f, 0.22f)
+            for (passo in 0..7) {
+                val angulo = Math.toRadians(passo * 45.0)
+                val dx = Math.cos(angulo).toFloat()
+                val dy = Math.sin(angulo).toFloat()
+                drawLine(
+                    cor,
+                    Offset(w * (0.5f + dx * 0.32f), h * (0.5f + dy * 0.32f)),
+                    Offset(w * (0.5f + dx * 0.44f), h * (0.5f + dy * 0.44f)),
+                    traco, StrokeCap.Round
+                )
+            }
+        }
+        Icone.LUA -> {
+            caminho {
+                moveTo(w * 0.72f, h * 0.66f)
+                quadraticBezierTo(w * 0.30f, h * 0.76f, w * 0.34f, h * 0.30f)
+                quadraticBezierTo(w * 0.10f, h * 0.62f, w * 0.40f, h * 0.86f)
+                quadraticBezierTo(w * 0.66f, h * 0.94f, w * 0.72f, h * 0.66f)
+                close()
+            }
         }
     }
 }

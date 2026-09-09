@@ -1,0 +1,38 @@
+<!--
+    Paleta clara. As chaves são as mesmas da escura — trocar de tema é trocar
+    este dicionário de lugar, sem que nenhuma tela precise saber.
+    O dourado escurece um pouco no claro: sobre branco, o tom original não
+    alcança contraste de texto.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <SolidColorBrush x:Key="Fundo" Color="#F2F4F7"/>
+    <SolidColorBrush x:Key="Superficie" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="SuperficieElevada" Color="#EDF0F4"/>
+    <SolidColorBrush x:Key="Borda" Color="#DCE1E8"/>
+    <SolidColorBrush x:Key="BordaFoco" Color="#B4BDC9"/>
+    <SolidColorBrush x:Key="FundoBarraLateral" Color="#FFFFFF"/>
+
+    <SolidColorBrush x:Key="Acao" Color="#C97F0E"/>
+    <SolidColorBrush x:Key="AcaoPressionada" Color="#A96A08"/>
+    <SolidColorBrush x:Key="AcaoSuave" Color="#22C97F0E"/>
+    <SolidColorBrush x:Key="TextoSobreAcao" Color="#FFFFFF"/>
+
+    <SolidColorBrush x:Key="Seguro" Color="#0E9E92"/>
+    <SolidColorBrush x:Key="SeguroSuave" Color="#1E0E9E92"/>
+    <SolidColorBrush x:Key="Erro" Color="#C6362B"/>
+    <SolidColorBrush x:Key="ErroSuave" Color="#1EC6362B"/>
+
+    <SolidColorBrush x:Key="Texto" Color="#131A21"/>
+    <SolidColorBrush x:Key="TextoSecundario" Color="#5A6673"/>
+    <SolidColorBrush x:Key="TextoDesabilitado" Color="#98A2AE"/>
+
+    <SolidColorBrush x:Key="Veu" Color="#66000000"/>
+    <SolidColorBrush x:Key="TrilhoDesligado" Color="#C4CBD4"/>
+    <SolidColorBrush x:Key="FundoCodigo" Color="#EDF0F4"/>
+    <SolidColorBrush x:Key="Transparente" Color="#00000000"/>
+
+    <FontFamily x:Key="FonteApp">Segoe UI Variable Text, Segoe UI</FontFamily>
+    <FontFamily x:Key="FonteMono">Cascadia Mono, Consolas</FontFamily>
+</ResourceDictionary>

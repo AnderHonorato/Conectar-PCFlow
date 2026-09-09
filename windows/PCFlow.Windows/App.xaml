@@ -2,6 +2,13 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Application.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+        <ResourceDictionary>
+            <!-- A posição 0 é a paleta e é trocada em tempo de execução por
+                 Tema/GerenciadorTema.cs. Nada mais pode entrar antes dela. -->
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Tema/PaletaEscura.xaml"/>
+                <ResourceDictionary Source="Tema/Controles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
     </Application.Resources>
 </Application>

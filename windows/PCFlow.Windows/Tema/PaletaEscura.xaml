@@ -1,0 +1,41 @@
+<!--
+    Paleta escura — os valores são exatamente os da seção 6 do contrato v2.
+    Nenhum outro arquivo declara cor: quem precisa de cor usa DynamicResource
+    daqui, e é por isso que trocar de tema em tempo de execução funciona.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- superfícies -->
+    <SolidColorBrush x:Key="Fundo" Color="#0E1216"/>
+    <SolidColorBrush x:Key="Superficie" Color="#161B22"/>
+    <SolidColorBrush x:Key="SuperficieElevada" Color="#1C232C"/>
+    <SolidColorBrush x:Key="Borda" Color="#262D37"/>
+    <SolidColorBrush x:Key="BordaFoco" Color="#3A434F"/>
+    <SolidColorBrush x:Key="FundoBarraLateral" Color="#11161C"/>
+
+    <!-- acentos (a cor de destaque é sobrescrita em tempo de execução) -->
+    <SolidColorBrush x:Key="Acao" Color="#F2AA2E"/>
+    <SolidColorBrush x:Key="AcaoPressionada" Color="#D9931D"/>
+    <SolidColorBrush x:Key="AcaoSuave" Color="#26F2AA2E"/>
+    <SolidColorBrush x:Key="TextoSobreAcao" Color="#10161C"/>
+
+    <SolidColorBrush x:Key="Seguro" Color="#14D3C3"/>
+    <SolidColorBrush x:Key="SeguroSuave" Color="#2214D3C3"/>
+    <SolidColorBrush x:Key="Erro" Color="#FF7A70"/>
+    <SolidColorBrush x:Key="ErroSuave" Color="#22FF7A70"/>
+
+    <!-- texto -->
+    <SolidColorBrush x:Key="Texto" Color="#ECF0F4"/>
+    <SolidColorBrush x:Key="TextoSecundario" Color="#98A2AE"/>
+    <SolidColorBrush x:Key="TextoDesabilitado" Color="#5C6672"/>
+
+    <!-- diversos -->
+    <SolidColorBrush x:Key="Veu" Color="#8C000000"/>
+    <SolidColorBrush x:Key="TrilhoDesligado" Color="#39424E"/>
+    <SolidColorBrush x:Key="FundoCodigo" Color="#0B0F14"/>
+    <SolidColorBrush x:Key="Transparente" Color="#00000000"/>
+
+    <FontFamily x:Key="FonteApp">Segoe UI Variable Text, Segoe UI</FontFamily>
+    <FontFamily x:Key="FonteMono">Cascadia Mono, Consolas</FontFamily>
+</ResourceDictionary>
