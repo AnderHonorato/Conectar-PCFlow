@@ -9,6 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.positionChange
@@ -244,8 +245,10 @@ private fun Touchpad(abrirTeclado: () -> Unit) {
                 modifier = Modifier.weight(1f))
             TextButton(onClick = abrirTeclado) { Text("⌨ Teclado do celular", color = Turquesa) }
         }
+        Row(Modifier.weight(1f).fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Box(
-            Modifier.weight(1f).fillMaxWidth()
+            Modifier.weight(1f).fillMaxHeight()
                 .background(Color(0xFF121D29), RoundedCornerShape(26.dp))
                 .border(1.dp, Color(0xFF287E89), RoundedCornerShape(26.dp))
                 .pointerInput(sensibilidade) {
@@ -323,6 +326,24 @@ private fun Touchpad(abrirTeclado: () -> Unit) {
                 Text("1 dedo: mover · 2 dedos: rolar ou clique direito",
                     color = TextoSecundario, fontSize = 12.sp)
             }
+        }
+        Box(
+            modifier = Modifier.width(38.dp).fillMaxHeight()
+                .background(Color(0xFF193548), RoundedCornerShape(24.dp))
+                .border(1.dp, Color(0xFF317B93), RoundedCornerShape(24.dp))
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures { change, arraste ->
+                        change.consume()
+                        if (abs(arraste) > 0.6f)
+                            SessaoPcFlow.enviar("scroll") {
+                                put("delta", (-arraste * 9f).toInt())
+                            }
+                    }
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Text("↕", color = Turquesa, fontSize = 23.sp)
+        }
         }
 
         Row(Modifier.fillMaxWidth().padding(top = 9.dp),
