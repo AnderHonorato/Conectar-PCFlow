@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101d24">
+  <meta name="color-scheme" content="dark light">
+  <title>Flow Tutum Next — Controle</title>
+  <link rel="stylesheet" href="./painel.css">
+</head>
+<body>
+  <div class="aplicativo">
+    <header class="cabecalho">
+      <div class="marca">
+        <span class="simbolo" aria-hidden="true">
+          <svg viewBox="0 0 48 48"><path d="M9 26c8-23 13 16 22-5 2-5 5-8 8-7M9 26c10 21 14-13 30 8"/></svg>
+        </span>
+        <div class="identidade"><strong>flow <em>tutum</em></strong><small>CONTROLE REMOTO</small></div>
+      </div>
+      <div class="estado"><span id="ponto-estado" class="ponto"></span><span id="estado-texto" role="status">Servidor desconectado</span></div>
+      <button id="abrir-ajustes" class="botao-icone" type="button" aria-label="Abrir configurações" title="Configurações">
+        <svg viewBox="0 0 24 24"><path d="M4 7h16M4 17h16M9 4v6M15 14v6"/></svg>
+      </button>
+    </header>
+
+    <main class="conteudo">
+      <section class="visualizacao" id="pagina-tela" aria-label="Visualização do computador">
+        <div class="tarja">
+          <div><span class="sobretitulo">01 / TELA REMOTA</span><h1>Seu espaço, <i>no bolso.</i></h1></div>
+          <button type="button" class="botao-sutil" id="tela-cheia">Expandir</button>
+        </div>
+        <div id="janela-remota" class="janela-remota" aria-label="Área de vídeo remoto">
+          <div id="plano-remoto" class="plano-remoto">
+            <canvas id="video-remoto" width="3440" height="1440" aria-label="Transmissão da área de trabalho"></canvas>
+          </div>
+          <div class="mensagem-video" id="mensagem-video">
+            <div class="onda" aria-hidden="true"><span></span><span></span><span></span></div>
+            <strong>Vídeo indisponível</strong>
+            <small>O vídeo aparecerá aqui após a integração com a sessão Windows da AS.</small>
+          </div>
+          <div class="marca-escala"><span id="modo-escala">AJUSTAR</span><span id="percentual-zoom">100%</span></div>
+        </div>
+        <div class="acoes-video" aria-label="Ajuste de imagem">
+          <div class="zoom">
+            <button id="diminuir-zoom" type="button" aria-label="Diminuir zoom">−</button>
+            <button id="restaurar-zoom" type="button" title="Voltar ao tamanho original">100%</button>
+            <button id="aumentar-zoom" type="button" aria-label="Aumentar zoom">+</button>
+          </div>
+          <button id="alternar-escala" type="button" class="acao-escala">Preencher tela</button>
+          <span class="legenda-escala">Sem mudar a resolução do PC</span>
+        </div>
+      </section>
+
+      <section class="visualizacao" id="pagina-touchpad" aria-label="Controle do mouse" hidden>
+        <div class="tarja">
+          <div><span class="sobretitulo">02 / TOUCHPAD</span><h1>Controle <i>completo.</i></h1></div>
+          <button id="abrir-teclado" type="button" class="botao-destaque" aria-label="Abrir teclado do celular">
+            <svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M6 9h1m3 0h1m3 0h1m3 0h1M6 13h1m3 0h1m3 0h1m3 0h1M8 16h8"/></svg>
+            Teclado
+          </button>
+        </div>
+        <div class="superficie">
+          <div id="touchpad" class="touchpad" role="application" tabindex="0" aria-label="Deslize para mover o cursor; toque para clicar; dois dedos para rolar">
+            <div class="mira" aria-hidden="true"><span></span><span></span></div>
+            <div class="instrucao-touch">Deslize para mover · dois dedos para rolar</div>
+          </div>
+          <div id="trilho-rolagem" class="trilho" role="scrollbar" aria-label="Rolagem vertical" tabindex="0" aria-valuemin="-1200" aria-valuemax="1200" aria-valuenow="0" aria-orientation="vertical">
+            <span class="rastro"></span><span class="pegador"></span>
+          </div>
+        </div>
+        <div class="teclas-mouse" aria-label="Botões do mouse">
+          <button data-botao="left" type="button">Esquerdo</button>
+          <button data-botao="middle" type="button">Meio</button>
+          <button data-botao="right" type="button">Direito</button>
+        </div>
+        <div class="teclas-extras">
+          <button id="duplo-clique" type="button">Duplo clique</button>
+          <button id="segurar-mouse" type="button" aria-pressed="false">Segurar para arrastar</button>
+          <button id="rolar-esquerda" type="button" aria-label="Rolar para esquerda">←</button>
+          <button id="rolar-direita" type="button" aria-label="Rolar para direita">→</button>
+        </div>
+      </section>
+    </main>
+
+    <nav class="navegacao" role="tablist" aria-label="Funções de controle">
+      <button id="aba-tela" type="button" role="tab" aria-controls="pagina-tela" aria-selected="true">
+        <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
+        <span>Tela</span>
+      </button>
+      <button id="aba-touchpad" type="button" role="tab" aria-controls="pagina-touchpad" aria-selected="false">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 7v10m-5-5h10"/></svg>
+        <span>Touchpad</span>
+      </button>
+    </nav>
+  </div>
+
+  <dialog id="configuracoes" class="janela-ajustes" aria-labelledby="titulo-ajustes">
+    <form method="dialog" class="form-ajustes">
+      <div class="linha-dialogo"><div><small>PREFERÊNCIAS</small><h2 id="titulo-ajustes">Configurações</h2></div>
+        <button type="submit" class="botao-icone" aria-label="Fechar configurações">×</button></div>
+      <label class="linha-ajuste"><span>Toque na tela</span>
+        <select id="config-toque"><option value="clicar">Move e clica</option><option value="mover">Somente move</option></select>
+      </label>
+      <label class="linha-ajuste"><span>Sensibilidade do touchpad</span>
+        <input id="config-sensibilidade" type="range" min="0.5" max="3" step="0.25" value="1.5">
+      </label>
+      <label class="linha-ajuste"><span>Tema</span>
+        <select id="config-tema"><option value="escuro">Escuro</option><option value="claro">Claro</option></select>
+      </label>
+      <p class="nota">As configurações mudam apenas a experiência no celular. O acesso remoto depende da sessão Windows autenticada.</p>
+      <button type="submit" class="salvar-ajustes">Salvar preferências</button>
+    </form>
+  </dialog>
+
+  <dialog id="teclado" class="painel-teclado" aria-labelledby="titulo-teclado">
+    <div class="cabecalho-teclado"><h2 id="titulo-teclado">Teclado do celular</h2><button id="fechar-teclado" type="button" aria-label="Fechar teclado">×</button></div>
+    <p>O texto confirmado pelo teclado aparece na janela ativa do PC.</p>
+    <textarea id="campo-teclado" inputmode="text" enterkeyhint="enter" autocomplete="off" autocapitalize="off" spellcheck="false"
+      maxlength="2000" rows="3" placeholder="Toque aqui para digitar…"></textarea>
+    <div class="teclas-teclado">
+      <button type="button" data-tecla="tab">Tab</button>
+      <button type="button" data-tecla="escape">Esc</button>
+      <button type="button" data-tecla="enter">Enter</button>
+      <button type="button" data-tecla="backspace">Apagar</button>
+      <button type="button" id="limpar-teclado">Limpar campo</button>
+    </div>
+    <small>Limpar o campo não apaga o texto que já foi digitado no computador.</small>
+  </dialog>
+  <script type="module" src="./painel.mjs"></script>
+</body>
+</html>
