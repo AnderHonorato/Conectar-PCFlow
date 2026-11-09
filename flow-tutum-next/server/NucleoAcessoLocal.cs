@@ -179,9 +179,11 @@ public sealed class LimitadorDeConexoes
         var chave = (ip.IsIPv4MappedToIPv6 ? ip.MapToIPv4() : ip).ToString();
         lock (_sincronizacao)
         {
-            if (_dados.Count > 256)
+            if (_dados.Count >= 256)
                 foreach (var antigo in _dados.Where(p => agora - p.Value.Inicio >= _janela)
                          .Select(p => p.Key).ToArray()) _dados.Remove(antigo);
+            // Limite rígido de memória: endereço desconhecido não aloca entradas ilimitadas.
+            if (_dados.Count >= 256 && !_dados.ContainsKey(chave)) return false;
             if (!_dados.TryGetValue(chave, out var estado) || agora - estado.Inicio >= _janela)
                 estado = (0, agora);
             if (estado.Tentativas >= _maximo) return false;
