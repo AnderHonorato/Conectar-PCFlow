@@ -8,8 +8,12 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.*
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.awaitPointerEvent
+import androidx.compose.ui.input.pointer.positionChange
+import kotlin.math.abs
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -181,7 +185,7 @@ private fun TelaControle(pc: PcEncontrado) {
 
 @Composable
 private fun Touchpad(abrirTeclado: () -> Unit) {
-    var sensibilidade by remember { mutableFloatStateOf(1.35f) }
+    var sensibilidade by remember { mutableFloatStateOf(SessaoPcFlow.obterSensibilidade()) }
     var segurando by remember { mutableStateOf(false) }
 
     DisposableEffect(Unit) {
@@ -200,20 +204,70 @@ private fun Touchpad(abrirTeclado: () -> Unit) {
             Modifier.weight(1f).fillMaxWidth()
                 .background(Color(0xFF121D29), RoundedCornerShape(26.dp))
                 .border(1.dp, Color(0xFF287E89), RoundedCornerShape(26.dp))
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onTap = { SessaoPcFlow.enviar("mouse_click") { put("botao", "left") } },
-                        onDoubleTap = {
-                            repeat(2) { SessaoPcFlow.enviar("mouse_click") { put("botao", "left") } }
-                        }
-                    )
-                }
                 .pointerInput(sensibilidade) {
-                    detectDragGestures { change, dragAmount ->
-                        change.consume()
-                        SessaoPcFlow.enviar("mouse_move") {
-                            put("x", dragAmount.x * sensibilidade)
-                            put("y", dragAmount.y * sensibilidade)
+                    // Uma única rotina trata toque, dois dedos e movimento.
+                    // Não disputa eventos com detectTapGestures/detectDragGestures.
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false)
+                        val inicio = android.os.SystemClock.uptimeMillis()
+                        val limite = viewConfiguration.touchSlop
+                        var doisDedos = false
+                        var moveu = false
+                        var distanciaRolagem = 0f
+                        var acumulado = Offset.Zero
+                        while (true) {
+                            val evento = awaitPointerEvent()
+                            val ativos = evento.changes.filter { it.pressed }
+                            if (ativos.size >= 2) {
+                                doisDedos = true
+                                val primeiro = ativos[0].positionChange()
+                                val segundo = ativos[1].positionChange()
+                                val media = (primeiro + segundo) / 2f
+                                distanciaRolagem += abs(media.x) + abs(media.y)
+                                if (abs(media.y) > 0.7f) {
+                                    SessaoPcFlow.enviar("scroll") {
+                                        put("delta", (-media.y * 8f).toInt())
+                                    }
+                                }
+                                if (abs(media.x) > 0.7f) {
+                                    SessaoPcFlow.enviar("scroll_horizontal") {
+                                        put("delta", (media.x * 8f).toInt())
+                                    }
+                                }
+                                ativos.take(2).forEach { it.consume() }
+                            } else if (ativos.size == 1 && !doisDedos) {
+                                val mudanca = ativos[0].positionChange()
+                                if (mudanca != Offset.Zero) {
+                                    if (!moveu) {
+                                        acumulado += mudanca
+                                        if (acumulado.getDistance() >= limite) {
+                                            moveu = true
+                                            SessaoPcFlow.enviar("mouse_move") {
+                                                put("x", acumulado.x * sensibilidade)
+                                                put("y", acumulado.y * sensibilidade)
+                                            }
+                                            ativos[0].consume()
+                                        }
+                                    } else {
+                                        SessaoPcFlow.enviar("mouse_move") {
+                                            put("x", mudanca.x * sensibilidade)
+                                            put("y", mudanca.y * sensibilidade)
+                                        }
+                                        ativos[0].consume()
+                                    }
+                                }
+                            }
+                            if (ativos.isEmpty()) {
+                                val duracao = android.os.SystemClock.uptimeMillis() - inicio
+                                if (doisDedos && distanciaRolagem < limite) {
+                                    SessaoPcFlow.enviar("mouse_click") { put("botao", "right") }
+                                } else if (!doisDedos && !moveu) {
+                                    SessaoPcFlow.enviar("mouse_click") {
+                                        put("botao", if (duracao > 650L) "right" else "left")
+                                    }
+                                }
+                                break
+                            }
                         }
                     }
                 },
@@ -222,7 +276,8 @@ private fun Touchpad(abrirTeclado: () -> Unit) {
             Column(horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.padding(bottom = 24.dp)) {
                 Text("Toque para clicar", color = Turquesa, fontSize = 15.sp)
-                Text("Deslize para mover o mouse", color = TextoSecundario, fontSize = 12.sp)
+                Text("1 dedo: mover · 2 dedos: rolar ou clique direito",
+                    color = TextoSecundario, fontSize = 12.sp)
             }
         }
 
@@ -256,7 +311,10 @@ private fun Touchpad(abrirTeclado: () -> Unit) {
                 }
             }
             Text("Velocidade", color = TextoSecundario, fontSize = 11.sp)
-            Slider(value = sensibilidade, onValueChange = { sensibilidade = it },
+            Slider(value = sensibilidade, onValueChange = {
+                sensibilidade = it
+                SessaoPcFlow.salvarSensibilidade(it)
+            },
                 valueRange = 0.5f..3f, modifier = Modifier.width(112.dp).padding(start = 7.dp))
         }
     }
