@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.*
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -25,6 +26,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -146,9 +148,51 @@ private fun TelaConectar(pcs: List<PcEncontrado>, estado: EstadoSessao, conectar
         if (estado.estado == EstadoConexao.ERRO) {
             Text(estado.mensagem, color = Color(0xFFFF8A80), modifier = Modifier.padding(top = 18.dp))
         }
+        Spacer(Modifier.height(20.dp))
+        var enderecoLan by rememberSaveable { mutableStateOf("") }
+        var erroEndereco by remember { mutableStateOf(false) }
+        Text("Conectar pelo IP", fontSize = 15.sp, color = Dourado)
+        Text("Use se o computador não aparecer na descoberta automática.",
+            color = TextoSecundario, fontSize = 12.sp)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = enderecoLan,
+                onValueChange = { enderecoLan = it.take(25); erroEndereco = false },
+                modifier = Modifier.weight(1f),
+                label = { Text("IP:porta") },
+                placeholder = { Text("192.168.1.3:45456") },
+                singleLine = true,
+                isError = erroEndereco,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri)
+            )
+            Spacer(Modifier.width(8.dp))
+            Button(onClick = {
+                val pc = lerEnderecoLocal(enderecoLan)
+                if (pc != null) conectar(pc)
+                else erroEndereco = true
+            }) { Text("Conectar") }
+        }
+        if (erroEndereco) Text("Informe um IP de rede privada e uma porta válida.",
+            color = Color(0xFFFF8A80), fontSize = 12.sp)
         Spacer(Modifier.weight(1f))
         Text("Sem conta · sem nuvem · LAN por padrão", color = TextoSecundario, fontSize = 12.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
     }
+}
+
+private fun lerEnderecoLocal(entrada: String): PcEncontrado? {
+    val partes = entrada.trim().split(":")
+    if (partes.size !in 1..2) return null
+    val octetos = partes[0].split(".").map { it.toIntOrNull() ?: return null }
+    if (octetos.size != 4 || octetos.any { it !in 0..255 }) return null
+    // O PCFlow é um protocolo local: não conectar acidentalmente à Internet pública.
+    val local = octetos[0] == 10 ||
+        (octetos[0] == 172 && octetos[1] in 16..31) ||
+        (octetos[0] == 192 && octetos[1] == 168) ||
+        (octetos[0] == 169 && octetos[1] == 254)
+    if (!local) return null
+    val porta = if (partes.size == 2) partes[1].toIntOrNull() ?: return null else 45456
+    if (porta !in 1..65535) return null
+    return PcEncontrado("PC local", partes[0], porta)
 }
 
 @Composable
