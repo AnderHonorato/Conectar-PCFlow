@@ -405,6 +405,26 @@ private fun TecladoRemoto() {
 
 @Composable
 private fun Comandos() {
+    var confirmarEnergia by remember { mutableStateOf<Pair<String, String>?>(null) }
+
+    if (confirmarEnergia != null) {
+        val (titulo, acao) = confirmarEnergia!!
+        AlertDialog(
+            onDismissRequest = { confirmarEnergia = null },
+            title = { Text("Confirmar: $titulo") },
+            text = { Text("O comando será executado imediatamente no computador conectado.") },
+            confirmButton = {
+                Button(onClick = {
+                    SessaoPcFlow.enviar("power") { put("acao", acao) }
+                    confirmarEnergia = null
+                }) { Text("Confirmar $titulo") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmarEnergia = null }) { Text("Cancelar") }
+            }
+        )
+    }
+
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Text("Mídia", fontSize = 20.sp, fontWeight = FontWeight.Medium)
         Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -422,7 +442,15 @@ private fun Comandos() {
         val energia = listOf("Bloquear" to "lock", "Monitor off" to "monitoroff", "Suspender" to "sleep", "Hibernar" to "hibernate", "Reiniciar" to "restart", "Desligar" to "shutdown")
         energia.chunked(2).forEach { linha ->
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                linha.forEach { (rotulo, acao) -> BotaoAcao(rotulo, Modifier.weight(1f)) { SessaoPcFlow.enviar("power") { put("acao", acao) } } }
+                linha.forEach { (rotulo, acao) ->
+                    BotaoAcao(rotulo, Modifier.weight(1f)) {
+                        if (acao in setOf("sleep", "hibernate", "restart", "shutdown")) {
+                            confirmarEnergia = rotulo to acao
+                        } else {
+                            SessaoPcFlow.enviar("power") { put("acao", acao) }
+                        }
+                    }
+                }
             }
         }
         Spacer(Modifier.height(16.dp))
