@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main]
 
+# Evita builds duplicados e desperdiçados a cada ajuste na mesma branch.
+concurrency:
+  group: pcflow-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
   windows:
     runs-on: windows-latest
