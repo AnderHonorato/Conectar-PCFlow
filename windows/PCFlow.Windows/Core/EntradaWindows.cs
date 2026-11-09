@@ -14,6 +14,7 @@ public static class EntradaWindows
     private const uint MOUSEEVENTF_MIDDLEDOWN = 0x0020;
     private const uint MOUSEEVENTF_MIDDLEUP = 0x0040;
     private const uint MOUSEEVENTF_WHEEL = 0x0800;
+    private const uint MOUSEEVENTF_HWHEEL = 0x1000;
     private const uint KEYEVENTF_KEYUP = 0x0002;
     private const uint KEYEVENTF_UNICODE = 0x0004;
 
@@ -48,6 +49,24 @@ public static class EntradaWindows
 
     public static void Scroll(int delta)
         => Enviar(new INPUT { type = INPUT_MOUSE, U = new InputUnion { mi = new MOUSEINPUT { mouseData = unchecked((uint)delta), dwFlags = MOUSEEVENTF_WHEEL } } });
+
+    public static void ScrollHorizontal(int delta)
+        => Enviar(new INPUT { type = INPUT_MOUSE, U = new InputUnion { mi = new MOUSEINPUT { mouseData = unchecked((uint)delta), dwFlags = MOUSEEVENTF_HWHEEL } } });
+
+    public static bool BotaoValido(string? botao)
+        => botao is "left" or "middle" or "right";
+
+    public static void AlterarBotao(string botao, bool pressionado)
+    {
+        if (!BotaoValido(botao)) throw new ArgumentException("Botão inválido.", nameof(botao));
+        var flags = botao switch
+        {
+            "right" => pressionado ? MOUSEEVENTF_RIGHTDOWN : MOUSEEVENTF_RIGHTUP,
+            "middle" => pressionado ? MOUSEEVENTF_MIDDLEDOWN : MOUSEEVENTF_MIDDLEUP,
+            _ => pressionado ? MOUSEEVENTF_LEFTDOWN : MOUSEEVENTF_LEFTUP
+        };
+        Enviar(Mouse(flags));
+    }
 
     public static void Texto(string texto)
     {
