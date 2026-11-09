@@ -21,6 +21,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -69,7 +73,10 @@ private fun AppPcFlow() {
             TelaControle(estado.pc!!)
         } else {
             TelaConectar(pcs, estado,
-                conectar = { pc -> pcParaParear = pc },
+                conectar = { pc ->
+                    if (SessaoPcFlow.jaPareado(pc)) SessaoPcFlow.conectar(pc)
+                    else pcParaParear = pc
+                },
                 atualizar = SessaoPcFlow::descobrir
             )
         }
@@ -162,7 +169,7 @@ private fun TelaControle(pc: PcEncontrado) {
         Spacer(Modifier.height(18.dp))
         Box(Modifier.weight(1f)) {
             when (aba) {
-                0 -> Touchpad()
+                0 -> Touchpad(abrirTeclado = { aba = 1 })
                 1 -> TecladoRemoto()
                 else -> Comandos()
             }
@@ -173,65 +180,167 @@ private fun TelaControle(pc: PcEncontrado) {
 }
 
 @Composable
-private fun Touchpad() {
+private fun Touchpad(abrirTeclado: () -> Unit) {
+    var sensibilidade by remember { mutableFloatStateOf(1.35f) }
+    var segurando by remember { mutableStateOf(false) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            if (segurando) SessaoPcFlow.enviar("mouse_up") { put("botao", "left") }
+        }
+    }
+
     Column(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("TOUCHPAD", fontSize = 13.sp, color = Dourado, fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f))
+            TextButton(onClick = abrirTeclado) { Text("⌨ Teclado do celular", color = Turquesa) }
+        }
         Box(
             Modifier.weight(1f).fillMaxWidth()
-                .background(Color(0xFF12171D), RoundedCornerShape(30.dp))
-                .border(1.dp, Color(0xFF725322), RoundedCornerShape(30.dp))
+                .background(Color(0xFF121D29), RoundedCornerShape(26.dp))
+                .border(1.dp, Color(0xFF287E89), RoundedCornerShape(26.dp))
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onTap = { SessaoPcFlow.enviar("mouse_click") { put("botao", "left") } },
-                        onDoubleTap = { repeat(2) { SessaoPcFlow.enviar("mouse_click") { put("botao", "left") } } }
+                        onDoubleTap = {
+                            repeat(2) { SessaoPcFlow.enviar("mouse_click") { put("botao", "left") } }
+                        }
                     )
                 }
-                .pointerInput(Unit) {
+                .pointerInput(sensibilidade) {
                     detectDragGestures { change, dragAmount ->
                         change.consume()
                         SessaoPcFlow.enviar("mouse_move") {
-                            put("x", dragAmount.x * 1.35f)
-                            put("y", dragAmount.y * 1.35f)
+                            put("x", dragAmount.x * sensibilidade)
+                            put("y", dragAmount.y * sensibilidade)
                         }
                     }
                 },
             contentAlignment = Alignment.BottomCenter
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(bottom = 34.dp)) {
-                Text("Toque para clicar", color = Dourado, fontSize = 16.sp)
-                Text("Arraste para mover o ponteiro", color = TextoSecundario, fontSize = 12.sp, modifier = Modifier.padding(top = 5.dp))
+            Column(horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(bottom = 24.dp)) {
+                Text("Toque para clicar", color = Turquesa, fontSize = 15.sp)
+                Text("Deslize para mover o mouse", color = TextoSecundario, fontSize = 12.sp)
             }
         }
-        Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            BotaoAcao("Esquerdo", Modifier.weight(1f)) { SessaoPcFlow.enviar("mouse_click") { put("botao", "left") } }
-            BotaoAcao("Scroll +", Modifier.weight(1f)) { SessaoPcFlow.enviar("scroll") { put("delta", 120) } }
-            BotaoAcao("Direito", Modifier.weight(1f)) { SessaoPcFlow.enviar("mouse_click") { put("botao", "right") } }
+
+        Row(Modifier.fillMaxWidth().padding(top = 9.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf("Esquerdo" to "left", "Meio" to "middle", "Direito" to "right").forEach { (nome, botao) ->
+                BotaoAcao(nome, Modifier.weight(1f)) {
+                    SessaoPcFlow.enviar("mouse_click") { put("botao", botao) }
+                }
+            }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-            TextButton(onClick = { SessaoPcFlow.enviar("scroll") { put("delta", -120) } }) { Text("Scroll para baixo", color = TextoSecundario) }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            BotaoAcao("Rolar ↑", Modifier.weight(1f)) {
+                SessaoPcFlow.enviar("scroll") { put("delta", 120) }
+            }
+            BotaoAcao("Rolar ↓", Modifier.weight(1f)) {
+                SessaoPcFlow.enviar("scroll") { put("delta", -120) }
+            }
+            BotaoAcao("⇠", Modifier.weight(1f)) {
+                SessaoPcFlow.enviar("scroll_horizontal") { put("delta", -120) }
+            }
+            BotaoAcao("⇢", Modifier.weight(1f)) {
+                SessaoPcFlow.enviar("scroll_horizontal") { put("delta", 120) }
+            }
+        }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            BotaoAcao(if (segurando) "Soltar arraste" else "Segurar e arrastar", Modifier.weight(1f)) {
+                segurando = !segurando
+                SessaoPcFlow.enviar(if (segurando) "mouse_down" else "mouse_up") {
+                    put("botao", "left")
+                }
+            }
+            Text("Velocidade", color = TextoSecundario, fontSize = 11.sp)
+            Slider(value = sensibilidade, onValueChange = { sensibilidade = it },
+                valueRange = 0.5f..3f, modifier = Modifier.width(112.dp).padding(start = 7.dp))
         }
     }
 }
 
+/**
+ * Sincroniza apenas a edição confirmada pelo teclado Android.
+ * O servidor recebe os comandos na ordem de produção (fila única).
+ * A posição remota presume o cursor no fim do texto digitado por esta aba.
+ */
+private fun enviarDiferencaDigitacao(anterior: String, novo: String) {
+    if (anterior == novo) return
+    var prefixo = 0
+    while (prefixo < minOf(anterior.length, novo.length) &&
+        anterior[prefixo] == novo[prefixo]) prefixo++
+
+    var sufixo = 0
+    while (sufixo < minOf(anterior.length - prefixo, novo.length - prefixo) &&
+        anterior[anterior.length - 1 - sufixo] == novo[novo.length - 1 - sufixo]) sufixo++
+
+    repeat(sufixo) { SessaoPcFlow.enviar("tecla") { put("tecla", "LEFT") } }
+    repeat(anterior.length - prefixo - sufixo) {
+        SessaoPcFlow.enviar("tecla") { put("tecla", "BACKSPACE") }
+    }
+
+    val inserido = novo.substring(prefixo, novo.length - sufixo)
+    val trechos = inserido.split("\n")
+    trechos.forEachIndexed { indice, trecho ->
+        if (trecho.isNotEmpty()) SessaoPcFlow.enviar("texto") { put("texto", trecho) }
+        if (indice < trechos.lastIndex) SessaoPcFlow.enviar("tecla") { put("tecla", "ENTER") }
+    }
+    repeat(sufixo) { SessaoPcFlow.enviar("tecla") { put("tecla", "RIGHT") } }
+}
+
 @Composable
 private fun TecladoRemoto() {
-    var texto by remember { mutableStateOf("") }
-    Column(Modifier.fillMaxSize()) {
-        Text("Teclado remoto", fontSize = 22.sp, fontWeight = FontWeight.Medium)
-        Text("Digite no celular e envie para a janela ativa do PC.", color = TextoSecundario, modifier = Modifier.padding(top = 6.dp, bottom = 18.dp))
+    var texto by remember { mutableStateOf(TextFieldValue("")) }
+    var confirmado by remember { mutableStateOf("") }
+    val foco = remember { FocusRequester() }
+    val teclado = LocalSoftwareKeyboardController.current
+
+    LaunchedEffect(Unit) {
+        foco.requestFocus()
+        teclado?.show()
+    }
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        Text("Teclado do celular", fontSize = 22.sp, fontWeight = FontWeight.Medium)
+        Text("A digitação aparece na janela ativa do Windows em tempo real.",
+            color = TextoSecundario, modifier = Modifier.padding(top = 6.dp, bottom = 16.dp))
         OutlinedTextField(
-            value = texto, onValueChange = { texto = it }, modifier = Modifier.fillMaxWidth(), minLines = 4,
-            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences), label = { Text("Texto para enviar") }
+            value = texto,
+            onValueChange = { novo ->
+                texto = novo
+                if (novo.composition == null) {
+                    enviarDiferencaDigitacao(confirmado, novo.text)
+                    confirmado = novo.text
+                }
+            },
+            modifier = Modifier.fillMaxWidth().focusRequester(foco),
+            minLines = 3,
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None),
+            label = { Text("Digite com o teclado do Android") }
         )
-        Button(onClick = {
-            if (texto.isNotEmpty()) SessaoPcFlow.enviar("texto") { put("texto", texto) }
-            texto = ""
-        }, modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) { Text("Enviar texto") }
-        Spacer(Modifier.height(20.dp))
-        val teclas = listOf("ESC", "TAB", "ENTER", "BACKSPACE", "DELETE", "LEFT", "UP", "DOWN", "RIGHT")
-        teclas.chunked(3).forEach { linha ->
+        TextButton(onClick = {
+            // Limpa somente o campo local; nao apaga o texto que ja apareceu no PC.
+            texto = TextFieldValue("")
+            confirmado = ""
+            foco.requestFocus()
+            teclado?.show()
+        }) { Text("Limpar campo (não apaga o PC)", color = Turquesa) }
+
+        Spacer(Modifier.height(8.dp))
+        listOf(
+            listOf("ESC", "TAB", "ENTER"),
+            listOf("BACKSPACE", "DELETE", "HOME"),
+            listOf("LEFT", "UP", "RIGHT"),
+            listOf("DOWN", "END", "PAGEUP")
+        ).forEach { linha ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                linha.forEach { tecla -> BotaoAcao(tecla, Modifier.weight(1f)) { SessaoPcFlow.enviar("tecla") { put("tecla", tecla) } } }
-                repeat(3 - linha.size) { Spacer(Modifier.weight(1f)) }
+                linha.forEach { tecla ->
+                    BotaoAcao(tecla, Modifier.weight(1f)) {
+                        SessaoPcFlow.enviar("tecla") { put("tecla", tecla) }
+                    }
+                }
             }
         }
     }
