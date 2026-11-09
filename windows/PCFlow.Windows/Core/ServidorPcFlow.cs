@@ -129,6 +129,8 @@ public sealed class ServidorPcFlow : IAsyncDisposable
             }
 
             StatusAlterado?.Invoke($"{autorizado.Nome} conectado");
+            // O estado de arraste pertence apenas à conexão atual.
+            var botoesPressionados = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             try
             {
                 while (!ct.IsCancellationRequested && cliente.Connected)
@@ -136,12 +138,38 @@ public sealed class ServidorPcFlow : IAsyncDisposable
                     var linha = await reader.ReadLineAsync(ct);
                     if (linha is null) break;
                     var mensagem = JsonSerializer.Deserialize<MensagemRede>(linha, _json);
-                    if (mensagem is not null && !Pausado) ExecutorComandos.Executar(mensagem);
+                    if (mensagem is null || Pausado) continue;
+                    if (mensagem.Tipo is "mouse_down" or "mouse_up")
+                    {
+                        if (!EntradaWindows.BotaoValido(mensagem.Botao)) continue;
+                        var botao = mensagem.Botao!;
+                        if (mensagem.Tipo == "mouse_down")
+                        {
+                            if (botoesPressionados.Add(botao)) ExecutorComandos.Executar(mensagem);
+                        }
+                        else if (botoesPressionados.Remove(botao))
+                        {
+                            ExecutorComandos.Executar(mensagem);
+                        }
+                    }
+                    else
+                    {
+                        ExecutorComandos.Executar(mensagem);
+                    }
                 }
             }
             catch (OperationCanceledException) { }
             catch (IOException) { }
-            finally { StatusAlterado?.Invoke("Servidor ativo"); }
+            finally
+            {
+                // Evita deixar um clique preso caso o Wi-Fi ou o app Android caiam.
+                foreach (var botao in botoesPressionados)
+                {
+                    try { EntradaWindows.AlterarBotao(botao, false); }
+                    catch (Exception ex) { StatusAlterado?.Invoke($"Liberação do mouse: {ex.Message}"); }
+                }
+                StatusAlterado?.Invoke("Servidor ativo");
+            }
         }
     }
 
