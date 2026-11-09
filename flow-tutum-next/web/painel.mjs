@@ -281,7 +281,12 @@ campo.addEventListener("compositionend", () => {
   compondo = false; sincronizarTexto();
 });
 function sincronizarTexto() {
-  if (compondo || !sincronizarConexao()) return;
+  if (compondo) return;
+  if (!sincronizarConexao()) {
+    // Nunca enviar ao PC, depois da reconexão, texto escrito enquanto offline.
+    confirmado = campo.value;
+    return;
+  }
   let comandos;
   try { comandos = diferencaDeDigitacao(confirmado, campo.value); }
   catch { aviso("Limite de digitação excedido"); return; }
