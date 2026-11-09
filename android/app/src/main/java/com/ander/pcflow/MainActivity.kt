@@ -370,27 +370,13 @@ private fun Touchpad(abrirTeclado: () -> Unit) {
  * A posição remota presume o cursor no fim do texto digitado por esta aba.
  */
 private fun enviarDiferencaDigitacao(anterior: String, novo: String) {
-    if (anterior == novo) return
-    var prefixo = 0
-    while (prefixo < minOf(anterior.length, novo.length) &&
-        anterior[prefixo] == novo[prefixo]) prefixo++
-
-    var sufixo = 0
-    while (sufixo < minOf(anterior.length - prefixo, novo.length - prefixo) &&
-        anterior[anterior.length - 1 - sufixo] == novo[novo.length - 1 - sufixo]) sufixo++
-
-    repeat(sufixo) { SessaoPcFlow.enviar("tecla") { put("tecla", "LEFT") } }
-    repeat(anterior.length - prefixo - sufixo) {
-        SessaoPcFlow.enviar("tecla") { put("tecla", "BACKSPACE") }
+    calcularEdicaoRemota(anterior, novo).forEach { comando ->
+        if (comando.tipo == "texto") {
+            SessaoPcFlow.enviar("texto") { put("texto", comando.valor) }
+        } else {
+            SessaoPcFlow.enviar("tecla") { put("tecla", comando.valor) }
+        }
     }
-
-    val inserido = novo.substring(prefixo, novo.length - sufixo)
-    val trechos = inserido.split("\n")
-    trechos.forEachIndexed { indice, trecho ->
-        if (trecho.isNotEmpty()) SessaoPcFlow.enviar("texto") { put("texto", trecho) }
-        if (indice < trechos.lastIndex) SessaoPcFlow.enviar("tecla") { put("tecla", "ENTER") }
-    }
-    repeat(sufixo) { SessaoPcFlow.enviar("tecla") { put("tecla", "RIGHT") } }
 }
 
 @Composable
@@ -411,6 +397,7 @@ private fun TecladoRemoto() {
         OutlinedTextField(
             value = texto,
             onValueChange = { novo ->
+                if (novo.text.length > 2000) return@OutlinedTextField
                 texto = novo
                 if (novo.composition == null) {
                     enviarDiferencaDigitacao(confirmado, novo.text)
