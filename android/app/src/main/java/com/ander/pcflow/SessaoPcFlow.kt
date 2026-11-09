@@ -141,7 +141,20 @@ object SessaoPcFlow {
                         conectado(pc)
                     }
                     "conectado" -> conectado(pc)
-                    else -> error(json.optString("mensagem", "Pareamento recusado"))
+                    else -> {
+                        val motivo = json.optString("mensagem", "Pareamento recusado")
+                        if (motivo.contains("PIN", ignoreCase = true) ||
+                            motivo.contains("não autorizado", ignoreCase = true)) {
+                            // Não fazer novas tentativas automáticas com um PIN incorreto.
+                            // Se o token antigo foi revogado, permitir novo pareamento.
+                            if (token != null) {
+                                prefs.edit().remove("token_${pc.host}").apply()
+                            }
+                            desconexaoManual = true
+                            ultimoPc = null
+                        }
+                        error(motivo)
+                    }
                 }
 
                 while (novoSocket.isConnected && !novoSocket.isClosed) {
