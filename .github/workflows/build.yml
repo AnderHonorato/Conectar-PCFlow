@@ -37,7 +37,7 @@ jobs:
       # instalar o pacote legado "tools" removido do sdkmanager atual.
       - name: Preparar Android SDK 35
         run: |
-          sdkmanager --install "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-35" "build-tools;35.0.0" "platform-tools"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
