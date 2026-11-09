@@ -133,3 +133,17 @@ test("erros de transporte não mantêm sessão conectada", () => {
   assert.equal(sessao.enviar(comandoTecla("enter")), false);
   assert.equal(sessao.ativa, false);
 });
+
+test("transporte que retorna false encerra sessão e tenta soltar arraste", () => {
+  const mensagens = [];
+  const sessao = new SessaoDeEntrada(m => {
+    mensagens.push(m.phase);
+    return mensagens.length !== 2;
+  });
+  sessao.conectar();
+  assert.equal(sessao.pressionar("left", 0.5, 0.5), true);
+  assert.equal(sessao.enviar(comandoMouse("move", 0.6, 0.6)), false);
+  assert.equal(sessao.ativa, false);
+  assert.equal(sessao.arrastando, false);
+  assert.deepEqual(mensagens, ["down", "move", "up"]);
+});
