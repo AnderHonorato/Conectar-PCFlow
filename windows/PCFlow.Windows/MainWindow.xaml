@@ -28,7 +28,12 @@
                     <Button Content="Recursos" HorizontalContentAlignment="Left" IsEnabled="False" ToolTip="Painel de recursos entra na próxima etapa"/>
                     <Button Content="Ajustes" HorizontalContentAlignment="Left" IsEnabled="False" ToolTip="Os ajustes essenciais já aparecem na lateral direita"/>
                 </StackPanel>
-                <Button Grid.Row="2" Content="Minimizar para a bandeja" Click="Minimizar_Click"/>
+                <StackPanel Grid.Row="2">
+                    <Button Content="Minimizar para a bandeja" Click="Minimizar_Click"/>
+                    <Button Content="Desligar servidor e sair" Click="DesligarServidor_Click"
+                            Foreground="#FFC2AC" BorderBrush="#995E54"
+                            ToolTip="Encerra o servidor deste usuário; não agenda reinicialização automática"/>
+                </StackPanel>
             </Grid>
         </Border>
 
