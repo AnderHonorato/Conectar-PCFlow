@@ -1,4 +1,5 @@
 using System.IO;
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
@@ -23,6 +24,7 @@ public sealed class ServidorPcFlow : IAsyncDisposable
     private readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web);
     private readonly object _pareamentoLock = new();
     private readonly Dictionary<IPAddress, (int Falhas, DateTime Ate)> _tentativas = new();
+    private readonly ConcurrentDictionary<Guid, Action> _liberarArrastes = new();
 
     public string CodigoPareamento { get; private set; } = GerarPin();
     public string EnderecoLocal => ObterEnderecoLocal();
@@ -136,6 +138,21 @@ public sealed class ServidorPcFlow : IAsyncDisposable
             StatusAlterado?.Invoke($"{autorizado.Nome} conectado");
             // O estado de arraste pertence apenas à conexão atual.
             var botoesPressionados = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var mouseLock = new object();
+            var conexaoId = Guid.NewGuid();
+            void LiberarBotoes()
+            {
+                lock (mouseLock)
+                {
+                    foreach (var botao in botoesPressionados)
+                    {
+                        try { EntradaWindows.AlterarBotao(botao, false); }
+                        catch (Exception ex) { StatusAlterado?.Invoke($"Liberação do mouse: {ex.Message}"); }
+                    }
+                    botoesPressionados.Clear();
+                }
+            }
+            _liberarArrastes.TryAdd(conexaoId, LiberarBotoes);
             try
             {
                 while (!ct.IsCancellationRequested && cliente.Connected)
@@ -143,21 +160,25 @@ public sealed class ServidorPcFlow : IAsyncDisposable
                     var linha = await reader.ReadLineAsync(ct);
                     if (linha is null) break;
                     var mensagem = JsonSerializer.Deserialize<MensagemRede>(linha, _json);
-                    if (mensagem is null || Pausado) continue;
+                    if (mensagem is null) continue;
                     if (mensagem.Tipo is "mouse_down" or "mouse_up")
                     {
                         if (!EntradaWindows.BotaoValido(mensagem.Botao)) continue;
                         var botao = mensagem.Botao!;
-                        if (mensagem.Tipo == "mouse_down")
+                        lock (mouseLock)
                         {
-                            if (botoesPressionados.Add(botao)) ExecutorComandos.Executar(mensagem);
-                        }
-                        else if (botoesPressionados.Remove(botao))
-                        {
-                            ExecutorComandos.Executar(mensagem);
+                            if (!Pausado && mensagem.Tipo == "mouse_down")
+                            {
+                                if (botoesPressionados.Add(botao)) ExecutorComandos.Executar(mensagem);
+                            }
+                            else if (mensagem.Tipo == "mouse_up" && botoesPressionados.Remove(botao))
+                            {
+                                // Permite liberar o botão mesmo com o servidor pausado.
+                                ExecutorComandos.Executar(mensagem);
+                            }
                         }
                     }
-                    else
+                    else if (!Pausado)
                     {
                         ExecutorComandos.Executar(mensagem);
                     }
@@ -167,13 +188,10 @@ public sealed class ServidorPcFlow : IAsyncDisposable
             catch (IOException) { }
             finally
             {
-                // Evita deixar um clique preso caso o Wi-Fi ou o app Android caiam.
-                foreach (var botao in botoesPressionados)
-                {
-                    try { EntradaWindows.AlterarBotao(botao, false); }
-                    catch (Exception ex) { StatusAlterado?.Invoke($"Liberação do mouse: {ex.Message}"); }
-                }
-                StatusAlterado?.Invoke("Servidor ativo");
+                // Evita cliques presos caso o Wi-Fi caia, o app saia ou o servidor pause.
+                LiberarBotoes();
+                _liberarArrastes.TryRemove(conexaoId, out _);
+                StatusAlterado?.Invoke(Pausado ? "Servidor pausado" : "Servidor ativo");
             }
         }
     }
@@ -181,6 +199,11 @@ public sealed class ServidorPcFlow : IAsyncDisposable
     public void AlternarPausa()
     {
         Pausado = !Pausado;
+        if (Pausado)
+        {
+            // Uma pausa no Windows deve soltar qualquer arraste já iniciado.
+            foreach (var liberar in _liberarArrastes.Values) liberar();
+        }
         StatusAlterado?.Invoke(Pausado ? "Servidor pausado" : "Servidor ativo");
     }
 
