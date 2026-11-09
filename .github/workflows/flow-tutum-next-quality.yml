@@ -31,6 +31,7 @@ jobs:
         run: |
           node --check flow-tutum-next/web/geometria.mjs
           node --check flow-tutum-next/web/entrada.mjs
+          node --check flow-tutum-next/web/painel.mjs
       - name: Testar frontend
         run: node --test flow-tutum-next/tests/*.test.mjs
 
