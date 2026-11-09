@@ -8,5 +8,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../NucleoAcessoLocal.cs" Link="NucleoAcessoLocal.cs" />
+    <Compile Include="../ServicoDeAcessoLocal.cs" Link="ServicoDeAcessoLocal.cs" />
   </ItemGroup>
 </Project>
