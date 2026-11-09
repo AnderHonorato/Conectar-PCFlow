@@ -11,7 +11,6 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.ui.input.pointer.awaitPointerEvent
 import androidx.compose.ui.input.pointer.positionChange
 import kotlin.math.abs
 import androidx.compose.foundation.layout.*
