@@ -21,6 +21,21 @@ O computador estava desligado no momento da implementação. Nenhum processo, ta
 - Este projeto não transmite a tela do computador. O ajuste de vídeo/zoom do Flow Tutum Next é uma implementação separada e não está presente no PCFlow.
 - Um build do PCFlow não substitui o APK `br.flowtutum` e não deve ser instalado esperando atualizar esse aplicativo.
 
+## Refinamentos da segunda rodada
+
+- Touchpad com gesto de dois dedos para rolagem vertical e horizontal e faixa lateral dedicada para rolagem vertical.
+- Toque longo e dois dedos sem arrastar realizam clique direito; sensibilidade salva no Android.
+- Conexão manual por IP privado quando a descoberta UDP falha; tela inicial rolável em paisagem.
+- Teclado nativo envia diferenças em ordem, respeitando composição do Gboard e caracteres Unicode (inclusive emojis); limite de 2.000 caracteres no campo.
+- Testes unitários de teclado executados pelo workflow `testDebugUnitTest` antes da compilação do APK.
+- Comandos antigos são invalidados quando a sessão Wi-Fi é trocada; não são reenviados em conexão posterior.
+- Reconexão automática é interrompida quando PIN/token é recusado, permitindo novo pareamento em vez de tentativas infinitas.
+- O Android não inclui tokens persistentes em backup automático.
+- O servidor Windows limita PIN incorreto a cinco tentativas por cinco minutos por IP local e recusa endereços não privados.
+- Ao pausar ou desconectar, o servidor libera imediatamente botões de mouse pressionados.
+- Desligar/reiniciar/suspender/hibernar o PC agora pede confirmação explícita no celular.
+- GitHub Actions cancela builds obsoletos da mesma branch para evitar desperdício.
+
 ## Testes pendentes com dispositivos reais
 
 1. Compilar Windows e Android no GitHub Actions.
