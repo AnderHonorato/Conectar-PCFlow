@@ -33,14 +33,18 @@ object SessaoPcFlow {
     @Volatile private var ultimoPc: PcEncontrado? = null
     private var tentativaReconexao = 0
     // Uma única fila garante a ordem dos caracteres digitados e dos botões do mouse.
-    private val filaComandos = Channel<JSONObject>(Channel.UNLIMITED)
+    private data class Pendente(val geracao: Long, val dados: JSONObject)
+    private val filaComandos = Channel<Pendente>(Channel.UNLIMITED)
+    @Volatile private var geracao = 0L
 
     init {
         escopo.launch {
             for (comando in filaComandos) {
-                if (_estado.value.estado != EstadoConexao.CONECTADO) continue
+                // Impede que cliques, texto ou comandos antigos sejam reaplicados
+                // em outra conexão após queda de Wi-Fi ou troca do computador.
+                if (comando.geracao != geracao || _estado.value.estado != EstadoConexao.CONECTADO) continue
                 try {
-                    escreverLinha(comando)
+                    escreverLinha(comando.dados)
                 } catch (e: Exception) {
                     _estado.value = _estado.value.copy(
                         estado = EstadoConexao.ERRO, mensagem = "Conexão perdida"
@@ -52,8 +56,16 @@ object SessaoPcFlow {
 
     fun inicializar(context: Context) { contexto = context.applicationContext }
 
+    fun obterSensibilidade(): Float = prefs().getFloat("sensibilidade_touchpad", 1.35f)
+        .coerceIn(0.5f, 3f)
+
+    fun salvarSensibilidade(valor: Float) =
+        prefs().edit().putFloat("sensibilidade_touchpad", valor.coerceIn(0.5f, 3f)).apply()
+
     fun descobrir() {
         escopo.launch {
+            // Evita manter um computador que ja saiu da rede na lista atual.
+            _pcs.value = emptyList()
             val encontrados = linkedMapOf<String, PcEncontrado>()
             try {
                 DatagramSocket().use { udp ->
@@ -93,6 +105,7 @@ object SessaoPcFlow {
 
     private fun conectarInterno(pc: PcEncontrado, pin: String? = null) {
         if (!conectando.compareAndSet(false, true)) return
+        geracao++
         _estado.value = EstadoSessao(EstadoConexao.CONECTANDO, pc, "Conectando…")
         escopo.launch {
             try {
@@ -153,10 +166,11 @@ object SessaoPcFlow {
     fun enviar(tipo: String, preencher: JSONObject.() -> Unit = {}) {
         if (_estado.value.estado != EstadoConexao.CONECTADO) return
         val comando = JSONObject().put("tipo", tipo).apply(preencher)
-        filaComandos.trySend(comando)
+        filaComandos.trySend(Pendente(geracao, comando))
     }
 
     fun desconectar() {
+        geracao++
         desconexaoManual = true
         ultimoPc = null
         escopo.launch {
