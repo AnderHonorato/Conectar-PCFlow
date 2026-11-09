@@ -1,0 +1,61 @@
+name: Qualidade Flow Tutum Next
+
+on:
+  push:
+    paths:
+      - "flow-tutum-next/**"
+      - ".github/workflows/flow-tutum-next-quality.yml"
+  pull_request:
+    paths:
+      - "flow-tutum-next/**"
+      - ".github/workflows/flow-tutum-next-quality.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flow-tutum-next-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend - geometria e protocolo
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verificar sintaxe
+        run: |
+          node --check flow-tutum-next/web/geometria.mjs
+          node --check flow-tutum-next/web/entrada.mjs
+      - name: Testar frontend
+        run: node --test flow-tutum-next/tests/*.test.mjs
+
+  backend:
+    name: Backend - segurança de LAN e autenticação
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Compilar e executar testes sem dependências externas
+        run: dotnet run --configuration Release --project flow-tutum-next/server/tests/NucleoAcessoLocal.Tests.csproj
+
+  seguranca:
+    name: Auditoria de limites do módulo
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Não ativar PCFlow, Lil ou instalação automática
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -R -nE 'Register-ScheduledTask|schtasks[.]exe|\btaskkill\b|lil.*FlowTutum|MOUSEEVENTF' flow-tutum-next; then
+            echo "Módulo contém operação não prevista. Revisar antes de distribuir."
+            exit 1
+          fi
+          echo "Código isolado. Nenhum componente instalado automaticamente."
