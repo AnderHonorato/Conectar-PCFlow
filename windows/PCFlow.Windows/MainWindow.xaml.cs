@@ -66,6 +66,16 @@ public partial class MainWindow : Window
     }
 
     private void Minimizar_Click(object sender, RoutedEventArgs e) => Hide();
+
+    private async void DesligarServidor_Click(object sender, RoutedEventArgs e)
+    {
+        var resposta = System.Windows.MessageBox.Show(
+            "Desligar o PCFlow nesta sessão do Windows? O aplicativo será encerrado e não será reiniciado automaticamente.",
+            "Desligar servidor", MessageBoxButton.YesNo, MessageBoxImage.Question,
+            MessageBoxResult.No);
+        if (resposta == MessageBoxResult.Yes)
+            await EncerrarAsync();
+    }
     private void NovoPareamento_Click(object sender, RoutedEventArgs e) => AtualizarTela();
     private void Pausar_Click(object sender, RoutedEventArgs e)
     {
