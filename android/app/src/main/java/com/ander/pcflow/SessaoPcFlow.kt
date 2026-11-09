@@ -5,6 +5,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.channels.Channel
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.BufferedWriter
@@ -31,6 +32,23 @@ object SessaoPcFlow {
     @Volatile private var desconexaoManual = false
     @Volatile private var ultimoPc: PcEncontrado? = null
     private var tentativaReconexao = 0
+    // Uma única fila garante a ordem dos caracteres digitados e dos botões do mouse.
+    private val filaComandos = Channel<JSONObject>(Channel.UNLIMITED)
+
+    init {
+        escopo.launch {
+            for (comando in filaComandos) {
+                if (_estado.value.estado != EstadoConexao.CONECTADO) continue
+                try {
+                    escreverLinha(comando)
+                } catch (e: Exception) {
+                    _estado.value = _estado.value.copy(
+                        estado = EstadoConexao.ERRO, mensagem = "Conexão perdida"
+                    )
+                }
+            }
+        }
+    }
 
     fun inicializar(context: Context) { contexto = context.applicationContext }
 
@@ -63,6 +81,9 @@ object SessaoPcFlow {
             }
         }
     }
+
+    fun jaPareado(pc: PcEncontrado): Boolean =
+        prefs().contains("token_${pc.host}")
 
     fun conectar(pc: PcEncontrado, pin: String? = null) {
         desconexaoManual = false
@@ -131,13 +152,8 @@ object SessaoPcFlow {
 
     fun enviar(tipo: String, preencher: JSONObject.() -> Unit = {}) {
         if (_estado.value.estado != EstadoConexao.CONECTADO) return
-        escopo.launch {
-            try {
-                escreverLinha(JSONObject().put("tipo", tipo).apply(preencher))
-            } catch (e: Exception) {
-                _estado.value = _estado.value.copy(estado = EstadoConexao.ERRO, mensagem = "Conexão perdida")
-            }
-        }
+        val comando = JSONObject().put("tipo", tipo).apply(preencher)
+        filaComandos.trySend(comando)
     }
 
     fun desconectar() {
