@@ -8,7 +8,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
 
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:label="PCFlow"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.NoActionBar">
