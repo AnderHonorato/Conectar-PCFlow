@@ -98,4 +98,42 @@ Testar("outra máquina tem limite independente", () =>
 Testar("limite libera após janela", () =>
     Exigir(limitador.Permitir(celular, agora.AddMinutes(1))));
 
+var autenticacao = new ServicoDeAcessoLocal(
+    politica, new SessoesRedeLocal(ativo: true),
+    new LimitadorDeConexoes(maximo: 2));
+
+Testar("serviço entrega token somente na rede certa", () =>
+{
+    var resultado = autenticacao.Conectar(celular, servidor,
+        "http://192.168.1.3:49900", "http", "192.168.1.3:49900", agora);
+    Exigir(resultado.CodigoHttp == 200 && resultado.Token?.Length == 64);
+    Exigir(autenticacao.PodeControlar(resultado.Token, celular, servidor, agora));
+});
+Testar("serviço nega conexão externa e origem maliciosa", () =>
+{
+    var fora = autenticacao.Conectar(IPAddress.Parse("8.8.8.8"), servidor,
+        null, "http", "192.168.1.3:49900", agora);
+    var origem = autenticacao.Conectar(celular, servidor,
+        "https://site-externo.test", "http", "192.168.1.3:49900", agora);
+    Exigir(fora.CodigoHttp == 403 && origem.CodigoHttp == 403);
+});
+Testar("serviço limita criação de tokens por minuto", () =>
+{
+    var segundo = autenticacao.Conectar(celular, servidor, null,
+        "http", "192.168.1.3:49900", agora);
+    var excedeu = autenticacao.Conectar(celular, servidor, null,
+        "http", "192.168.1.3:49900", agora);
+    Exigir(segundo.CodigoHttp == 200 && excedeu.CodigoHttp == 429);
+});
+Testar("desligamento na bandeja revoga o token conectado", () =>
+{
+    var novo = autenticacao.Conectar(celular, servidor, null,
+        "http", "192.168.1.3:49900", agora.AddMinutes(1));
+    Exigir(novo.Sucesso);
+    autenticacao.DefinirAcessoDireto(false);
+    Exigir(!autenticacao.PodeControlar(novo.Token, celular, servidor, agora.AddMinutes(1)));
+    Exigir(autenticacao.Conectar(celular, servidor, null,
+        "http", "192.168.1.3:49900", agora.AddMinutes(1)).CodigoHttp == 403);
+});
+
 Console.WriteLine($"VALIDAÇÃO COMPLETA: {executados} testes de segurança passaram.");
