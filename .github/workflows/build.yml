@@ -33,7 +33,11 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - uses: android-actions/setup-android@v3
+      # O ubuntu-latest ja inclui o Android SDK. setup-android@v3 tenta
+      # instalar o pacote legado "tools" removido do sdkmanager atual.
+      - name: Preparar Android SDK 35
+        run: |
+          sdkmanager --install "platforms;android-35" "build-tools;35.0.0" "platform-tools"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
