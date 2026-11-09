@@ -21,6 +21,8 @@ public sealed class ServidorPcFlow : IAsyncDisposable
     private Task? _tarefaTcp;
     private Task? _tarefaUdp;
     private readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web);
+    private readonly object _pareamentoLock = new();
+    private readonly Dictionary<IPAddress, (int Falhas, DateTime Ate)> _tentativas = new();
 
     public string CodigoPareamento { get; private set; } = GerarPin();
     public string EnderecoLocal => ObterEnderecoLocal();
@@ -95,12 +97,16 @@ public sealed class ServidorPcFlow : IAsyncDisposable
             catch { return; }
 
             if (ola is null || ola.Tipo != "ola" || string.IsNullOrWhiteSpace(ola.DispositivoId)) return;
+            // Apenas hosts de redes locais podem usar o servidor de controle.
+            var remoto = (cliente.Client.RemoteEndPoint as IPEndPoint)?.Address;
+            if (remoto is null || !EnderecoLocalPrivado(remoto)) return;
             var autorizado = _configuracao.Dispositivos.FirstOrDefault(d => d.Id == ola.DispositivoId);
             if (autorizado is null)
             {
-                if (ola.Pin != CodigoPareamento)
+                if (!ValidarPrimeiroPareamento(remoto, ola.Pin))
                 {
-                    await writer.WriteLineAsync(JsonSerializer.Serialize(new { tipo = "erro", mensagem = "PIN inválido" }, _json));
+                    await writer.WriteLineAsync(JsonSerializer.Serialize(
+                        new { tipo = "erro", mensagem = "PIN inválido ou tentativas temporariamente bloqueadas" }, _json));
                     return;
                 }
                 autorizado = new DispositivoAutorizado
@@ -112,7 +118,6 @@ public sealed class ServidorPcFlow : IAsyncDisposable
                 };
                 _configuracao.Dispositivos.Add(autorizado);
                 _armazenamento.Salvar(_configuracao);
-                CodigoPareamento = GerarPin();
                 DispositivosAlterados?.Invoke();
                 await writer.WriteLineAsync(JsonSerializer.Serialize(new { tipo = "pareado", token = autorizado.Token, nome = Environment.MachineName }, _json));
             }
@@ -195,7 +200,38 @@ public sealed class ServidorPcFlow : IAsyncDisposable
         _cts.Dispose();
     }
 
-    private static string GerarPin() => RandomNumberGenerator.GetInt32(100000, 999999).ToString();
+    private bool ValidarPrimeiroPareamento(IPAddress endereco, string? pin)
+    {
+        lock (_pareamentoLock)
+        {
+            var agora = DateTime.UtcNow;
+            var tentativa = _tentativas.GetValueOrDefault(endereco);
+            if (tentativa.Ate <= agora)
+                tentativa = (0, agora.AddMinutes(5));
+            if (tentativa.Falhas >= 5) return false;
+            if (!string.Equals(pin, CodigoPareamento, StringComparison.Ordinal))
+            {
+                _tentativas[endereco] = (tentativa.Falhas + 1, tentativa.Ate);
+                return false;
+            }
+            _tentativas.Remove(endereco);
+            CodigoPareamento = GerarPin();
+            return true;
+        }
+    }
+
+    private static bool EnderecoLocalPrivado(IPAddress endereco)
+    {
+        if (IPAddress.IsLoopback(endereco)) return true;
+        if (endereco.AddressFamily != AddressFamily.InterNetwork) return false;
+        var bytes = endereco.GetAddressBytes();
+        return bytes[0] == 10 ||
+            (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31) ||
+            (bytes[0] == 192 && bytes[1] == 168) ||
+            (bytes[0] == 169 && bytes[1] == 254);
+    }
+
+    private static string GerarPin() => RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
 
     private static string ObterEnderecoLocal()
     {
