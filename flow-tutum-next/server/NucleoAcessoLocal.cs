@@ -44,7 +44,7 @@ public sealed class PoliticaRedeLocal
         for (var i = 0; i < 4; i++)
         {
             hostBits |= (ipBytes[i] & ~mascaraBytes[i]);
-            hostBroadcast |= (~ipBytes[i] & ~mascaraBytes[i]);
+            hostBroadcast |= (~ipBytes[i] & ~mascaraBytes[i] & 0xFF);
         }
         return hostBits != 0 && hostBroadcast != 0;
     }
