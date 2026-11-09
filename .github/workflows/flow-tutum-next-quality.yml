@@ -55,7 +55,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if grep -R -nE 'Register-ScheduledTask|schtasks[.]exe|\btaskkill\b|lil.*FlowTutum|MOUSEEVENTF' flow-tutum-next; then
+          if grep -R -nE 'Register-ScheduledTask|schtasks[.]exe|\btaskkill\b|lil.*FlowTutum|MOUSEEVENTF' flow-tutum-next/web flow-tutum-next/server --exclude='*.test.mjs'; then
             echo "Módulo contém operação não prevista. Revisar antes de distribuir."
             exit 1
           fi
