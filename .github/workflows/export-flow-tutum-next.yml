@@ -1,0 +1,31 @@
+name: Exportar APK oficial Flow Tutum Next
+
+on:
+  push:
+    paths:
+      - .github/workflows/export-flow-tutum-next.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exportar-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Recuperar APK oficial já assinado no GitHub Releases
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --silent --show-error \
+            "https://github.com/AnderHonorato/Conectar-PCFlow/releases/download/flow-tutum-next-v2.0.0-alpha.10-as/FlowTutum-Next-2.0.0-alpha.10-AS.apk" \
+            --output FlowTutum-Next-2.0.0-alpha.10-AS.apk
+          echo "B98DB57DD357C04A662893D896CD95DA5ECD33BD46149914B3F8F1D2013E9F99  FlowTutum-Next-2.0.0-alpha.10-AS.apk" | sha256sum --check --status
+          test "$(stat -c%s FlowTutum-Next-2.0.0-alpha.10-AS.apk)" -gt 50000
+      - name: Disponibilizar somente o APK Flow Tutum Next
+        uses: actions/upload-artifact@v4
+        with:
+          name: FlowTutum-Next-Android-AS
+          path: FlowTutum-Next-2.0.0-alpha.10-AS.apk
+          retention-days: 14
+          if-no-files-found: error
