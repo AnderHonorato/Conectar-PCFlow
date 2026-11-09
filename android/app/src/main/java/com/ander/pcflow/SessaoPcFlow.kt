@@ -14,6 +14,7 @@ import java.io.OutputStreamWriter
 import java.net.*
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 object SessaoPcFlow {
     private const val PORTA_DESCOBERTA = 45455
@@ -35,14 +36,14 @@ object SessaoPcFlow {
     // Uma única fila garante a ordem dos caracteres digitados e dos botões do mouse.
     private data class Pendente(val geracao: Long, val dados: JSONObject)
     private val filaComandos = Channel<Pendente>(Channel.UNLIMITED)
-    @Volatile private var geracao = 0L
+    private val geracao = AtomicLong(0L)
 
     init {
         escopo.launch {
             for (comando in filaComandos) {
                 // Impede que cliques, texto ou comandos antigos sejam reaplicados
                 // em outra conexão após queda de Wi-Fi ou troca do computador.
-                if (comando.geracao != geracao || _estado.value.estado != EstadoConexao.CONECTADO) continue
+                if (comando.geracao != geracao.get() || _estado.value.estado != EstadoConexao.CONECTADO) continue
                 try {
                     escreverLinha(comando.dados)
                 } catch (e: Exception) {
@@ -105,7 +106,7 @@ object SessaoPcFlow {
 
     private fun conectarInterno(pc: PcEncontrado, pin: String? = null) {
         if (!conectando.compareAndSet(false, true)) return
-        geracao++
+        geracao.incrementAndGet()
         _estado.value = EstadoSessao(EstadoConexao.CONECTANDO, pc, "Conectando…")
         escopo.launch {
             try {
@@ -166,11 +167,11 @@ object SessaoPcFlow {
     fun enviar(tipo: String, preencher: JSONObject.() -> Unit = {}) {
         if (_estado.value.estado != EstadoConexao.CONECTADO) return
         val comando = JSONObject().put("tipo", tipo).apply(preencher)
-        filaComandos.trySend(Pendente(geracao, comando))
+        filaComandos.trySend(Pendente(geracao.get(), comando))
     }
 
     fun desconectar() {
-        geracao++
+        geracao.incrementAndGet()
         desconexaoManual = true
         ultimoPc = null
         escopo.launch {
