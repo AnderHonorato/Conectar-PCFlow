@@ -113,7 +113,8 @@ private fun AppPcFlow() {
 
 @Composable
 private fun TelaConectar(pcs: List<PcEncontrado>, estado: EstadoSessao, conectar: (PcEncontrado) -> Unit, atualizar: () -> Unit) {
-    Column(Modifier.fillMaxSize().padding(24.dp)) {
+    // Mantém todos os comandos acessíveis mesmo com o Android na horizontal.
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp)) {
         Spacer(Modifier.height(16.dp))
         Text("PCFlow", fontSize = 28.sp, fontWeight = FontWeight.SemiBold)
         Text("Controle seu computador pela rede local", color = TextoSecundario, modifier = Modifier.padding(top = 4.dp))
@@ -174,7 +175,7 @@ private fun TelaConectar(pcs: List<PcEncontrado>, estado: EstadoSessao, conectar
         }
         if (erroEndereco) Text("Informe um IP de rede privada e uma porta válida.",
             color = Color(0xFFFF8A80), fontSize = 12.sp)
-        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.height(24.dp))
         Text("Sem conta · sem nuvem · LAN por padrão", color = TextoSecundario, fontSize = 12.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
     }
 }
