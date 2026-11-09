@@ -18,6 +18,13 @@ public static class ExecutorComandos
             case "mouse_move": EntradaWindows.Mover(m.X, m.Y); break;
             case "mouse_click": EntradaWindows.Clique(m.Botao ?? "left"); break;
             case "scroll": EntradaWindows.Scroll(m.Delta); break;
+            case "scroll_horizontal": EntradaWindows.ScrollHorizontal(m.Delta); break;
+            case "mouse_down":
+                if (EntradaWindows.BotaoValido(m.Botao)) EntradaWindows.AlterarBotao(m.Botao!, true);
+                break;
+            case "mouse_up":
+                if (EntradaWindows.BotaoValido(m.Botao)) EntradaWindows.AlterarBotao(m.Botao!, false);
+                break;
             case "texto": if (!string.IsNullOrEmpty(m.Texto)) EntradaWindows.Texto(m.Texto); break;
             case "tecla": ExecutarTecla(m.Tecla); break;
             case "media": ExecutarMedia(m.Acao); break;
