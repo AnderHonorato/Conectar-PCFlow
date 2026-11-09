@@ -88,8 +88,17 @@ export class SessaoDeEntrada {
   conectar() { this.#ativa = true; }
   enviar(comando) {
     if (!this.#ativa) return false;
-    try { return this.#enviar(comando) !== false; }
-    catch { this.desconectar(); return false; }
+    try {
+      if (this.#enviar(comando) === false) {
+        // O transporte recusou o comando: não manter arraste local em aberto.
+        this.desconectar();
+        return false;
+      }
+      return true;
+    } catch {
+      this.desconectar();
+      return false;
+    }
   }
   pressionar(botao, x, y) {
     if (!this.#ativa || this.#pressionados.has(botao)) return false;
