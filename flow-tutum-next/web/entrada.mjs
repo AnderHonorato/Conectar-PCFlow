@@ -73,6 +73,21 @@ export function diferencaDeDigitacao(anterior, atual, { maximo = 2000 } = {}) {
   return comandos;
 }
 
+// Envio de lote do IME: uma falha no meio pode ocorrer depois que o Windows
+// recebeu parte dos comandos. Nunca repetir o lote após reconectar, pois isso
+// duplicaria texto ou apagaria caracteres por engano. A confirmação é local,
+// não é um ACK remoto: o usuário deve redigitar o trecho que faltou.
+export function enviarDigitacaoSegura(anterior, atual, enviar) {
+  if (typeof enviar !== "function") throw new TypeError("Transporte obrigatório");
+  const comandos = diferencaDeDigitacao(anterior, atual);
+  for (let indice = 0; indice < comandos.length; indice++) {
+    let aceito = false;
+    try { aceito = enviar(comandos[indice]) === true; } catch { /* rede interrompida */ }
+    if (!aceito) return { confirmado: atual, sucesso: false, enviados: indice };
+  }
+  return { confirmado: atual, sucesso: true, enviados: comandos.length };
+}
+
 // Bloqueia comandos de outra sessão e impede um botão pressionado ficar "preso".
 export class SessaoDeEntrada {
   #enviar;
