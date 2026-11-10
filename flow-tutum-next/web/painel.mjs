@@ -6,6 +6,8 @@ import {
   diferencaDeDigitacao, SessaoDeEntrada
 } from "./entrada.mjs";
 
+import { GestosTouchpad } from "./gestos-touchpad.mjs";
+
 const $ = id => document.getElementById(id);
 const tolerancia = 9;
 const limite = (n, min, max) => Math.min(max, Math.max(min, n));
@@ -173,8 +175,7 @@ janela.addEventListener("pointercancel", ev => {
 janela.addEventListener("contextmenu", ev => ev.preventDefault());
 
 // Mouse relativo: um dedo movimenta, dois dedos rolam nos dois eixos.
-const touchpad = $("touchpad"), dedos = new Map();
-let movimentoAcumulado = 0, multiplosDedos = false, iniciouEm = 0;
+const touchpad = $("touchpad"), gestos = new GestosTouchpad();
 function moverCursor(dx, dy) {
   const ret = touchpad.getBoundingClientRect();
   estado.cursor.x = limite(estado.cursor.x + dx * estado.sensibilidade / Math.max(1, ret.width), 0, 1);
@@ -183,37 +184,27 @@ function moverCursor(dx, dy) {
 }
 touchpad.addEventListener("pointerdown", ev => {
   ev.preventDefault();
+  if (!gestos.iniciar(ev.pointerId, ev.clientX, ev.clientY, ev.timeStamp)) return;
   touchpad.setPointerCapture(ev.pointerId);
-  dedos.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
-  if (dedos.size === 1) {
-    movimentoAcumulado = 0; multiplosDedos = false; iniciouEm = ev.timeStamp;
-  }
-  if (dedos.size >= 2) multiplosDedos = true;
 });
 touchpad.addEventListener("pointermove", ev => {
-  if (!dedos.has(ev.pointerId)) return;
+  const movimento = gestos.mover(ev.pointerId, ev.clientX, ev.clientY);
+  if (!movimento) return;
   ev.preventDefault();
-  const dedo = dedos.get(ev.pointerId);
-  const dx = ev.clientX - dedo.x, dy = ev.clientY - dedo.y;
-  dedo.x = ev.clientX; dedo.y = ev.clientY;
-  movimentoAcumulado += Math.hypot(dx, dy);
-  if (dedos.size >= 2) {
+  const { dx, dy, rolagem, moverCursor: mover } = movimento;
+  if (rolagem) {
     if (Math.abs(dy) > 1) enviar(comandoRolagem(false, -dy * 8));
     if (Math.abs(dx) > 1) enviar(comandoRolagem(true, dx * 8));
-  } else if (!multiplosDedos && Math.abs(dx) + Math.abs(dy) > .5) moverCursor(dx, dy);
+  } else if (mover && Math.abs(dx) + Math.abs(dy) > .5) moverCursor(dx, dy);
 });
 touchpad.addEventListener("pointerup", ev => {
-  if (!dedos.has(ev.pointerId)) return;
   ev.preventDefault();
-  dedos.delete(ev.pointerId);
-  if (dedos.size) return;
-  if (movimentoAcumulado < tolerancia) {
-    const botao = multiplosDedos || ev.timeStamp - iniciouEm > 650 ? "right" : "left";
-    enviar(comandoMouse("tap", estado.cursor.x, estado.cursor.y, botao));
-  }
-  multiplosDedos = false;
+  const botao = gestos.finalizar(ev.pointerId, ev.timeStamp);
+  if (botao) enviar(comandoMouse("tap", estado.cursor.x, estado.cursor.y, botao));
 });
-touchpad.addEventListener("pointercancel", ev => dedos.delete(ev.pointerId));
+touchpad.addEventListener("pointercancel", ev => {
+  gestos.finalizar(ev.pointerId, ev.timeStamp, { cancelado: true });
+});
 touchpad.addEventListener("contextmenu", ev => ev.preventDefault());
 touchpad.addEventListener("keydown", ev => {
   if (ev.key === "Enter" || ev.key === " ") {
