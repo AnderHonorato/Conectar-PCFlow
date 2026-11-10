@@ -70,6 +70,29 @@ Testar("sessões aceitam IPv4 privado mapeado em IPv6", () =>
     Exigir(!sessoes.Verificar(temporario, IPAddress.Parse("8.8.8.8"), agora));
 });
 
+Testar("revogação individual mantém a outra sessão ativa", () =>
+{
+    var temporarias = new SessoesRedeLocal(TimeSpan.FromMinutes(10), ativo: true);
+    var primeiro = temporarias.Emitir(celular, agora)!;
+    var segundo = temporarias.Emitir(IPAddress.Parse("192.168.1.21"), agora)!;
+    Exigir(temporarias.Revogar(primeiro));
+    Exigir(!temporarias.Verificar(primeiro, celular, agora));
+    Exigir(temporarias.Verificar(segundo, IPAddress.Parse("192.168.1.21"), agora));
+    Exigir(temporarias.QuantidadeDeSessoes == 1);
+    Exigir(!temporarias.Revogar(primeiro));
+    Exigir(!temporarias.Revogar("invalido"));
+    Exigir(!temporarias.Revogar(null));
+});
+Testar("revogação de token mapeado funciona entre IPv4 e IPv6", () =>
+{
+    var temporarias = new SessoesRedeLocal(ativo: true);
+    var ipMapeado = IPAddress.Parse("::ffff:192.168.1.20");
+    var t = temporarias.Emitir(ipMapeado, agora)!;
+    Exigir(temporarias.Verificar(t, celular, agora));
+    Exigir(temporarias.Revogar(t));
+    Exigir(!temporarias.Verificar(t, ipMapeado, agora));
+});
+
 Testar("token válido apenas no IP emissor", () =>
 {
     Exigir(sessoes.Verificar(token, celular, agora));
