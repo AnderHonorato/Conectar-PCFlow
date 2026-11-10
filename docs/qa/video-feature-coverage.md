@@ -180,3 +180,5 @@ O release `flow-tutum-next-v2.0.0-alpha.10-as` publica `FlowTutum-Next-2.0.0-alp
 
 A coluna de vídeo foi preenchida por T00. Cada slice do plano atualiza a coluna Testes com o nome do teste executado e só então pode trocar o status para `PASS`.
 
+Fundação Web em 2026-11-10 (`cursor/web-pwa-foundation-237f`): `web/` entrega a casca PWA, a tabela de paridade em `docs/web/parity.md` e a sessão que recusa comando sem autenticação e capacidades. A coluna Web desta matriz não vira `PASS`: a casca não fala com um agente. Os testes da fundação são `web/src/parity/parity.test.ts`, `web/src/session/session.test.ts` e `web/e2e/app.spec.ts`.
+
