@@ -16,3 +16,6 @@ local.properties
 .idea/
 .vscode/
 .DS_Store
+
+# A gravação de referência fica fora do git. Os frames estão em docs/reference/analysis_assets/.
+*.mp4
