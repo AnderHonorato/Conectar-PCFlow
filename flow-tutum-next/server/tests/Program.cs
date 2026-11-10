@@ -108,6 +108,17 @@ Testar("token expira em 30 minutos", () =>
     Exigir(sessoes.Verificar(token, celular, agora.AddMinutes(29)));
     Exigir(!sessoes.Verificar(token, celular, agora.AddMinutes(30)));
 });
+Testar("verificação de token expirado remove sessão sem afetar outra", () =>
+{
+    var temporarias = new SessoesRedeLocal(TimeSpan.FromMinutes(1), ativo: true);
+    var expirado = temporarias.Emitir(celular, agora)!;
+    var vigente = temporarias.Emitir(celular, agora.AddSeconds(30))!;
+    Exigir(temporarias.QuantidadeDeSessoes == 2);
+    Exigir(!temporarias.Verificar(expirado, celular, agora.AddMinutes(1)));
+    Exigir(temporarias.QuantidadeDeSessoes == 1);
+    Exigir(temporarias.Verificar(vigente, celular, agora.AddMinutes(1)));
+    Exigir(!temporarias.Revogar(expirado));
+});
 Testar("desligar Wi-Fi direto revoga todos os tokens", () =>
 {
     sessoes.DefinirAtivo(false);
