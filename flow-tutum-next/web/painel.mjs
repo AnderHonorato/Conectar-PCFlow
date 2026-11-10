@@ -140,6 +140,7 @@ janela.addEventListener("pointermove", ev => {
   a.x = atual.x; a.y = atual.y;
   if (Math.hypot(a.x - a.inicioX, a.y - a.inicioY) > tolerancia) a.arrastou = true;
   ev.preventDefault();
+  if (gestoTela?.cancelado) return;
   if (contatosTela.size >= 2 && gestoTela) {
     const [p, q] = [...contatosTela.values()];
     const dist = Math.max(1, Math.hypot(p.x - q.x, p.y - q.y));
@@ -171,10 +172,15 @@ janela.addEventListener("pointerup", ev => {
   }
   if (contatosTela.size === 0) gestoTela = null;
 });
-janela.addEventListener("pointercancel", ev => {
+function cancelarContatoTela(ev) {
+  if (!contatosTela.has(ev.pointerId)) return;
   contatosTela.delete(ev.pointerId);
-  if (!contatosTela.size) gestoTela = null;
-});
+  // Se um dedo for cancelado pelo Android, o dedo restante não pode
+  // virar um toque/clique nem continuar um zoom com coordenadas antigas.
+  gestoTela = contatosTela.size ? { cancelado: true } : null;
+}
+janela.addEventListener("pointercancel", cancelarContatoTela);
+janela.addEventListener("lostpointercapture", cancelarContatoTela);
 janela.addEventListener("contextmenu", ev => ev.preventDefault());
 
 // Mouse relativo: um dedo movimenta, dois dedos rolam nos dois eixos.
