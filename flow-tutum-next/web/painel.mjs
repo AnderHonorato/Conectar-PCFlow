@@ -22,6 +22,7 @@ const estado = {
 // Nenhum WebSocket público, PIN ou sessão fictícia é criado neste painel.
 const ponte = window.FlowTutumNext;
 const sessao = new SessaoDeEntrada(comando => ponte?.wsSend?.(comando) === true);
+let socketAutorizado = null;
 
 function aviso(mensagem) {
   $("estado-texto").textContent = mensagem;
@@ -30,15 +31,24 @@ function aviso(mensagem) {
 function sincronizarConexao() {
   const ligado = !!(ponte?.state?.authenticated && ponte?.state?.approved &&
     ponte?.state?.sessionReady && ponte?.state?.ws?.readyState === WebSocket.OPEN);
-  if (ligado && !sessao.ativa) sessao.conectar();
+  // Uma nova sessão/socket autenticado é a única condição para liberar
+  // o envio após falha; WebSocket.OPEN sozinho não prova recuperação.
+  const socketAtual = ligado ? ponte.state.ws : null;
+  if (socketAtual !== socketAutorizado) {
+    socketAutorizado = socketAtual;
+    sessao.desconectar(estado.cursor.x, estado.cursor.y);
+    cancelarGestosLocais();
+    if (socketAtual) sessao.restabelecerTransporte();
+  } else if (ligado && !sessao.ativa && !sessao.bloqueada) sessao.conectar();
   if (!ligado && sessao.ativa) {
     sessao.desconectar(estado.cursor.x, estado.cursor.y);
     cancelarGestosLocais();
   }
-  $("ponto-estado").dataset.ligado = String(ligado);
-  aviso(ligado ? "PC conectado" : "Servidor desconectado");
+  const operacional = ligado && sessao.ativa;
+  $("ponto-estado").dataset.ligado = String(operacional);
+  aviso(operacional ? "PC conectado" : sessao.bloqueada ? "Envio interrompido: reconecte ao PC" : "Servidor desconectado");
   if (!ligado) atualizarArraste(false);
-  return ligado;
+  return operacional;
 }
 function enviar(comando) {
   if (!sincronizarConexao()) {
