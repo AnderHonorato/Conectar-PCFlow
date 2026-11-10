@@ -93,25 +93,39 @@ export class SessaoDeEntrada {
   #enviar;
   #ativa = false;
   #pressionados = new Set();
+  #bloqueada = false;
   constructor(enviar) {
     if (typeof enviar !== "function") throw new TypeError("Função de envio obrigatória");
     this.#enviar = enviar;
   }
   get ativa() { return this.#ativa; }
   get arrastando() { return this.#pressionados.size > 0; }
+  get bloqueada() { return this.#bloqueada; }
 
-  conectar() { this.#ativa = true; }
+  // Um transporte que recusou um envio não pode ser reabilitado apenas
+  // porque o mesmo WebSocket ainda informa OPEN (estado assíncrono).
+  conectar() {
+    if (this.#bloqueada) return false;
+    this.#ativa = true;
+    return true;
+  }
+  restabelecerTransporte() {
+    this.#bloqueada = false;
+    return this.conectar();
+  }
   enviar(comando) {
     if (!this.#ativa) return false;
     try {
       if (this.#enviar(comando) === false) {
         // O transporte recusou o comando: não manter arraste local em aberto.
         this.desconectar();
+        this.#bloqueada = true;
         return false;
       }
       return true;
     } catch {
       this.desconectar();
+      this.#bloqueada = true;
       return false;
     }
   }
