@@ -64,8 +64,8 @@
     "require_public_https_check": true
   },
   "verification": {
-    "last_next_ci": "passed",
-    "next_ci_reference": "https://github.com/AnderHonorato/Conectar-PCFlow/actions/runs/42761116259",
+    "last_next_ci": "passed_on_previous_head",
+    "next_ci_reference": "https://github.com/AnderHonorato/Conectar-PCFlow/actions/runs/42782087224",
     "windows_pcflow_build_is_not_next_release": true,
     "local_device": "Ander-PC / dc7a13ee-58a4-4dce-8cee-288fed5d35f2",
     "local_geometry_patch": "applied_and_tested_2026-11-10",
@@ -79,8 +79,21 @@
       "code_commit": "d297d9d342f01c2c685b6427b556d271edb330ad",
       "test_commit": "c8523167a1b4389300192044ac003ee898672243",
       "scope": "GitHub modular; não integrado ao servidor original AS nem ao APK"
+    },
+    "revogacao_individual_20261110": {
+      "status": "committed_pending_ci",
+      "implementation_commit": "ead22df5e1a33f3f90eb225a9637b390a81d6e23",
+      "tests_commit": "1918412b403454cafc86f61d9236fc244307892e",
+      "scope": "módulo C# GitHub; não integrado ao servidor original nem ao APK",
+      "test_cases": [
+        "revogar um dispositivo preserva outro",
+        "token inválido não revoga",
+        "IP IPv4 mapeado em IPv6",
+        "revogação idempotente"
+      ],
+      "ci": "pending"
     }
   },
-  "next_priority": "Confirmar CI no commit c8523167; incorporar restrições de sessões e suíte HTTP ao servidor original AS sem regressão, depois validar Android.",
+  "next_priority": "Validar CI do módulo de revogação individual; integrar com endpoint /api/unpair do Windows AS sem regressões e sem mudar a instalação atual.",
   "state_policy": "Modificar somente com evidências. Nunca converter prepared_only em complete por commit isolado."
 }
