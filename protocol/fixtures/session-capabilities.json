@@ -1,0 +1,17 @@
+{
+  "protocolVersion": 2,
+  "messageId": "22222222-3333-4444-8555-666666666666",
+  "correlationId": "6f1e7b5a-1c2d-4e5f-8a9b-0c1d2e3f4a5b",
+  "name": "session.capabilities",
+  "timestamp": 1760000002000,
+  "sequence": 1,
+  "sessionId": "sess-1",
+  "payload": {
+    "hostDeviceId": "pc-1",
+    "capabilities": [
+      { "name": "pointer.move", "state": "supported" },
+      { "name": "pointer.button", "state": "supported" },
+      { "name": "keyboard.key", "state": "supported" }
+    ]
+  }
+}

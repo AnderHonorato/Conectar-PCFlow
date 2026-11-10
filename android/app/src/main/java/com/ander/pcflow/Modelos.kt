@@ -1,15 +1,17 @@
 package com.ander.pcflow
 
+import com.ander.pcflow.session.Fase
+
 data class PcEncontrado(
     val nome: String,
     val host: String,
-    val porta: Int = 45456
+    val porta: Int = 45456,
+    val deviceId: String = ""
 )
 
-enum class EstadoConexao { DESCONECTADO, CONECTANDO, CONECTADO, ERRO }
-
 data class EstadoSessao(
-    val estado: EstadoConexao = EstadoConexao.DESCONECTADO,
+    val fase: Fase = Fase.Ociosa,
     val pc: PcEncontrado? = null,
-    val mensagem: String = ""
+    val mensagem: String = "",
+    val codigoErro: String = ""
 )

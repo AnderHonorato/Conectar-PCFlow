@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using PCFlow.Core;
 
 namespace PCFlow.Windows.Core;
 
@@ -10,6 +11,39 @@ public static class ExecutorComandos
     private static readonly IntPtr HWND_BROADCAST = new(0xffff);
     private const uint WM_SYSCOMMAND = 0x0112;
     private static readonly IntPtr SC_MONITORPOWER = new(0xF170);
+
+    public static void Aplicar(RemoteCommand c)
+    {
+        switch (c.Name)
+        {
+            case "pointer.move": EntradaWindows.Mover(c.X, c.Y); break;
+            case "pointer.button":
+                if (c.Direction is "down" or "up") EntradaWindows.Botao(c.Button ?? "left", c.Direction == "down");
+                else EntradaWindows.Clique(c.Button ?? "left");
+                break;
+            case "pointer.scroll": EntradaWindows.Scroll(c.Delta); break;
+            case "keyboard.text": if (!string.IsNullOrEmpty(c.Text)) EntradaWindows.Texto(c.Text); break;
+            case "keyboard.key":
+                var vk = VirtualKey(c.Key);
+                if (vk == 0) break;
+                if (c.Direction is "down" or "up") EntradaWindows.TeclaDirecao(vk, c.Direction == "down");
+                else EntradaWindows.Tecla(vk);
+                break;
+            case "media.transport":
+            case "media.volume": ExecutarMedia(c.Action); break;
+            case "system.power": ExecutarEnergia(c.Action); break;
+        }
+    }
+
+    public static void Soltar(string kind, string code)
+    {
+        if (kind == "pointer") EntradaWindows.Botao(code, false);
+        else if (kind == "key")
+        {
+            var vk = VirtualKey(code);
+            if (vk != 0) EntradaWindows.TeclaDirecao(vk, false);
+        }
+    }
 
     public static void Executar(MensagemRede m)
     {
@@ -27,16 +61,19 @@ public static class ExecutorComandos
 
     private static void ExecutarTecla(string? tecla)
     {
-        var vk = tecla?.ToUpperInvariant() switch
-        {
-            "ENTER" => (ushort)0x0D, "ESC" => (ushort)0x1B, "TAB" => (ushort)0x09,
-            "BACKSPACE" => (ushort)0x08, "DELETE" => (ushort)0x2E,
-            "LEFT" => (ushort)0x25, "UP" => (ushort)0x26, "RIGHT" => (ushort)0x27, "DOWN" => (ushort)0x28,
-            "HOME" => (ushort)0x24, "END" => (ushort)0x23, "PAGEUP" => (ushort)0x21, "PAGEDOWN" => (ushort)0x22,
-            _ => (ushort)0
-        };
+        var vk = VirtualKey(tecla);
         if (vk != 0) EntradaWindows.Tecla(vk);
     }
+
+    private static ushort VirtualKey(string? tecla) => tecla?.ToUpperInvariant() switch
+    {
+        "ENTER" => 0x0D, "ESC" => 0x1B, "TAB" => 0x09,
+        "BACKSPACE" => 0x08, "DELETE" => 0x2E,
+        "LEFT" => 0x25, "UP" => 0x26, "RIGHT" => 0x27, "DOWN" => 0x28,
+        "HOME" => 0x24, "END" => 0x23, "PAGEUP" => 0x21, "PAGEDOWN" => 0x22,
+        "CTRL" => 0x11, "SHIFT" => 0x10, "ALT" => 0x12, "WIN" => 0x5B,
+        _ => 0
+    };
 
     private static void ExecutarMedia(string? acao)
     {

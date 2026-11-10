@@ -1,0 +1,12 @@
+{
+  "protocolVersion": 2,
+  "messageId": "11111111-2222-4333-8444-555555555555",
+  "name": "session.auth",
+  "timestamp": 1760000001000,
+  "sequence": 2,
+  "payload": {
+    "deviceId": "phone-1",
+    "deviceName": "Pixel",
+    "pin": "123456"
+  }
+}

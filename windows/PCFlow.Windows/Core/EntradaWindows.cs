@@ -61,9 +61,28 @@ public static class EntradaWindows
 
     public static void Tecla(ushort vk)
     {
-        Enviar(
-            new INPUT { type = INPUT_KEYBOARD, U = new InputUnion { ki = new KEYBDINPUT { wVk = vk } } },
-            new INPUT { type = INPUT_KEYBOARD, U = new InputUnion { ki = new KEYBDINPUT { wVk = vk, dwFlags = KEYEVENTF_KEYUP } } });
+        TeclaDirecao(vk, true);
+        TeclaDirecao(vk, false);
+    }
+
+    public static void Botao(string botao, bool pressionado)
+    {
+        var flag = (botao.ToLowerInvariant(), pressionado) switch
+        {
+            ("right" or "direito", true) => MOUSEEVENTF_RIGHTDOWN,
+            ("right" or "direito", false) => MOUSEEVENTF_RIGHTUP,
+            ("middle" or "meio", true) => MOUSEEVENTF_MIDDLEDOWN,
+            ("middle" or "meio", false) => MOUSEEVENTF_MIDDLEUP,
+            (_, true) => MOUSEEVENTF_LEFTDOWN,
+            _ => MOUSEEVENTF_LEFTUP
+        };
+        Enviar(Mouse(flag));
+    }
+
+    public static void TeclaDirecao(ushort vk, bool pressionado)
+    {
+        var flags = pressionado ? 0u : KEYEVENTF_KEYUP;
+        Enviar(new INPUT { type = INPUT_KEYBOARD, U = new InputUnion { ki = new KEYBDINPUT { wVk = vk, dwFlags = flags } } });
     }
 
     private static INPUT Mouse(uint flags) => new() { type = INPUT_MOUSE, U = new InputUnion { mi = new MOUSEINPUT { dwFlags = flags } } };

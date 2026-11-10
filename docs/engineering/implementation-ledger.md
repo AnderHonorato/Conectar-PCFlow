@@ -172,14 +172,17 @@ Ainda não estão implementados. Detalhe e consequência ficam no plano.
 | ADR-016 | Revisto com a gravação. Com a opção ligada, toque envia o modificador sozinho, segurar ativa a combinação e um segundo acionamento trava. A soltura em queda continua obrigatória. |
 | ADR-017 | Streaming, gamepad, webcam, explorador de arquivos e monitor virtual ficam fora desta reconstrução, salvo se T00 encontrar a função no vídeo e uma task for adicionada antes de implementar. |
 | ADR-018 | Decisão do dono em 2026-11-10, slice 12. Conta e PRO entram no app e nos contratos: auth, perfil, sync de ajustes e entitlement, atrás de portas e adaptadores. Este corte não liga banco de dados, backend real nem provedor de pagamento. Essas três ligações são dependência externa, à espera do dono, e ficam nomeadas no plano. Não são feature adiada nem botão falso. O ambiente dev usa adaptador em memória e entitlement `source=dev`, impossível em build de produção. O controle local do PC não chama essas portas. |
+| ADR-019 | Decisão do dono em 2026-11-10, slice 15. O Chefinho é um módulo opt-in, só para o próprio dono, depois dos slices 1–14. Fontes Android: notificações, uso de apps, bateria, localização opcional e leitura de tela por acessibilidade só se o serviço do sistema for habilitado. Fontes Windows: janela ativa com tempo de uso, e captura de tela só sob pedido. Cada fonte nasce desligada, com toggle e indicador visível. Pacote distribuído por APK direto, não pela Play Store. Dados cifrados em trânsito e em repouso, retenção configurável e apagar tudo. Teclado e clipboard continuam proibidos, inclusive neste módulo. O controle remoto não depende dele. O servidor que receberia os dados é dependência externa, à espera do dono. Não implementar nesta branch. |
 
 ## Status dos slices
 
 | Slice | Status |
 |-------|--------|
 | 0 Preflight, plano, matriz e leitura do vídeo | Feito nesta branch. Coluna de evidência preenchida. Implementação não começou. |
-| 1 a 11, 13 e 14 | Não iniciados. |
+| 1 Sessão e descoberta | Implementado no corte pedido: protocolo 2, fixtures Kotlin e C#, descoberta UDP com id estável, lista, pareamento, revogação, máquina A.1, heartbeat, reconexão e safety release. T09 mDNS e T10 instância única/startup ficam de fora deste corte. |
+| 2 a 11, 13 e 14 | Não iniciados. |
 | 12 Conta e PRO | Plano revisto pelo ADR-018. Não implementado. Banco, backend e pagamento ficam fora do corte. |
+| 15 Chefinho | Só documentação (ADR-019 e `docs/security/threat-model.md`). Não implementado. Servidor de ingestão pendente. |
 
 ## Leitura do vídeo
 
@@ -188,6 +191,16 @@ O corte de 3:34 foi lido pelos frames em `docs/reference/analysis_assets/` e reg
 ## Decisão do dono — slice 12
 
 Em 2026-11-10 o dono do produto fechou o corte de conta e PRO. O registro normativo é o ADR-018. O plano em `docs/superpowers/plans/2026-11-10-remote-control-rebuild.md` deixa de pedir servidor de desenvolvimento, banco, backend real ou provedor de pagamento. O que o slice entrega, quando for implementado, são as portas `AccountPort`, `ProfilePort`, `SettingsSyncPort`, `EntitlementPort` e `BillingPort`, o contrato compartilhado e dois adaptadores: um de memória só em build debug ou internal, e um desconfigurado em produção. Entitlement com `source=dev` não pode ser aceito em release. Compra não conclui enquanto o dono não entregar o provedor. O socket de controle do PC abre com essas portas desligadas.
+
+## Decisão do dono — slice 15
+
+Em 2026-11-10 o dono pediu o módulo Companion / Assistente pessoal (Chefinho), apenas no plano. O registro normativo é o ADR-019. O threat model em `docs/security/threat-model.md` trata esses dados como pessoais e sensíveis. Nenhuma fonte foi ligada no código. O slice 1 não espera este módulo.
+
+## Slice 1 executado
+
+Branch `cursor/slice-1-session-discovery-df46`. O núcleo `windows/PCFlow.Core` fala o protocolo 2 (`session.hello`, `session.auth`, `session.capabilities`, `session.heartbeat`, `session.ack`, `session.error`). Descoberta UDP continua em `PCFLOW_DISCOVER_V1` e a resposta traz `deviceId`; sem `deviceId` o anúncio é ignorado. O token fica no id do PC, não no IP. Revogação marca o dispositivo e derruba a sessão. Queda com botão ou tecla presos gera soltura no agente. Três heartbeats perdidos saem de Ready. Build de produção de conta não entrou neste slice.
+
+Verificação local: `dotnet test windows/PCFlow.Core.Tests/PCFlow.Core.Tests.csproj -c Release` — 23 passed, 0 failed. `gradle -p android :app:testDebugUnitTest` — 8 passed, 0 failed. `gradle -p android :app:assembleDebug` — sucesso. `dotnet build windows/PCFlow.Windows/PCFlow.Windows.csproj -c Release -p:EnableWindowsTargeting=true` — sucesso, 0 warnings.
 
 ## Fora desta execução
 

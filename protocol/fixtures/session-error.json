@@ -1,0 +1,12 @@
+{
+  "protocolVersion": 2,
+  "messageId": "55555555-6666-4777-8888-999999999999",
+  "correlationId": "6f1e7b5a-1c2d-4e5f-8a9b-0c1d2e3f4a5b",
+  "name": "session.error",
+  "timestamp": 1760000004000,
+  "sequence": 1,
+  "payload": {
+    "code": "PROTOCOL_VERSION_UNSUPPORTED",
+    "message": "Atualize o app do PC ou do celular."
+  }
+}

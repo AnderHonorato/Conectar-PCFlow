@@ -1,0 +1,10 @@
+{
+  "protocolVersion": 2,
+  "messageId": "77777777-8888-4999-8aaa-bbbbbbbbbbbb",
+  "name": "shell.exec",
+  "timestamp": 1760000000000,
+  "sequence": 1,
+  "payload": {
+    "command": "whoami"
+  }
+}

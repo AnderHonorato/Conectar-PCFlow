@@ -59,7 +59,7 @@ Ficam explícitas e testadas, sem combinações soltas de booleanos:
 
 ### Rulings que travam a arquitetura
 
-ADR-001 a ADR-018 estão no ledger. Os que mudam desenho de código:
+ADR-001 a ADR-019 estão no ledger. Os que mudam desenho de código:
 
 - ADR-001: schema único, JSON por linha, adaptador v1.
 - ADR-002: TCP permanece no hot path Android até benchmark; Web usa WebSocket no mesmo dispatcher.
@@ -69,6 +69,7 @@ ADR-001 a ADR-018 estão no ledger. Os que mudam desenho de código:
 - ADR-008: energia só com confirmação e política.
 - ADR-016, revisto depois da gravação: com a opção ligada, toque envia o modificador sozinho; segurar ativa para a combinação; um segundo acionamento trava. Soltura em queda de sessão continua obrigatória. O toque não arma a tecla seguinte.
 - ADR-018: conta e PRO são portas e adaptadores. Banco, backend real e pagamento ficam fora do corte, como dependência externa do dono. Entitlement de dev não existe em produção. O controle local não chama essas portas.
+- ADR-019: o Chefinho é um módulo opt-in, depois do slice 14. Cada fonte nasce desligada. O controle remoto não chama esse módulo. O servidor que receberia os dados é dependência externa. Teclado e clipboard continuam de fora.
 
 ## Tech stack
 
@@ -186,6 +187,7 @@ docs/qa/test-matrix.md
 | 8 | T52–T56 | Conta, em paralelo com a onda 7 se não tocar no hot path. |
 | 9 | T57–T60 | Web, depois do schema congelado. Pode começar a casca na onda 2 e os controles na onda 9. |
 | 10 | T61–T71 | Hardening. T70 lê o diff inteiro. |
+| 11 | T72–T77 | Slice 15, só depois dos slices 1–14. Não bloqueia o controle remoto. |
 
 Critério de saída de cada slice está na seção 16 e repetido no título do grupo abaixo.
 
@@ -1149,6 +1151,107 @@ Saída: threat model fechado, matriz cheia, performance, CI, artefatos e docs.
 - Implementação: preencher só com saída fresca de comando.
 - GREEN: as 11 seções existem e o veredito de T70 é SHIP.
 - Commit: `docs: registra a verificação final do controle remoto`
+
+### Slice 15 — Companion / Assistente pessoal (Chefinho)
+
+Decisão do dono em 2026-11-10, ADR-019. Só documentação nesta branch. Não implementar junto com o slice 1.
+
+O módulo é opt-in e existe para o próprio dono do aparelho. Não é vigilância de terceiro. Não faz parte das 122 funções do vídeo. O controle remoto, a descoberta e a sessão funcionam com o módulo ausente ou com todas as fontes desligadas.
+
+Cada fonte nasce desligada, com toggle próprio e um indicador visível enquanto qualquer uma estiver ligada. O pacote que inclui este módulo é distribuído por APK direto, não pela Play Store.
+
+Fontes Android, todas opt-in:
+
+- notificações, via `NotificationListenerService`;
+- uso de apps, via `UsageStatsManager`;
+- bateria;
+- localização, opcional e separada;
+- leitura de tela via `AccessibilityService` somente se o serviço do sistema for habilitado pelo usuário. O toggle do app sozinho não liga o serviço.
+
+Fontes Windows:
+
+- janela e aplicativo ativos, com tempo de uso;
+- captura de tela só quando o dono pede, nunca em timer.
+
+Proibições que continuam valendo, também dentro do Chefinho: não registrar conteúdo de teclado nem clipboard. O log do controle remoto continua sem tecla, clipboard, título de janela e imagem. O que o módulo guarda fica num cofre separado, não nesse log.
+
+Dados do módulo: criptografados em trânsito e em repouso, retenção configurável e um botão que apaga tudo. O servidor que receberia esse material é dependência externa, no mesmo espírito do ADR-018. Até o dono entregar o endpoint, não há envio. Não é feature escondida nem fila “em breve”.
+
+| Ligação | Estado | Quem destrava |
+|---------|--------|----------------|
+| Servidor de ingestão do Chefinho | não criar host, URL nem banco | dono do produto |
+
+#### T72 — Interruptores e indicador
+
+- Responsável: A2. Apoio: A10.
+- Pode alterar: ajustes do módulo e o indicador visível.
+- Não alterar: `SessaoPcFlow`, descoberta, protocolo de controle e o caminho de teclado/clipboard.
+- Interfaces: um booleano por fonte, default falso. `CompanionStatus.qualquerFonteLigada`.
+- RED: `CompanionToggleTest.AllSourcesOffByDefault` falha se alguma fonte nascer ligada ou se o indicador aparecer com tudo desligado.
+- Comando: `gradle -p android :app:testDebugUnitTest --tests com.ander.pcflow.companion.CompanionToggleTest`
+- Implementação: toggles e indicador. Acessibilidade só conta como ligada com o toggle e com o serviço do sistema habilitado.
+- GREEN: o teste passa e o controle conecta com o módulo desligado.
+- Commit: `feat: deixa as fontes do Chefinho desligadas por padrão`
+
+#### T73 — Coletores Android
+
+- Responsável: A2. Apoio: A10.
+- Pode alterar: `NotificationListenerService`, `UsageStatsManager`, bateria, localização e `AccessibilityService` atrás de portas.
+- Não alterar: o serviço de conexão do controle. Não ler teclado nem clipboard, mesmo se a árvore de acessibilidade os expuser.
+- Interfaces: `NotificationSource`, `UsageSource`, `BatterySource`, `LocationSource`, `ScreenTextSource`. Cada uma recusa coleta quando o toggle está desligado.
+- RED: `CompanionSourceTest.DisabledSourceEmitsNothing` falha se a fonte desligada produzir evento. `CompanionSourceTest.AccessibilitySkipsInputFields` falha se o texto de um campo de senha ou de edição entrar no evento.
+- Comando: `gradle -p android :app:testDebugUnitTest --tests com.ander.pcflow.companion.CompanionSourceTest`
+- Implementação: permissões pedidas só no momento em que o dono liga a fonte. Sem a permissão, a fonte permanece desligada e o indicador explica o motivo.
+- GREEN: os dois testes passam.
+- Commit: `feat: coleta contexto Android só com a fonte ligada`
+
+#### T74 — Coletores Windows
+
+- Responsável: A4. Apoio: A10.
+- Pode alterar: observador de janela ativa e captura sob pedido.
+- Não alterar: `SendInput` e o dispatcher de controle. Captura não roda em intervalo.
+- Interfaces: `ActiveWindowSource` e `ScreenshotOnDemand`.
+- RED: `CompanionWindowsTests.ScreenshotRequiresRequest` falha se existir timer de captura. `CompanionWindowsTests.IdleSourceEmitsNothing` falha se a fonte de janela desligada emitir título.
+- Comando: `dotnet test windows/PCFlow.Core.Tests -c Release --filter CompanionWindowsTests`
+- Implementação: tempo de uso só com a fonte ligada. A captura devolve um quadro só depois de um pedido explícito e o quadro vai para o cofre cifrado, não para o log.
+- GREEN: os dois testes passam.
+- Commit: `feat: observa a janela ativa e captura tela só sob pedido`
+
+#### T75 — Cofre e contrato de envio
+
+- Responsável: A10. Apoio: A1.
+- Pode alterar: cofre local e `CompanionIngestPort` no contrato.
+- Não alterar: o socket de controle. Não abrir conexão de ingestão enquanto a porta estiver desconfigurada.
+- Interfaces: `CompanionStore.put/list/deleteAll`, cifra em repouso. `CompanionIngestPort.upload` devolve `unconfigured` até o dono entregar o servidor. Quando existir, o envio é cifrado em trânsito.
+- RED: `CompanionStoreTest.RestIsEncrypted` falha se o arquivo em disco contiver o texto claro. `CompanionIngestTest.UnconfiguredDoesNotOpenSocket` falha se a porta desconfigurada conectar.
+- Comando: `dotnet test windows/PCFlow.Core.Tests -c Release --filter CompanionStoreTest`
+- Implementação: chave no Keystore do Android e DPAPI ou cofre equivalente no Windows. Retenção configurável apaga o que passou do prazo.
+- GREEN: os dois testes passam e um teste de controle prova que `pointer.move` não chama o cofre.
+- Commit: `feat: guarda o contexto do Chefinho cifrado e sem servidor`
+
+#### T76 — Apagar tudo
+
+- Responsável: A2. Apoio: A10.
+- Pode alterar: a ação de apagar e a retenção.
+- Não alterar: tokens de pareamento do controle. Apagar o Chefinho não revoga o PC.
+- Interfaces: `CompanionStore.deleteAll()` e o prazo de retenção.
+- RED: `CompanionDeleteTest.DeleteAllLeavesControlTokens` falha se o token do PC sumir ou se sobrar evento do módulo.
+- Comando: `gradle -p android :app:testDebugUnitTest --tests com.ander.pcflow.companion.CompanionDeleteTest`
+- Implementação: um botão apaga o cofre local. A porta de ingestão, se um dia existir, recebe o mesmo pedido. Enquanto estiver desconfigurada, o app informa que o apagamento remoto espera o servidor do dono e o cofre local já foi limpo.
+- GREEN: o teste passa.
+- Commit: `feat: apaga os dados do Chefinho sem mexer no pareamento`
+
+#### T77 — Ameaça e revisão
+
+- Responsável: A10. Apoio: A14.
+- Pode alterar: `docs/security/threat-model.md` se a implementação mudar um controle.
+- Não alterar: o restante do slice 1–14 para “aproveitar” o módulo.
+- Interfaces: o threat model já registra os dados sensíveis. A implementação não reduz esses controles.
+- RED: `CompanionIsolationTest.ControlSessionDoesNotReferenceCompanion` falha se o módulo de sessão importar o Chefinho.
+- Comando: o teste de isolamento mais a leitura do threat model.
+- Implementação: manter o módulo fora do caminho do controle. Distribuição do pacote que o inclui: APK direto, não Play Store.
+- GREEN: o teste de isolamento passa e o threat model segue citando teclado e clipboard como proibidos.
+- Commit: `test: isola o Chefinho do controle remoto`
 
 ## Cobertura das 122 funções
 

@@ -45,9 +45,10 @@
                 <Button Content="＋  Conectar novo celular" Foreground="{StaticResource Destaque}" BorderBrush="#80602B" HorizontalAlignment="Center" Padding="24,13" Click="NovoPareamento_Click"/>
 
                 <TextBlock Text="Dispositivos conhecidos" FontSize="18" Margin="0,42,0,14"/>
-                <ItemsControl x:Name="ListaDispositivos">
-                    <ItemsControl.ItemTemplate><DataTemplate><Border Background="#161B22" BorderBrush="#343A43" BorderThickness="1" CornerRadius="13" Padding="16" Margin="0,0,0,10"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="42"/><ColumnDefinition/><ColumnDefinition Width="130"/></Grid.ColumnDefinitions><TextBlock Text="▯" FontSize="28" Foreground="{StaticResource Destaque}"/><StackPanel Grid.Column="1"><TextBlock Text="{Binding Nome}" FontSize="16"/><TextBlock Text="Autorizado" Foreground="{StaticResource Sucesso}" Margin="0,4,0,0"/></StackPanel><TextBlock Grid.Column="2" Text="{Binding UltimaConexao, StringFormat={}{0:dd/MM HH:mm}}" Foreground="#8E96A0" VerticalAlignment="Center" HorizontalAlignment="Right"/></Grid></Border></DataTemplate></ItemsControl.ItemTemplate>
-                </ItemsControl>
+                <ListBox x:Name="ListaDispositivos" Background="Transparent" BorderThickness="0">
+                    <ListBox.ItemTemplate><DataTemplate><Border Background="#161B22" BorderBrush="#343A43" BorderThickness="1" CornerRadius="13" Padding="16" Margin="0,0,0,10"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="42"/><ColumnDefinition/><ColumnDefinition Width="130"/></Grid.ColumnDefinitions><TextBlock Text="▯" FontSize="28" Foreground="{StaticResource Destaque}"/><StackPanel Grid.Column="1"><TextBlock Text="{Binding Nome}" FontSize="16"/><TextBlock Text="{Binding Situacao}" Foreground="{StaticResource Sucesso}" Margin="0,4,0,0"/></StackPanel><TextBlock Grid.Column="2" Text="{Binding UltimaConexao, StringFormat={}{0:dd/MM HH:mm}}" Foreground="#8E96A0" VerticalAlignment="Center" HorizontalAlignment="Right"/></Grid></Border></DataTemplate></ListBox.ItemTemplate>
+                </ListBox>
+                <Button Content="Revogar selecionado" HorizontalAlignment="Left" Click="Revogar_Click"/>
             </StackPanel>
         </ScrollViewer>
 
