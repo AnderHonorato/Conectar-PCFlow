@@ -1,7 +1,7 @@
 diff --git a/src/Program.cs b/src/Program.cs
 --- a/src/Program.cs
 +++ b/src/Program.cs
-@@ -1,5 +1,16 @@
+@@ -127,2 +127,11 @@
 -    var info=await ctx.Request.ReadFromJsonAsync<PairInput>();
 +    // Pareamento e um endpoint nao autenticado: limitar corpo e tratar JSON invalido.
 +    PairInput? info;
