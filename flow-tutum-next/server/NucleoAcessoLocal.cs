@@ -140,9 +140,13 @@ public sealed class SessoesRedeLocal
         {
             if (!_ativo) return false;
             var hash = Hash(token);
-            return _sessoes.TryGetValue(hash, out var credencial) &&
-                   credencial.ExpiraEm > agora &&
-                   credencial.EnderecoIp == Normalizar(endereco);
+            if (!_sessoes.TryGetValue(hash, out var credencial)) return false;
+            if (credencial.ExpiraEm <= agora)
+            {
+                _sessoes.Remove(hash);
+                return false;
+            }
+            return credencial.EnderecoIp == Normalizar(endereco);
         }
     }
 
