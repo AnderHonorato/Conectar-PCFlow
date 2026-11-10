@@ -41,6 +41,21 @@ for(const [name,authorization] of [
   assert.equal(response.headers.has('set-cookie'),false,'Revogação negada não deve criar sessão');
   console.log('PASS',`revogação ${name} => HTTP 401`);
 }
+// Regressão: a API pública de pareamento não interpreta formulários nem texto como JSON.
+for(const [name,contentType] of [
+  ['sem Content-Type',null],
+  ['formulário','application/x-www-form-urlencoded'],
+  ['texto simples','text/plain']
+]){
+  const response=await fetch(new URL('/api/pair',url),{
+    method:'POST',
+    ...(contentType===null?{body:new Uint8Array([123,125])}:{headers:{'content-type':contentType},body:'{}'}),
+    signal:AbortSignal.timeout(4000)
+  });
+  assert.equal(response.status,415,`Pareamento ${name}: esperado HTTP 415, recebido ${response.status}`);
+  assert.equal(response.headers.has('set-cookie'),false,'Formato rejeitado não pode criar sessão');
+  console.log('PASS',`pareamento ${name} => HTTP 415`);
+}
 const invalidPin=JSON.stringify({pin:'000000',name:'Teste de segurança'});
 const cases=[
   {name:'JSON malformado',body:'{"pin":',expected:400},
