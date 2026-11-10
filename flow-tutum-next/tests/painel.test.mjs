@@ -39,7 +39,7 @@ test("interação com Gboard respeita eventos de composição", () => {
   assert.match(html, /id="campo-teclado"/);
   assert.match(js, /compositionstart/);
   assert.match(js, /compositionend/);
-  assert.match(js, /diferencaDeDigitacao/);
+  assert.match(js, /enviarDigitacaoSegura/);
 });
 test("estado offline é explícito para não simular transmissão", () => {
   assert.match(html, /Vídeo indisponível/);
