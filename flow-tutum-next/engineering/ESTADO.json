@@ -43,7 +43,7 @@
     },
     "P0-06": {
       "status": "prepared_only",
-      "reason": "Políticas de autenticação em branch; endpoints do Next original não integrados"
+      "reason": "Politicas de autenticacao na branch; na fonte original AS foi aplicada protecao de /api/pair: limite 4096 bytes, resposta 400 para JSON invalido e 413 para corpo excessivo. Compilacao Windows Release aprovada; teste HTTP em execucao isolada ainda pendente."
     },
     "P0-07": {
       "status": "not_verified"
@@ -68,8 +68,10 @@
     "windows_pcflow_build_is_not_next_release": true,
     "local_device": "Ander-PC / dc7a13ee-58a4-4dce-8cee-288fed5d35f2",
     "local_geometry_patch": "applied_and_tested_2026-11-10",
-    "local_geometry_tests": "17/17 passed; .NET Release exit 0 on Ander-PC"
+    "local_geometry_tests": "17/17 passed; .NET Release exit 0 on Ander-PC",
+    "pair_hardening_local": "Program.cs na conta AS: patch aplicado; .NET Release build exit 0, 0 warnings/errors; teste HTTP 400/413/401 ainda nao executado",
+    "geometry_retest": "17/17 testes .NET passaram (exit 0); node --check pair-hardening.mjs exit 0"
   },
-  "next_priority": "P0-01: comparar Program.cs e endpoints reais com a branch, integrar um módulo por vez e testar fluxo de rede",
+  "next_priority": "P0-06: testar /api/pair em servidor isolado da conta AS e validar HTTP 400/413/401, sem alterar a instancia instalada; depois integrar ao repositorio Next original",
   "state_policy": "Modificar somente com evidências. Nunca converter prepared_only em complete por commit isolado."
 }
