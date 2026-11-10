@@ -5,7 +5,7 @@ import {
 } from "../web/geometria.mjs";
 import {
   comandoMouse, comandoRolagem, comandoTecla, diferencaDeDigitacao,
-  separarGrafemas, SessaoDeEntrada
+  separarGrafemas, enviarDigitacaoSegura, SessaoDeEntrada
 } from "../web/entrada.mjs";
 
 const origem = { origemLargura: 3440, origemAltura: 1440 };
@@ -146,4 +146,34 @@ test("transporte que retorna false encerra sessão e tenta soltar arraste", () =
   assert.equal(sessao.ativa, false);
   assert.equal(sessao.arrastando, false);
   assert.deepEqual(mensagens, ["down", "move", "up"]);
+});
+
+// Falha no segundo comando após envio de parte de uma autocorreção.
+// A reconexão não deve repetir Backspace ou texto que pode já estar no PC.
+test("IME não repete comandos parcialmente enviados após queda de Wi-Fi", () => {
+  const enviados = [];
+  const resultado = enviarDigitacaoSegura("casa", "cara", comando => {
+    enviados.push(comando);
+    return enviados.length < 2;
+  });
+  assert.equal(resultado.sucesso, false);
+  assert.equal(resultado.enviados, 1);
+  assert.equal(resultado.confirmado, "cara");
+  assert.deepEqual(enviados.map(c => c.keys), ["arrowleft", "backspace"]);
+  assert.deepEqual(diferencaDeDigitacao(resultado.confirmado, "cara"), []);
+});
+
+test("IME confirma lote completo e não altera baseline em exceção de validação", () => {
+  const enviados = [];
+  const ok = enviarDigitacaoSegura("", "Olá 👩🏽‍💻", comando => {
+    enviados.push(comando); return true;
+  });
+  assert.deepEqual(ok, { confirmado: "Olá 👩🏽‍💻", sucesso: true, enviados: 1 });
+  assert.deepEqual(enviados, [{ phase: "text", text: "Olá 👩🏽‍💻" }]);
+  assert.throws(() => enviarDigitacaoSegura("", "x".repeat(2001), () => true), RangeError);
+});
+
+test("IME trata exceção de transporte como falha sem repetir lote", () => {
+  const resultado = enviarDigitacaoSegura("", "olá", () => { throw Error("Wi-Fi caiu"); });
+  assert.deepEqual(resultado, { confirmado: "olá", sucesso: false, enviados: 0 });
 });
