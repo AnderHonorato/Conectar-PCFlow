@@ -46,3 +46,17 @@ test("dois dedos parados ainda permitem clique direito deliberado", () => {
   assert.equal(g.finalizar(1, 50), null);
   assert.equal(g.finalizar(2, 55), "right");
 });
+
+// Perda de foco/reconexão não pode transformar ponteiros antigos em cliques.
+test("cancelarTudo descarta ponteiros ativos e permite novo gesto limpo", () => {
+  const g = new GestosTouchpad();
+  g.iniciar(1, 10, 10, 0);
+  g.iniciar(2, 20, 10, 5);
+  g.cancelarTudo();
+  assert.equal(g.quantidade, 0);
+  assert.equal(g.finalizar(1, 30), null);
+  assert.equal(g.finalizar(2, 40), null);
+  assert.equal(g.mover(1, 50, 50), null);
+  g.iniciar(3, 10, 10, 100);
+  assert.equal(g.finalizar(3, 130), "left");
+});
