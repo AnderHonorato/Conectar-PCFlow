@@ -178,7 +178,8 @@ Ainda não estão implementados. Detalhe e consequência ficam no plano.
 | Slice | Status |
 |-------|--------|
 | 0 Preflight, plano, matriz e leitura do vídeo | Feito nesta branch. Coluna de evidência preenchida. Implementação não começou. |
-| 1 a 11, 13 e 14 | Não iniciados. |
+| 1 Sessão e descoberta | Implementado no corte pedido: protocolo 2, fixtures Kotlin e C#, descoberta UDP com id estável, lista, pareamento, revogação, máquina A.1, heartbeat, reconexão e safety release. T09 mDNS e T10 instância única/startup ficam de fora deste corte. |
+| 2 a 11, 13 e 14 | Não iniciados. |
 | 12 Conta e PRO | Plano revisto pelo ADR-018. Não implementado. Banco, backend e pagamento ficam fora do corte. |
 
 ## Leitura do vídeo
@@ -188,6 +189,12 @@ O corte de 3:34 foi lido pelos frames em `docs/reference/analysis_assets/` e reg
 ## Decisão do dono — slice 12
 
 Em 2026-11-10 o dono do produto fechou o corte de conta e PRO. O registro normativo é o ADR-018. O plano em `docs/superpowers/plans/2026-11-10-remote-control-rebuild.md` deixa de pedir servidor de desenvolvimento, banco, backend real ou provedor de pagamento. O que o slice entrega, quando for implementado, são as portas `AccountPort`, `ProfilePort`, `SettingsSyncPort`, `EntitlementPort` e `BillingPort`, o contrato compartilhado e dois adaptadores: um de memória só em build debug ou internal, e um desconfigurado em produção. Entitlement com `source=dev` não pode ser aceito em release. Compra não conclui enquanto o dono não entregar o provedor. O socket de controle do PC abre com essas portas desligadas.
+
+## Slice 1 executado
+
+Branch `cursor/slice-1-session-discovery-df46`. O núcleo `windows/PCFlow.Core` fala o protocolo 2 (`session.hello`, `session.auth`, `session.capabilities`, `session.heartbeat`, `session.ack`, `session.error`). Descoberta UDP continua em `PCFLOW_DISCOVER_V1` e a resposta traz `deviceId`; sem `deviceId` o anúncio é ignorado. O token fica no id do PC, não no IP. Revogação marca o dispositivo e derruba a sessão. Queda com botão ou tecla presos gera soltura no agente. Três heartbeats perdidos saem de Ready. Build de produção de conta não entrou neste slice.
+
+Verificação local: `dotnet test windows/PCFlow.Core.Tests/PCFlow.Core.Tests.csproj -c Release` — 23 passed, 0 failed. `gradle -p android :app:testDebugUnitTest` — 8 passed, 0 failed. `gradle -p android :app:assembleDebug` — sucesso. `dotnet build windows/PCFlow.Windows/PCFlow.Windows.csproj -c Release -p:EnableWindowsTargeting=true` — sucesso, 0 warnings.
 
 ## Fora desta execução
 

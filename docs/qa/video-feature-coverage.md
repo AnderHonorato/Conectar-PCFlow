@@ -30,15 +30,15 @@ Nenhum `PASS` foi atribuído. O repositório não tem projeto de teste, e o Apê
 
 | ID | Evidência vídeo | Feature | Android | Windows | Web | Testes | Status |
 |----|-----------------|---------|---------|---------|-----|--------|--------|
-| V01 | não aparece neste corte | Lista de PCs | `android/app/src/main/java/com/ander/pcflow/MainActivity.kt` (`TelaConectar`) | `windows/PCFlow.Windows/Core/ServidorPcFlow.cs` (resposta UDP) | ABSENT | nenhum | PRESENT_UNVERIFIED |
+| V01 | não aparece neste corte | Lista de PCs | `android/app/src/main/java/com/ander/pcflow/MainActivity.kt` (`TelaConectar`) | `windows/PCFlow.Windows/Core/ServidorPcFlow.cs` (resposta UDP) | ABSENT | DiscoveryTests.ResponseCarriesDeviceId | PARTIAL |
 | V02 | 01:24–03:32 cabeçalho com PC e janela; Wi-Fi ou Bluetooth só na ajuda 00:14–00:16 | Status e método de conexão | `MainActivity.kt` (texto Conectado e host:porta; sem método de transporte) | `windows/PCFlow.Windows/MainWindow.xaml` (`TextoStatus`) | ABSENT | nenhum | PARTIAL |
-| V03 | ajuda 00:14–00:16; sessão já conectada 01:24–03:32, sem descoberta | Wi-Fi / LAN | `android/app/src/main/java/com/ander/pcflow/SessaoPcFlow.kt` (UDP 45455, TCP 45456) | `ServidorPcFlow.cs` (mesmas portas) | ABSENT | nenhum | PRESENT_UNVERIFIED |
+| V03 | ajuda 00:14–00:16; sessão já conectada 01:24–03:32, sem descoberta | Wi-Fi / LAN | `android/app/src/main/java/com/ander/pcflow/SessaoPcFlow.kt` (UDP 45455, TCP 45456) | `ServidorPcFlow.cs` (mesmas portas) | ABSENT | DiscoveryTests.ResponseCarriesDeviceId | PARTIAL |
 | V04 | só o texto da ajuda 00:14–00:16; sem sessão Bluetooth | Bluetooth | ABSENT (o ícone da notificação é drawable de sistema, sem stack Bluetooth) | ABSENT | ABSENT | nenhum | ABSENT |
-| V05 | ajuste ligado 00:04–00:06; queda não aparece | Reconexão automática | `SessaoPcFlow.kt` (`agendarReconexao`, só em memória e no mesmo host) | Nova conexão TCP é aceita; sem heartbeat | ABSENT | nenhum | PARTIAL |
-| V06 | subtítulo do ajuste 00:04–00:06; lista do último PC não aparece | Último PC | `SessaoPcFlow.kt` (`ultimoPc` volátil) | `windows/PCFlow.Windows/Core/Modelos.cs` (`DispositivoAutorizado`, por id) | ABSENT | nenhum | PARTIAL |
-| V07 | não aparece neste corte | Erros de permissão, protocolo e rede | `SessaoPcFlow.kt` (mensagem genérica de exceção; sem fluxo de rede local) | `ServidorPcFlow.cs` (PIN inválido, dispositivo não autorizado) | ABSENT | nenhum | PARTIAL |
-| V08 | não aparece neste corte | Heartbeat | ABSENT | ABSENT | ABSENT | nenhum | ABSENT |
-| V09 | não aparece neste corte | Negociação de capabilities | `SessaoPcFlow.kt` ignora `protocolo` | `ServidorPcFlow.cs` envia `protocolo = 1` só na descoberta | ABSENT | nenhum | ABSENT |
+| V05 | ajuste ligado 00:04–00:06; queda não aparece | Reconexão automática | `SessaoPcFlow.kt` (`agendarReconexao` e `PoliticaReconexao`) | `SessionEngine` descarta comando fora de Ready | ABSENT | ReconnectTests.StalePointerIsNotReplayed | PARTIAL |
+| V06 | subtítulo do ajuste 00:04–00:06; lista do último PC não aparece | Último PC | `DiretorioToken` e `SessaoPcFlow.kt` | `DeviceDirectory` e `TrustStore` | ABSENT | ReconnectQueueTest.tokenSobreviveTrocaDeIp | PASS |
+| V07 | não aparece neste corte | Erros de permissão, protocolo e rede | `SessaoPcFlow.kt` (mensagem genérica de exceção; sem fluxo de rede local) | `ServidorPcFlow.cs` (PIN inválido, dispositivo não autorizado) | ABSENT | SessionFlowTests.PairMoveAndReleaseOverTcp | PARTIAL |
+| V08 | não aparece neste corte | Heartbeat | `MonitorHeartbeat` em `MaquinaConexao.kt` | `HeartbeatMonitor` e `SessionEngine.OnHeartbeatClock` | ABSENT | HeartbeatTests.MissedHeartbeatLeavesReadySession | PASS |
+| V09 | não aparece neste corte | Negociação de capabilities | `SessaoPcFlow.kt` trata `session.capabilities` | `SessionEngine` anuncia capabilities depois da auth | ABSENT | SessionFlowTests.PairMoveAndReleaseOverTcp | PASS |
 | V10 | 01:48 e 02:04–02:42, área dominante | Touchpad em área grande | `MainActivity.kt` (`Touchpad`) | N/A | ABSENT | nenhum | PARTIAL |
 | V11 | ajuda 00:18; ponto do dedo 02:06–02:20 | Pointer relativo | `MainActivity.kt` (`mouse_move` com delta) | `windows/PCFlow.Windows/Core/EntradaWindows.cs` (`Mover`, `MOUSEEVENTF_MOVE`) | ABSENT | nenhum | PRESENT_UNVERIFIED |
 | V12 | ajuda 00:18, toque igual a clique | Toque = clique esquerdo | `MainActivity.kt` (`detectTapGestures`) | `EntradaWindows.cs` (`Clique` left) | ABSENT | nenhum | PRESENT_UNVERIFIED |
@@ -97,7 +97,7 @@ Nenhum `PASS` foi atribuído. O repositório não tem projeto de teste, e o Apê
 | V65 | 03:06 não desenha A–Z; letras ficam no IME 03:02 | Sem teclado alfabético desenhado à mão | `MainActivity.kt` (não há teclado alfabético desenhado) | N/A | N/A | nenhum | PRESENT_UNVERIFIED |
 | V66 | Shift, Ctrl, Win e Alt 03:12–03:32 | Shift, Ctrl, Windows e Alt | ABSENT | ABSENT | ABSENT | nenhum | ABSENT |
 | V67 | subtítulo 00:04; ajuda 01:06 | Máquina de estados toque versus segurar | ABSENT | ABSENT | ABSENT | nenhum | ABSENT |
-| V68 | não aparece neste corte | Soltura garantida de modificador e tecla | ABSENT | `EntradaWindows.cs` (`Tecla` faz down+up imediato; sem safety release) | ABSENT | nenhum | ABSENT |
+| V68 | não aparece neste corte | Soltura garantida de modificador e tecla | `SegurancaEntrada` e descarte da fila na queda | `ReconnectTests.ButtonDownIsReleasedOnDisconnect` no `SessionEngine` | ABSENT | ReconnectTests.ButtonDownIsReleasedOnDisconnect | PASS |
 | V69 | 03:06 e ajuda 01:06 | F1 a F12 | ABSENT | ABSENT | ABSENT | nenhum | ABSENT |
 | V70 | Esc e Tab 03:06 | Esc e Tab | `MainActivity.kt` | `ExecutorComandos.cs` (VK 0x1B, 0x09) | ABSENT | nenhum | PRESENT_UNVERIFIED |
 | V71 | Insert, Home, PgUp, Delete, End, PgDn 03:06 | Insert, Home, PgUp, Delete, End, PgDn | `MainActivity.kt` (só DELETE) | `ExecutorComandos.cs` (DELETE, HOME, END, PAGEUP, PAGEDOWN; sem INSERT) | ABSENT | nenhum | PARTIAL |
