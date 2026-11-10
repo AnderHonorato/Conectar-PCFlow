@@ -22,16 +22,16 @@
   },
   "work_status": {
     "P0-01": {
-      "status": "blocked",
-      "reason": "Código original do Next está no PC AS; último estado observado do dispositivo foi offline",
-      "evidence": "Remote Desktop Commander"
+      "status": "in_progress",
+      "reason": "Dispositivo Ander-PC esteve online e fontes originais da conta AS foram inspecionados em 2026-11-10. Conexão caiu antes de concluir execução de testes e integração.",
+      "evidence": "Inventário local: src/Program.cs, Coordinates.cs, InputEngine.cs, KeyboardEngine.cs, LocalAccessSettings.cs, SessionStatus.cs, TrayHost.cs; web/app.js, enhancements.js, app.css, index.html; testes .NET e Node; bin-alpha10."
     },
     "P0-02": {
       "status": "not_started"
     },
     "P0-03": {
       "status": "prepared_only",
-      "reason": "Geometria e interface em branch; renderizador original não integrado"
+      "reason": "Geometria e interface na branch; fonte local Coordinates.cs recebeu validação de largura/altura finitas e 10 casos de regressão em tests/Program.cs, ainda sem execução confirmada nem commit GitHub. Renderizador não integrado."
     },
     "P0-04": {
       "status": "prepared_only",
@@ -65,8 +65,11 @@
   "verification": {
     "last_next_ci": "passed",
     "next_ci_reference": "https://github.com/AnderHonorato/Conectar-PCFlow/actions/runs/42742143452",
-    "windows_pcflow_build_is_not_next_release": true
+    "windows_pcflow_build_is_not_next_release": true,
+    "local_device": "Ander-PC / dc7a13ee-58a4-4dce-8cee-288fed5d35f2",
+    "local_geometry_patch": "applied_unverified_2026-11-10",
+    "local_geometry_tests": "not_confirmed_due_to_remote_disconnect"
   },
-  "next_priority": "P0-01",
+  "next_priority": "P0-01: reconectar AS, executar teste de geometria, preservar cópia dos fontes e comparar integração Next",
   "state_policy": "Modificar somente com evidências. Nunca converter prepared_only em complete por commit isolado."
 }
