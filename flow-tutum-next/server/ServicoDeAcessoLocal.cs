@@ -48,6 +48,17 @@ public sealed class ServicoDeAcessoLocal
     public bool PodeControlar(string? token, IPAddress? remoto, IPAddress? destino, DateTimeOffset agora) =>
         _politica.EhPermitido(remoto, destino) && _sessoes.Verificar(token, remoto, agora);
 
+    /// <summary>
+    /// Revoga uma sessão específica somente quando o token ainda é válido,
+    /// pertence ao IP remoto e chegou pela interface LAN autorizada.
+    /// Chamadas repetidas ou de outros dispositivos não revogam terceiros.
+    /// </summary>
+    public bool Desconectar(string? token, IPAddress? remoto, IPAddress? destino, DateTimeOffset agora)
+    {
+        if (!PodeControlar(token, remoto, destino, agora)) return false;
+        return _sessoes.Revogar(token);
+    }
+
     // Acionado pelo ícone da bandeja Windows. Revoga até as conexões já abertas.
     public void DefinirAcessoDireto(bool permitir) => _sessoes.DefinirAtivo(permitir);
 }
