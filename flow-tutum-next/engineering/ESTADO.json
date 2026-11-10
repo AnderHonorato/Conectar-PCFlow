@@ -72,8 +72,15 @@
     "local_geometry_tests": "17/17 passed; .NET Release exit 0 on Ander-PC",
     "pair_hardening_local": "2026-11-10: Release isolada .NET build exit 0, 0 avisos/erros; testes HTTP 10/10 PASS (400, 413 Content-Length/chunked, 401, 429); servidor porta 54937 encerrado; nenhuma mudança na instalação.",
     "geometry_retest": "17/17 testes .NET passaram (exit 0); node --check pair-hardening.mjs exit 0",
-    "pair_content_type_20261110": "Ander-PC, AS, porta temporária 54939: build .NET Release exit 0, 0 avisos/erros; HTTP 415/400/401 PASS; porta fechada após teste. Alteração aplicada somente em src/Program.cs local; teste de regressão versionado em flow-tutum-next/tests/pareamento-http.mjs (ainda não executado no CI)."
+    "pair_content_type_20261110": "Ander-PC, AS, porta temporária 54939: build .NET Release exit 0, 0 avisos/erros; HTTP 415/400/401 PASS; porta fechada após teste. Alteração aplicada somente em src/Program.cs local; teste de regressão versionado em flow-tutum-next/tests/pareamento-http.mjs (ainda não executado no CI).",
+    "security_module_private_ip_guard_20261110": {
+      "status": "committed_pending_ci",
+      "description": "SessoesRedeLocal recusa emissão de tokens para IP público, loopback e IPv6 não mapeado; IPv4 privado mapeado segue aceito",
+      "code_commit": "d297d9d342f01c2c685b6427b556d271edb330ad",
+      "test_commit": "c8523167a1b4389300192044ac003ee898672243",
+      "scope": "GitHub modular; não integrado ao servidor original AS nem ao APK"
+    }
   },
-  "next_priority": "P0-01: versionar fonte original Next da conta AS com revisão de segredos e executar a nova suíte de integração 415/400/401/413 no CI Windows; validar 429 e cliente Android antes de release.",
+  "next_priority": "Confirmar CI no commit c8523167; incorporar restrições de sessões e suíte HTTP ao servidor original AS sem regressão, depois validar Android.",
   "state_policy": "Modificar somente com evidências. Nunca converter prepared_only em complete por commit isolado."
 }
