@@ -159,7 +159,7 @@ Ainda não estão implementados. Detalhe e consequência ficam no plano.
 | ADR-003 | Bluetooth espera um spike Android + Windows antes de escolher RFCOMM ou BLE. O comando não conhece o transporte. |
 | ADR-004 | O input fica no WinExe de bandeja, por usuário. Serviço do Windows, se um dia existir para update ou startup, só fala com o agente por IPC local autenticado. |
 | ADR-005 | Produto e `applicationId` continuam PCFlow / `com.ander.pcflow`. O APK `br.flowtutum` não é base de código, de marca nem de URL. |
-| ADR-006 | Conta e PRO entram como arquitetura real, fora do hot path. Sem login fake e sem preço copiado. |
+| ADR-006 | Conta e PRO fazem parte do produto e ficam fora do hot path. Sem login falso e sem preço copiado. O corte de implementação é o ADR-018. |
 | ADR-007 | A identidade visual nova usa carvão e um verde próprio. O grafite/dourado/turquesa atual permanece até o slice de aparência. Sem cópia de arte de terceiros. |
 | ADR-008 | Comando de energia só executa depois de confirmação na UI e de capability/política no agente. |
 | ADR-009 | Identidade estável do dispositivo, não o IP. Segredo de sessão em armazenamento protegido (Keystore / DPAPI). |
@@ -171,17 +171,23 @@ Ainda não estão implementados. Detalhe e consequência ficam no plano.
 | ADR-015 | Nenhuma keystore é gerada nem commitada nesta reconstrução sem decisão humana de release. |
 | ADR-016 | Revisto com a gravação. Com a opção ligada, toque envia o modificador sozinho, segurar ativa a combinação e um segundo acionamento trava. A soltura em queda continua obrigatória. |
 | ADR-017 | Streaming, gamepad, webcam, explorador de arquivos e monitor virtual ficam fora desta reconstrução, salvo se T00 encontrar a função no vídeo e uma task for adicionada antes de implementar. |
+| ADR-018 | Decisão do dono em 2026-11-10, slice 12. Conta e PRO entram no app e nos contratos: auth, perfil, sync de ajustes e entitlement, atrás de portas e adaptadores. Este corte não liga banco de dados, backend real nem provedor de pagamento. Essas três ligações são dependência externa, à espera do dono, e ficam nomeadas no plano. Não são feature adiada nem botão falso. O ambiente dev usa adaptador em memória e entitlement `source=dev`, impossível em build de produção. O controle local do PC não chama essas portas. |
 
 ## Status dos slices
 
 | Slice | Status |
 |-------|--------|
 | 0 Preflight, plano, matriz e leitura do vídeo | Feito nesta branch. Coluna de evidência preenchida. Implementação não começou. |
-| 1 a 14 | Não iniciados. Critério de saída está no plano. |
+| 1 a 11, 13 e 14 | Não iniciados. |
+| 12 Conta e PRO | Plano revisto pelo ADR-018. Não implementado. Banco, backend e pagamento ficam fora do corte. |
 
 ## Leitura do vídeo
 
 O corte de 3:34 foi lido pelos frames em `docs/reference/analysis_assets/` e registrado em `docs/reference/02_ANALISE_VIDEO_FRAME_A_FRAME.md`. A coluna de evidência da matriz deixou de estar pendente. Onde a função não aparece, a célula diz isso. ADR-016 mudou: toque envia o modificador, segurar ativa, segundo acionamento trava. O gyro mostrado é botão segurado mais inclinação. Energia aparece sem confirmação; T39 não foi afrouxada. Preços do modal não foram transcritos.
+
+## Decisão do dono — slice 12
+
+Em 2026-11-10 o dono do produto fechou o corte de conta e PRO. O registro normativo é o ADR-018. O plano em `docs/superpowers/plans/2026-11-10-remote-control-rebuild.md` deixa de pedir servidor de desenvolvimento, banco, backend real ou provedor de pagamento. O que o slice entrega, quando for implementado, são as portas `AccountPort`, `ProfilePort`, `SettingsSyncPort`, `EntitlementPort` e `BillingPort`, o contrato compartilhado e dois adaptadores: um de memória só em build debug ou internal, e um desconfigurado em produção. Entitlement com `source=dev` não pode ser aceito em release. Compra não conclui enquanto o dono não entregar o provedor. O socket de controle do PC abre com essas portas desligadas.
 
 ## Fora desta execução
 

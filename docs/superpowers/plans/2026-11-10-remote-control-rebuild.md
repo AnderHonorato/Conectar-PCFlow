@@ -59,7 +59,7 @@ Ficam explícitas e testadas, sem combinações soltas de booleanos:
 
 ### Rulings que travam a arquitetura
 
-ADR-001 a ADR-017 estão no ledger. Os que mudam desenho de código:
+ADR-001 a ADR-018 estão no ledger. Os que mudam desenho de código:
 
 - ADR-001: schema único, JSON por linha, adaptador v1.
 - ADR-002: TCP permanece no hot path Android até benchmark; Web usa WebSocket no mesmo dispatcher.
@@ -68,6 +68,7 @@ ADR-001 a ADR-017 estão no ledger. Os que mudam desenho de código:
 - ADR-005: `com.ander.pcflow` / PCFlow. O APK `br.flowtutum` não é fonte.
 - ADR-008: energia só com confirmação e política.
 - ADR-016, revisto depois da gravação: com a opção ligada, toque envia o modificador sozinho; segurar ativa para a combinação; um segundo acionamento trava. Soltura em queda de sessão continua obrigatória. O toque não arma a tecla seguinte.
+- ADR-018: conta e PRO são portas e adaptadores. Banco, backend real e pagamento ficam fora do corte, como dependência externa do dono. Entitlement de dev não existe em produção. O controle local não chama essas portas.
 
 ## Tech stack
 
@@ -651,7 +652,7 @@ Saída: comandos de navegador e CRUD de favoritos, com sync definido e desligado
 - Interfaces: `syncVersion` e um cliente que só corre com conta presente e com a preferência ligada.
 - RED: `FavoriteSyncTests.OffByDefaultDoesNotOpenSocket` falha se o cliente de conta for tocado no CRUD local.
 - Comando: `gradle -p android :app:testDebugUnitTest --tests com.ander.pcflow.favorites.FavoriteSyncTest`
-- Implementação: o desenho do sync usa a conta de T52. Sem conta, o CRUD de T32 é a função completa. Conflito de `syncVersion` fica testado com dois vetores.
+- Implementação: o sync de favoritos usa `SettingsSyncPort` de T53. No debug, o adaptador em memória guarda o vetor. Em release, a porta desconfigurada não abre rede e o CRUD local de T32 segue inteiro. Conflito de `syncVersion` é testado com dois vetores em memória. Sem banco.
 - GREEN: default não abre conexão; um upsert com sync ligado envia só label, target e versão.
 - Commit: `feat: define sync de favoritos desligado por padrão`
 
@@ -889,67 +890,77 @@ Saída: descoberta, conexão e transporte em hardware Android e Windows, na mesm
 
 ### Slice 12 — account/PRO
 
-Saída: auth e entitlement reais, ou preservados. Não há backend no repo, então a saída é construir o mínimo real. O controle local não depende disso.
+ADR-018, decisão do dono em 2026-11-10. Conta e PRO ficam no produto. Este corte entrega contrato e adaptadores. Não entrega banco de dados, backend real nem provedor de pagamento. Essas três peças são dependência externa, listada abaixo, e esperam o dono. Não são tarefa escondida nem botão que finge concluir.
 
-#### T52 — Auth e perfil locais de desenvolvimento
+Saída: `AccountPort`, `ProfilePort`, `SettingsSyncPort`, `EntitlementPort` e `BillingPort` no app e no contrato compartilhado (Kotlin, C# e TypeScript). Build debug ou internal usa adaptador em memória e pode emitir entitlement `source=dev`. Build de produção usa o adaptador desconfigurado, recusa `source=dev` e não abre socket de conta. O controle local conecta com as cinco portas desligadas.
+
+Dependência externa, fora deste corte:
+
+| Ligação | Estado | Quem destrava |
+|---------|--------|----------------|
+| Banco de dados | não ligar cliente, connection string nem migração | dono do produto |
+| Backend real de conta | não criar servidor, URL fixa nem usuário remoto | dono do produto |
+| Provedor de pagamento | não integrar loja nem cobrança | dono do produto |
+
+#### T52 — Portas de auth e perfil
 
 - Responsável: A9. Apoio: A10.
-- Pode alterar: módulo de conta Android e um host local de dev.
-- Não alterar: `SessaoPcFlow` / dispatcher de input. Teste prova que o socket de controle abre com o host de conta desligado.
-- Interfaces: login, sessão de conta, perfil. Ambiente dev explícito. Produção não aponta para endpoint inventado; a URL sai de configuração vazia até existir backend de verdade.
-- RED: `AccountIndependenceTest.ControlConnectsWithAccountHostDown` falha se o conectar PC consultar a conta.
-- Comando: `gradle -p android :app:testDebugUnitTest --tests com.ander.pcflow.account.AccountIndependenceTest`
-- Implementação: fluxo real contra um servidor de dev no repo, com usuário de teste fixo só no build debug. Release com URL vazia mostra conta indisponível, não um login que finge sucesso. Cobre V116, V117 e V120.
-- GREEN: o teste de independência passa; um teste de credencial errada não cria sessão.
-- Commit: `feat: adiciona conta de desenvolvimento fora do controle local`
+- Pode alterar: contrato de conta, módulo Android de conta, espelho dos tipos no Core e na Web. Só interfaces e adaptadores.
+- Não alterar: `SessaoPcFlow`, dispatcher de input, e qualquer cliente de banco, HTTP de conta ou SDK de pagamento.
+- Interfaces: `AccountPort.signIn`, `signOut`, `currentSession`; `ProfilePort.get`, `update`. Resultados fechados: `signedIn`, `rejected`, `unconfigured`. `DevAccountAdapter` guarda a sessão em memória e só é registrado em debug ou internal. `UnconfiguredAccountAdapter` é o padrão de release e devolve `unconfigured` sem sucesso falso.
+- RED: `AccountIndependenceTest.ControlConnectsWithAccountPortUnbound` falha se o conectar PC chamar `AccountPort`. `AccountPortTest.ReleaseCannotResolveDevAdapter` falha se a factory de release devolver `DevAccountAdapter`.
+- Comando: `gradle -p android :app:testDebugUnitTest --tests com.ander.pcflow.account.AccountIndependenceTest --tests com.ander.pcflow.account.AccountPortTest`
+- Implementação: as portas e os dois adaptadores. Credencial errada no adaptador de dev devolve `rejected` e não cria sessão. A UI de release mostra conta não configurada, com o nome da dependência externa, sem formulário que finja login. Cobre V116, V117 e V120.
+- GREEN: os dois testes passam e o módulo de conta não referencia driver de banco nem cliente HTTP.
+- Commit: `feat: adiciona portas de conta sem backend`
 
-#### T53 — Sync de perfil e classificação de dados
+#### T53 — Porta de sync e classificação
 
 - Responsável: A9.
-- Pode alterar: `docs/privacy/data-classification.md` e o cliente de sync.
-- Não alterar: a lista do Apêndice H. Tecla, clipboard, título, IP além do estado local, imagem e log bruto não sincronizam.
-- Interfaces: export e delete do que realmente existe (conta, ajustes não sensíveis, favoritos, layout, entitlement).
-- RED: `SyncClassificationTest.ClipboardIsNotInPayload` falha se o DTO de sync tiver campo de clipboard ou de tecla.
-- Comando: `gradle -p android :app:testDebugUnitTest --tests com.ander.pcflow.account.SyncClassificationTest`
-- Implementação: sincronizar só preferências não sensíveis, favoritos, layout de painéis e metadados de conta. Documentar que compliance não foi inventada: o que existe é delete e export desses campos.
-- GREEN: o DTO de sync não contém os tipos proibidos e o export devolve só os permitidos.
-- Commit: `feat: sincroniza só dados não sensíveis da conta`
+- Pode alterar: `SettingsSyncPort`, `docs/privacy/data-classification.md` e o DTO de sync no contrato.
+- Não alterar: a lista do Apêndice H. Tecla, clipboard, título, IP além do estado local, imagem e log bruto não entram no DTO. Não abrir rede.
+- Interfaces: `SettingsSyncPort.push` e `pull`, mais `exportLocal` e `deleteLocal`. O adaptador de dev grava em memória. O adaptador de release devolve `unconfigured` e não apaga o ajuste local.
+- RED: `SyncClassificationTest.ClipboardIsNotInPayload` falha se o DTO tiver clipboard ou tecla. `SyncPortTest.UnconfiguredLeavesLocalSettings` falha se o pull desconfigurado zerar o DataStore.
+- Comando: `gradle -p android :app:testDebugUnitTest --tests com.ander.pcflow.account.SyncClassificationTest --tests com.ander.pcflow.account.SyncPortTest`
+- Implementação: o contrato carrega só preferências não sensíveis, favoritos, layout de painéis e metadados de conta. O documento de classificação diz o que o adaptador faz hoje e nomeia o backend como dependência externa do ADR-018. Não inventa compliance além de export e delete locais.
+- GREEN: os dois testes passam. Nenhum chama rede.
+- Commit: `feat: define a porta de sync sem banco`
 
-#### T54 — Entitlement e gates
+#### T54 — Entitlement
 
 - Responsável: A9. Apoio: A13.
-- Pode alterar: `Entitlement`, gates no cliente e no agente quando a capability for `entitlement_required`.
-- Não alterar: pointer, teclado e conexão LAN, que não são gate.
-- Interfaces: `productId`, `status` active|expired|grace|none, `source` store|server|dev, `validatedAt`, `expiresAt`.
-- RED: `EntitlementTests.DevSourceRejectedInRelease` falha se um build release aceitar `source=dev`.
-- Comando: `dotnet test windows/PCFlow.Core.Tests -c Release --filter EntitlementTests`
-- Implementação: gate testado dos dois lados para a capability marcada como PRO. LAN básica permanece `none`. Dev entitlement só em debug/internal.
-- GREEN: release rejeita dev; uma capability marcada exige status active; pointer.move com status none continua autorizado.
-- Commit: `feat: aplica entitlement sem bloquear o controle local`
+- Pode alterar: `EntitlementPort` e o gate quando a capability for `entitlement_required`.
+- Não alterar: pointer, teclado e conexão LAN. Não consultar loja nem servidor.
+- Interfaces: `productId`, `status` active|expired|grace|none, `source` store|server|dev, `validatedAt`, `expiresAt`. `DevEntitlementAdapter` só existe no classpath de debug ou internal. Release não tem esse tipo registrado.
+- RED: `EntitlementTests.DevSourceRejectedInRelease` falha se um build release aceitar `source=dev` ou resolver o adaptador de dev.
+- Comando: `dotnet test windows/PCFlow.Core.Tests -c Release --filter EntitlementTests` e o gêmeo Android `EntitlementPortTest`.
+- Implementação: no debug, o adaptador de dev pode marcar uma capability de PRO como active. Em release a mesma capability fica `none` ou `entitlement_required`, nunca active por `source=dev`. `pointer.move` com status none continua autorizado.
+- GREEN: release rejeita dev; o teste de debug mostra o gate abrir só com o adaptador de dev; o teste de release mostra o gate fechado sem rede.
+- Commit: `feat: separa entitlement de desenvolvimento do build de produção`
 
-#### T55 — Preço configurável
+#### T55 — Catálogo e porta de cobrança
 
 - Responsável: A9.
-- Pode alterar: configuração de preço do produto próprio.
-- Não alterar: qualquer número visto em vídeo ou no APK de outro nome. Enquanto o dono do produto não fornecer preço, a UI mostra o plano sem valor inventado.
-- Interfaces: `PriceCatalog` lido de configuração.
-- RED: `PriceCatalogTest.EmptyCatalogHidesAmount` falha se a UI renderizar um preço constante no código.
-- Comando: `gradle -p android :app:testDebugUnitTest --tests com.ander.pcflow.account.PriceCatalogTest`
-- Implementação: catálogo configurável. Teste com um valor de fixture próprio do repo, claramente falso e não copiado, só para provar a formatação.
-- GREEN: catálogo vazio não mostra quantia; catálogo de teste mostra a quantia da fixture.
-- Commit: `feat: lê o preço de PRO da configuração`
+- Pode alterar: `PriceCatalog` e `BillingPort`.
+- Não alterar: números vistos no vídeo ou em outro APK. Não adicionar SDK de loja nem provedor.
+- Interfaces: `PriceCatalog` lido de configuração, vazio por padrão. `BillingPort.startPurchase` devolve `unconfigured`. O adaptador único deste corte é `UnconfiguredBillingPort`, nos dois tipos de build. Não há adaptador de dev que simule pagamento aprovado.
+- RED: `PriceCatalogTest.EmptyCatalogHidesAmount` falha se a UI mostrar preço constante. `BillingPortTest.PurchaseDoesNotSucceed` falha se `startPurchase` devolver active ou abrir socket.
+- Comando: `gradle -p android :app:testDebugUnitTest --tests com.ander.pcflow.account.PriceCatalogTest --tests com.ander.pcflow.account.BillingPortTest`
+- Implementação: a UI mostra os três períodos sem quantia até o dono entregar o catálogo. A ação de continuar explica que o pagamento não está configurado e aponta a dependência externa. Fixture de formatação, se existir, fica só no teste e não usa valor da gravação.
+- GREEN: catálogo vazio não mostra quantia; `startPurchase` devolve `unconfigured` e zero chamadas de rede.
+- Commit: `feat: deixa a cobrança atrás de porta desconfigurada`
 
-#### T56 — Delete e export
+#### T56 — Export e delete locais
 
 - Responsável: A9. Apoio: A10.
-- Pode alterar: endpoints do host de dev e a UI de conta.
-- Não alterar: dados que a classificação não armazena; não há o que exportar deles.
-- Interfaces: `exportAccount()`, `deleteAccount()`.
-- RED: `AccountLifecycleTest.DeleteRemovesProfile` falha.
+- Pode alterar: os métodos locais das portas de T53 e a UI de conta.
+- Não alterar: dados que a classificação não armazena. Não chamar API remota de exclusão.
+- Interfaces: `exportLocal()` e `deleteLocal()` no adaptador em memória e no estado local da conta. O adaptador desconfigurado recusa delete remoto com `unconfigured` e não apaga o token do PC.
+- RED: `AccountLifecycleTest.DeleteRemovesDevProfileOnly` falha se o delete apagar `DeviceRecord` ou se tentar endpoint remoto.
 - Comando: `gradle -p android :app:testDebugUnitTest --tests com.ander.pcflow.account.AccountLifecycleTest`
-- Implementação: export JSON dos campos de T53 e delete que derruba a sessão de conta. O token do PC local permanece, porque não é dado da nuvem.
-- GREEN: depois do delete o perfil não é lido de volta; o `DeviceRecord` local continua.
-- Commit: `feat: exporta e apaga a conta de desenvolvimento`
+- Implementação: no debug, export devolve o JSON permitido e delete esquece o perfil em memória. Em release, a ação informa que a exclusão remota espera o backend do dono. O token do PC local permanece.
+- GREEN: o perfil de dev não volta depois do delete; o `DeviceRecord` continua; o teste não abre socket.
+- Commit: `feat: exporta e apaga a conta só no adaptador local`
 
 ### Slice 13 — Web/PWA
 
@@ -1226,7 +1237,7 @@ A leitura não criou task nova. Ajustou tasks que já existiam:
 - T40: tema do sistema, grade própria (não as artes do corte) e seletor de fotos do sistema.
 - T42: mapa da ajuda do corte, com texto nosso.
 - T44: segurar o botão e inclinar.
-- T54 e T55: modal dispensável sobre a sessão, três períodos, nenhum preço copiado. O controle local continua depois de fechar.
+- T54 e T55, com o ADR-018: o modal dispensável e os três períodos continuam na interface. Não há preço copiado, nem cobrança, nem backend. O controle local continua depois de fechar.
 
 Funções da seção 7 sem timestamp continuam com task. O corte não é a lista completa do prompt.
 
