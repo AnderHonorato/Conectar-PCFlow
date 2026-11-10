@@ -207,7 +207,7 @@ public sealed class LimitadorDeConexoes
         lock (_sincronizacao)
         {
             if (_dados.Count >= 256)
-                foreach (var antigo in _dados.Where(p => agora - p.Value.Inicio >= _janela)
+                foreach (var antigo in _dados.Where(p => agora < p.Value.Inicio || agora - p.Value.Inicio >= _janela)
                          .Select(p => p.Key).ToArray()) _dados.Remove(antigo);
             // Limite rígido de memória: endereço desconhecido não aloca entradas ilimitadas.
             if (_dados.Count >= 256 && !_dados.ContainsKey(chave)) return false;
