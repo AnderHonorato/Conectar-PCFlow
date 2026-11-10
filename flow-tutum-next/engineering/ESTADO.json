@@ -43,8 +43,8 @@
     },
     "P0-06": {
       "status": "integration_tested_locally",
-      "reason": "Patch de /api/pair compilado em build Release isolado na conta AS; teste HTTP real aprovou 400 (JSON inválido), 413 (>4KiB), 401 (PIN inválido). Teste 429 e integração com APK permanecem pendentes.",
-      "evidence": "2026-11-10: build Release 0 avisos/erros; Node pair-hardening.mjs 3/3 PASS; servidor isolado porta 54937 encerrado; serviço instalado na 49900 não modificado."
+      "reason": "Proteção real de /api/pair compilada em build Release isolado da conta AS e validada com suíte HTTP completa: 400, 413 com e sem Content-Length, 401 e 429 após seis falhas. Integração com Android e release ainda pendentes.",
+      "evidence": "2026-11-10: compilação .NET Release exit 0, 0 avisos/erros; 10/10 testes HTTP PASS na porta temporária 54937; servidor encerrado, arquivo de teste temporário removido, instalação 49900 preservada."
     },
     "P0-07": {
       "status": "not_verified"
@@ -70,9 +70,9 @@
     "local_device": "Ander-PC / dc7a13ee-58a4-4dce-8cee-288fed5d35f2",
     "local_geometry_patch": "applied_and_tested_2026-11-10",
     "local_geometry_tests": "17/17 passed; .NET Release exit 0 on Ander-PC",
-    "pair_hardening_local": "2026-11-10: compilação Release isolada exit 0, 0 avisos/erros; HTTP 400/413/401 3/3 PASS no servidor temporário porta 54937; processo encerrado; 429 pendente.",
+    "pair_hardening_local": "2026-11-10: Release isolada .NET build exit 0, 0 avisos/erros; testes HTTP 10/10 PASS (400, 413 Content-Length/chunked, 401, 429); servidor porta 54937 encerrado; nenhuma mudança na instalação.",
     "geometry_retest": "17/17 testes .NET passaram (exit 0); node --check pair-hardening.mjs exit 0"
   },
-  "next_priority": "P0-06: testar HTTP 429 e chunked >4KiB em instância isolada; depois integrar fonte original ao repositório e validar Android.",
+  "next_priority": "P0-01/P0-02: integrar código original Next versionado e contrato Android↔Windows, mantendo único aplicativo; validar 10 testes HTTP no CI quando fonte completa estiver no repositório.",
   "state_policy": "Modificar somente com evidências. Nunca converter prepared_only em complete por commit isolado."
 }
