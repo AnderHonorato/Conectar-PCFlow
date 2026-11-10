@@ -142,6 +142,18 @@ Testar("limita tentativas de um endereço", () =>
     Exigir(limitador.Permitir(celular, agora));
     Exigir(!limitador.Permitir(celular, agora));
 });
+Testar("recuo do relógio reinicia janela do limitador sem bloquear indefinidamente", () =>
+{
+    var isolado = new LimitadorDeConexoes(maximo: 2, janela: TimeSpan.FromMinutes(1));
+    Exigir(isolado.Permitir(celular, agora));
+    Exigir(isolado.Permitir(celular, agora));
+    Exigir(!isolado.Permitir(celular, agora));
+    var anterior = agora.AddMinutes(-5);
+    Exigir(isolado.Permitir(celular, anterior));
+    Exigir(isolado.Permitir(celular, anterior));
+    Exigir(!isolado.Permitir(celular, anterior));
+    Exigir(isolado.Permitir(celular, anterior.AddMinutes(1)));
+});
 Testar("outra máquina tem limite independente", () =>
     Exigir(limitador.Permitir(IPAddress.Parse("192.168.1.21"), agora)));
 Testar("limite libera após janela", () =>
