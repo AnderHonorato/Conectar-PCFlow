@@ -31,7 +31,10 @@ function sincronizarConexao() {
   const ligado = !!(ponte?.state?.authenticated && ponte?.state?.approved &&
     ponte?.state?.sessionReady && ponte?.state?.ws?.readyState === WebSocket.OPEN);
   if (ligado && !sessao.ativa) sessao.conectar();
-  if (!ligado && sessao.ativa) sessao.desconectar(estado.cursor.x, estado.cursor.y);
+  if (!ligado && sessao.ativa) {
+    sessao.desconectar(estado.cursor.x, estado.cursor.y);
+    cancelarGestosLocais();
+  }
   $("ponto-estado").dataset.ligado = String(ligado);
   aviso(ligado ? "PC conectado" : "Servidor desconectado");
   if (!ligado) atualizarArraste(false);
@@ -176,6 +179,12 @@ janela.addEventListener("contextmenu", ev => ev.preventDefault());
 
 // Mouse relativo: um dedo movimenta, dois dedos rolam nos dois eixos.
 const touchpad = $("touchpad"), gestos = new GestosTouchpad();
+function cancelarGestosLocais() {
+  gestos.cancelarTudo();
+  contatosTela.clear();
+  gestoTela = null;
+  yAnterior = null;
+}
 function moverCursor(dx, dy) {
   const ret = touchpad.getBoundingClientRect();
   estado.cursor.x = limite(estado.cursor.x + dx * estado.sensibilidade / Math.max(1, ret.width), 0, 1);
@@ -358,17 +367,21 @@ window.FlowTutumPainel = Object.freeze({
   atualizarConexao: sincronizarConexao,
   desconectarControles() {
     sessao.desconectar(estado.cursor.x, estado.cursor.y);
-    atualizarArraste(false); sincronizarConexao();
+    atualizarArraste(false);
+    cancelarGestosLocais();
+    sincronizarConexao();
   }
 });
 window.addEventListener("blur", () => {
   sessao.desconectar(estado.cursor.x, estado.cursor.y);
   atualizarArraste(false);
+  cancelarGestosLocais();
 });
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
     sessao.desconectar(estado.cursor.x, estado.cursor.y);
     atualizarArraste(false);
+    cancelarGestosLocais();
   } else sincronizarConexao();
 });
 window.addEventListener("flowtutum:estado", sincronizarConexao);
