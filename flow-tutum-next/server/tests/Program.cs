@@ -163,6 +163,35 @@ Testar("serviço limita criação de tokens por minuto", () =>
         "http", "192.168.1.3:49900", agora);
     Exigir(segundo.CodigoHttp == 200 && excedeu.CodigoHttp == 429);
 });
+Testar("desconexão revoga apenas token do IP e interface autorizados", () =>
+{
+    var isolado = new ServicoDeAcessoLocal(politica,
+        new SessoesRedeLocal(ativo: true), new LimitadorDeConexoes());
+    var outroIp = IPAddress.Parse("192.168.1.21");
+    var primeira = isolado.Conectar(celular, servidor, null,
+        "http", "192.168.1.3:49900", agora).Token!;
+    var segunda = isolado.Conectar(outroIp, servidor, null,
+        "http", "192.168.1.3:49900", agora).Token!;
+    Exigir(!isolado.Desconectar(primeira, outroIp, servidor, agora));
+    Exigir(!isolado.Desconectar(primeira, celular, IPAddress.Loopback, agora));
+    Exigir(!isolado.Desconectar("invalido", celular, servidor, agora));
+    Exigir(isolado.PodeControlar(primeira, celular, servidor, agora));
+    Exigir(isolado.Desconectar(primeira, celular, servidor, agora));
+    Exigir(!isolado.Desconectar(primeira, celular, servidor, agora));
+    Exigir(!isolado.PodeControlar(primeira, celular, servidor, agora));
+    Exigir(isolado.PodeControlar(segunda, outroIp, servidor, agora));
+});
+Testar("sessão expirada não pode ser desconectada nem reutilizada", () =>
+{
+    var isolado = new ServicoDeAcessoLocal(politica,
+        new SessoesRedeLocal(TimeSpan.FromMinutes(1), ativo: true),
+        new LimitadorDeConexoes());
+    var t = isolado.Conectar(celular, servidor, null,
+        "http", "192.168.1.3:49900", agora).Token!;
+    Exigir(!isolado.Desconectar(t, celular, servidor, agora.AddMinutes(1)));
+    Exigir(!isolado.PodeControlar(t, celular, servidor, agora.AddMinutes(1)));
+});
+
 Testar("desligamento na bandeja revoga o token conectado", () =>
 {
     var novo = autenticacao.Conectar(celular, servidor, null,
