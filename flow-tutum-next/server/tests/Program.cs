@@ -101,7 +101,7 @@ Testar("limite de 32 sessões protege memória e recupera vaga após revogação
     {
         var emitido = isoladas.Emitir(celular, agora);
         Exigir(emitido is not null);
-        emitidos.Add(emitido);
+        emitidos.Add(emitido ?? throw new InvalidOperationException("Token não emitido dentro do limite de sessões."));
     }
     Exigir(isoladas.QuantidadeDeSessoes == 32);
     Exigir(isoladas.Emitir(celular, agora) is null);
