@@ -3,7 +3,7 @@ import {
 } from "./geometria.mjs";
 import {
   comandoMouse, comandoRolagem, comandoTecla,
-  diferencaDeDigitacao, SessaoDeEntrada
+  enviarDigitacaoSegura, SessaoDeEntrada
 } from "./entrada.mjs";
 
 import { GestosTouchpad } from "./gestos-touchpad.mjs";
@@ -293,14 +293,12 @@ function sincronizarTexto() {
     confirmado = campo.value;
     return;
   }
-  let comandos;
-  try { comandos = diferencaDeDigitacao(confirmado, campo.value); }
+  let resultado;
+  try { resultado = enviarDigitacaoSegura(confirmado, campo.value, enviar); }
   catch { aviso("Limite de digitação excedido"); return; }
-  let sucesso = true;
-  for (const comando of comandos) {
-    if (!enviar(comando)) { sucesso = false; break; }
-  }
-  if (sucesso) confirmado = campo.value;
+  // Falha parcial: não reenviar automaticamente texto/Backspace já aplicado.
+  confirmado = resultado.confirmado;
+  if (!resultado.sucesso) aviso("Conexão interrompida: confira o texto no PC antes de continuar");
 }
 campo.addEventListener("input", sincronizarTexto);
 document.querySelectorAll("[data-tecla]").forEach(botao =>
