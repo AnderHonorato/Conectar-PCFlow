@@ -43,7 +43,7 @@
     },
     "P0-06": {
       "status": "integration_tested_locally",
-      "reason": "Proteção real de /api/pair compilada em build Release isolado da conta AS e validada com suíte HTTP completa: 400, 413 com e sem Content-Length, 401 e 429 após seis falhas. Integração com Android e release ainda pendentes.",
+      "reason": "Endpoint /api/pair original da conta AS recebeu validação explícita de Content-Type JSON; build Release passou (0 erros/avisos); teste HTTP isolado retornou 415 para text/plain, 400 para JSON malformado, 401 para PIN inválido. Testes anteriores 413/429 permanecem como evidência histórica, mas não foram reexecutados neste ciclo. Integração Android pendente.",
       "evidence": "2026-11-10: compilação .NET Release exit 0, 0 avisos/erros; 10/10 testes HTTP PASS na porta temporária 54937; servidor encerrado, arquivo de teste temporário removido, instalação 49900 preservada."
     },
     "P0-07": {
@@ -71,8 +71,9 @@
     "local_geometry_patch": "applied_and_tested_2026-11-10",
     "local_geometry_tests": "17/17 passed; .NET Release exit 0 on Ander-PC",
     "pair_hardening_local": "2026-11-10: Release isolada .NET build exit 0, 0 avisos/erros; testes HTTP 10/10 PASS (400, 413 Content-Length/chunked, 401, 429); servidor porta 54937 encerrado; nenhuma mudança na instalação.",
-    "geometry_retest": "17/17 testes .NET passaram (exit 0); node --check pair-hardening.mjs exit 0"
+    "geometry_retest": "17/17 testes .NET passaram (exit 0); node --check pair-hardening.mjs exit 0",
+    "pair_content_type_20261110": "Ander-PC, AS, porta temporária 54939: build .NET Release exit 0, 0 avisos/erros; HTTP 415/400/401 PASS; porta fechada após teste. Alteração aplicada somente em src/Program.cs local; teste de regressão versionado em flow-tutum-next/tests/pareamento-http.mjs (ainda não executado no CI)."
   },
-  "next_priority": "P0-01/P0-02: integrar código original Next versionado e contrato Android↔Windows, mantendo único aplicativo; validar 10 testes HTTP no CI quando fonte completa estiver no repositório.",
+  "next_priority": "P0-01: versionar fonte original Next da conta AS com revisão de segredos e executar a nova suíte de integração 415/400/401/413 no CI Windows; validar 429 e cliente Android antes de release.",
   "state_policy": "Modificar somente com evidências. Nunca converter prepared_only em complete por commit isolado."
 }
