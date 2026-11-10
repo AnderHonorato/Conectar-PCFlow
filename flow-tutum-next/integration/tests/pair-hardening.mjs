@@ -24,6 +24,23 @@ async function pair(body,{chunked=false}={}){
   });
   return response;
 }
+// Regressão não destrutiva: sem token válido, a revogação deve ser recusada.
+// Não cria nem revoga sessões reais e roda apenas na instância descartável.
+for(const [name,authorization] of [
+  ['sem autenticação',null],
+  ['Bearer vazio','Bearer '],
+  ['Bearer malformado','Bearer token-invalido'],
+  ['Bearer sintaticamente válido mas desconhecido','Bearer '+ '0'.repeat(64)]
+]){
+  const response=await fetch(new URL('/api/unpair',url),{
+    method:'POST',
+    ...(authorization===null?{}:{headers:{authorization}}),
+    signal:AbortSignal.timeout(4000)
+  });
+  assert.equal(response.status,401,`Revogação ${name}: esperado HTTP 401, recebido ${response.status}`);
+  assert.equal(response.headers.has('set-cookie'),false,'Revogação negada não deve criar sessão');
+  console.log('PASS',`revogação ${name} => HTTP 401`);
+}
 const invalidPin=JSON.stringify({pin:'000000',name:'Teste de segurança'});
 const cases=[
   {name:'JSON malformado',body:'{"pin":',expected:400},
