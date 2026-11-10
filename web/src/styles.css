@@ -194,7 +194,7 @@ h2 {
 .header { padding-top: 10px; padding-bottom: 0; }
 .titles { min-width: 0; flex: 1; }
 .titles p { margin: 0; color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.banner { margin: 4px 16px 8px; font-size: 14px; }
+.banner { margin: 0 16px 4px; font-size: 14px; }
 
 .control { display: flex; flex-direction: column; }
 
@@ -262,7 +262,7 @@ h2 {
 .mouse-row, .toolbar {
   display: flex;
   gap: 8px;
-  padding: 8px;
+  padding: 4px 8px;
 }
 
 .mouse-row button {
@@ -297,9 +297,9 @@ h2 {
 .toolbar button[aria-pressed="true"] { color: var(--accent-bright); }
 
 .panel {
-  max-height: 30vh;
+  max-height: 18vh;
   overflow: auto;
-  padding: 0 12px 12px;
+  padding: 0 12px 8px;
   background: #161c19;
 }
 
