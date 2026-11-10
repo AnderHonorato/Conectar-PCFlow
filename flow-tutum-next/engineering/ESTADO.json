@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "product": "Flow Tutum Next",
+  "scope": {
+    "windows_user": "AS",
+    "android_application_id": "br.flowtutum",
+    "forbidden_windows_users": [
+      "Lil"
+    ],
+    "single_app": true
+  },
+  "canonical_work": {
+    "repository": "AnderHonorato/Conectar-PCFlow",
+    "issue": 3,
+    "pull_request": 4,
+    "branch": "feat/flow-tutum-next-core-fullstack"
+  },
+  "installed_baseline": {
+    "version": "2.0.0-alpha.10-AS",
+    "verified_at": "2026-11-09",
+    "integrated_with_new_branch": false
+  },
+  "work_status": {
+    "P0-01": {
+      "status": "blocked",
+      "reason": "Código original do Next está no PC AS; último estado observado do dispositivo foi offline",
+      "evidence": "Remote Desktop Commander"
+    },
+    "P0-02": {
+      "status": "not_started"
+    },
+    "P0-03": {
+      "status": "prepared_only",
+      "reason": "Geometria e interface em branch; renderizador original não integrado"
+    },
+    "P0-04": {
+      "status": "prepared_only",
+      "reason": "Comandos e touchpad em branch; testes físicos pendentes"
+    },
+    "P0-05": {
+      "status": "prepared_only",
+      "reason": "IME/Unicode em branch; Galaxy A35 não testado"
+    },
+    "P0-06": {
+      "status": "prepared_only",
+      "reason": "Políticas de autenticação em branch; endpoints do Next original não integrados"
+    },
+    "P0-07": {
+      "status": "not_verified"
+    },
+    "P0-08": {
+      "status": "blocked",
+      "reason": "Depende da integração com o código original e dos testes"
+    }
+  },
+  "release_rules": {
+    "require_real_windows_build": true,
+    "require_signed_android_apk": true,
+    "require_same_android_signer": true,
+    "require_compatibility_tests": true,
+    "require_github_release": true,
+    "require_drive_hash_match": true,
+    "require_public_https_check": true
+  },
+  "verification": {
+    "last_next_ci": "passed",
+    "next_ci_reference": "https://github.com/AnderHonorato/Conectar-PCFlow/actions/runs/42742143452",
+    "windows_pcflow_build_is_not_next_release": true
+  },
+  "next_priority": "P0-01",
+  "state_policy": "Modificar somente com evidências. Nunca converter prepared_only em complete por commit isolado."
+}
