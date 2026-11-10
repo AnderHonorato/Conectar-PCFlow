@@ -55,6 +55,21 @@ Testar("origem malformada é rejeitada", () =>
 var sessoes = new SessoesRedeLocal(TimeSpan.FromMinutes(30), ativo: true);
 string token = sessoes.Emitir(celular, agora) ?? throw new Exception("Token não emitido");
 Testar("token usa 32 bytes aleatórios", () => Exigir(token.Length == 64));
+Testar("sessões recusam emissão para IP público, loopback e IPv6", () =>
+{
+    Exigir(sessoes.Emitir(IPAddress.Parse("8.8.8.8"), agora) is null);
+    Exigir(sessoes.Emitir(IPAddress.Loopback, agora) is null);
+    Exigir(sessoes.Emitir(IPAddress.IPv6Loopback, agora) is null);
+});
+Testar("sessões aceitam IPv4 privado mapeado em IPv6", () =>
+{
+    var mapped = IPAddress.Parse("::ffff:192.168.1.20");
+    var temporario = sessoes.Emitir(mapped, agora);
+    Exigir(temporario is not null);
+    Exigir(sessoes.Verificar(temporario, celular, agora));
+    Exigir(!sessoes.Verificar(temporario, IPAddress.Parse("8.8.8.8"), agora));
+});
+
 Testar("token válido apenas no IP emissor", () =>
 {
     Exigir(sessoes.Verificar(token, celular, agora));
