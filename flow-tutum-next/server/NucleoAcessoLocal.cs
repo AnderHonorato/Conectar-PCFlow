@@ -211,7 +211,7 @@ public sealed class LimitadorDeConexoes
                          .Select(p => p.Key).ToArray()) _dados.Remove(antigo);
             // Limite rígido de memória: endereço desconhecido não aloca entradas ilimitadas.
             if (_dados.Count >= 256 && !_dados.ContainsKey(chave)) return false;
-            if (!_dados.TryGetValue(chave, out var estado) || agora - estado.Inicio >= _janela)
+            if (!_dados.TryGetValue(chave, out var estado) || agora < estado.Inicio || agora - estado.Inicio >= _janela)
                 estado = (0, agora);
             if (estado.Tentativas >= _maximo) return false;
             _dados[chave] = (estado.Tentativas + 1, estado.Inicio);
