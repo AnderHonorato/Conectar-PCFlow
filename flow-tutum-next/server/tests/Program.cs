@@ -154,6 +154,19 @@ Testar("recuo do relógio reinicia janela do limitador sem bloquear indefinidame
     Exigir(!isolado.Permitir(celular, anterior));
     Exigir(isolado.Permitir(celular, anterior.AddMinutes(1)));
 });
+Testar("limite de memória se recupera após recuo do relógio", () =>
+{
+    var isolado = new LimitadorDeConexoes(maximo: 1, janela: TimeSpan.FromMinutes(1));
+    // 256 IPs diferentes preenchem o limite rígido de entradas.
+    for (var i = 0; i < 256; i++)
+        Exigir(isolado.Permitir(IPAddress.Parse($"10.0.{i / 254}.{i % 254 + 1}"), agora));
+    var novoIp = IPAddress.Parse("10.2.0.1");
+    Exigir(!isolado.Permitir(novoIp, agora));
+    // Antes da correção, entradas com Inicio no futuro não eram removidas.
+    var anterior = agora.AddMinutes(-5);
+    Exigir(isolado.Permitir(novoIp, anterior));
+    Exigir(!isolado.Permitir(novoIp, anterior));
+});
 Testar("outra máquina tem limite independente", () =>
     Exigir(limitador.Permitir(IPAddress.Parse("192.168.1.21"), agora)));
 Testar("limite libera após janela", () =>
