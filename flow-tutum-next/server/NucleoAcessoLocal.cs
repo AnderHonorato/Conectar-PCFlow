@@ -146,6 +146,16 @@ public sealed class SessoesRedeLocal
         }
     }
 
+    /// <summary>Revoga somente o token do dispositivo desconectado, sem derrubar outros clientes.</summary>
+    public bool Revogar(string? token)
+    {
+        if (token is null || token.Length != 64 || !token.All(Uri.IsHexDigit)) return false;
+        lock (_sincronizacao)
+        {
+            return _sessoes.Remove(Hash(token));
+        }
+    }
+
     public void RevogarTudo() { lock (_sincronizacao) _sessoes.Clear(); }
 
     private void LimparExpiradas(DateTimeOffset agora)
