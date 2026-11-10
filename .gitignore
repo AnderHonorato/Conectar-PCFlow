@@ -19,3 +19,11 @@ local.properties
 
 # A gravação de referência fica fora do git. Os frames estão em docs/reference/analysis_assets/.
 *.mp4
+
+# Web
+web/node_modules/
+web/dist/
+web/test-results/
+web/playwright-report/
+web/blob-report/
+web/playwright/.cache/
