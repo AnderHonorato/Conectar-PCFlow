@@ -93,6 +93,36 @@ Testar("revogação de token mapeado funciona entre IPv4 e IPv6", () =>
     Exigir(!temporarias.Verificar(t, ipMapeado, agora));
 });
 
+Testar("limite de 32 sessões protege memória e recupera vaga após revogação", () =>
+{
+    var isoladas = new SessoesRedeLocal(TimeSpan.FromMinutes(10), ativo: true);
+    var emitidos = new List<string>();
+    for (var i = 0; i < 32; i++)
+    {
+        var emitido = isoladas.Emitir(celular, agora);
+        Exigir(emitido is not null);
+        emitidos.Add(emitido);
+    }
+    Exigir(isoladas.QuantidadeDeSessoes == 32);
+    Exigir(isoladas.Emitir(celular, agora) is null);
+    Exigir(isoladas.Revogar(emitidos[0]));
+    Exigir(!isoladas.Verificar(emitidos[0], celular, agora));
+    Exigir(isoladas.Verificar(emitidos[1], celular, agora));
+    var substituto = isoladas.Emitir(celular, agora);
+    Exigir(substituto is not null && substituto != emitidos[0]);
+    Exigir(isoladas.QuantidadeDeSessoes == 32);
+});
+Testar("limite de sessões recupera capacidade após expiração", () =>
+{
+    var isoladas = new SessoesRedeLocal(TimeSpan.FromMinutes(1), ativo: true);
+    for (var i = 0; i < 32; i++) Exigir(isoladas.Emitir(celular, agora) is not null);
+    Exigir(isoladas.Emitir(celular, agora.AddSeconds(59)) is null);
+    var novo = isoladas.Emitir(celular, agora.AddMinutes(1));
+    Exigir(novo is not null);
+    Exigir(isoladas.QuantidadeDeSessoes == 1);
+    Exigir(isoladas.Verificar(novo, celular, agora.AddMinutes(1)));
+});
+
 Testar("token válido apenas no IP emissor", () =>
 {
     Exigir(sessoes.Verificar(token, celular, agora));
