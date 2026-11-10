@@ -46,3 +46,11 @@ test("estado offline é explícito para não simular transmissão", () => {
   assert.match(html, /id="mensagem-video"/);
   assert.match(js, /informarVideoDisponivel/);
 });
+
+test("cancelamento de ponteiro na tela não deixa outro dedo clicar nem aplicar zoom", () => {
+  assert.match(js, /janela\.addEventListener\("pointercancel", cancelarContatoTela\)/);
+  assert.match(js, /janela\.addEventListener\("lostpointercapture", cancelarContatoTela\)/);
+  assert.match(js, /gestoTela = contatosTela\.size \? \{ cancelado: true \} : null/);
+  assert.match(js, /if \(gestoTela\?\.cancelado\) return/);
+  assert.match(js, /if \(!gestoTela && !atual\.arrastou/);
+});
