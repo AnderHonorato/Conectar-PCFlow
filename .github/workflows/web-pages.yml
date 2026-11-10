@@ -1,0 +1,56 @@
+name: Prévia Web
+
+on:
+  push:
+    branches:
+      - cursor/web-pwa-foundation-237f
+  workflow_dispatch:
+
+concurrency:
+  group: pcflow-web-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Instalar
+        working-directory: web
+        run: npm ci
+      - name: Testes
+        working-directory: web
+        run: npm test
+      - name: Chromium
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+      - name: Playwright
+        working-directory: web
+        run: npm run e2e
+      - name: Build
+        working-directory: web
+        run: npm run build
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publicar no GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

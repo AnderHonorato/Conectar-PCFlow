@@ -1,6 +1,22 @@
 # Ledger de implementação — reconstrução do controle remoto
 
-Relatório detalhado da execução de preflight. A reconstrução de features não começou.
+Atualização A8 em 2026-11-10: a fundação Web/PWA está em `web/`. O relatório de preflight, mais abaixo, continua o registro daquela execução e não foi reescrito.
+
+## Relatório A8 — fundação Web/PWA
+
+- STATUS: PASS na casca, nos testes locais e no job de build do Actions. A publicação falhou porque o GitHub Pages não está habilitado.
+- Papel: A8 Web/PWA.
+- Base: `cursor/rebuild-preflight-df46` em `bf7bd42`.
+- Branch: `cursor/web-pwa-foundation-237f`.
+- Escopo: cliente `web/` em TypeScript, React e Vite; PWA com manifesto e service worker; telas de conexão, controle, teclado, mídia, ajustes em lista e paridade; tema carvão com verde próprio; pt-BR. Sem PC, a UI fica em "Desconectado" e o controle explica que precisa de sessão. O transporte WebSocket está atrás de `RemoteTransport`. O schema compartilhado do slice 1 não existe neste repositório e não foi criado aqui.
+- Fora deste corte: arquivos de Android, Windows e `protocol/`; log de teclado ou clipboard; shell arbitrário; preço; marca da gravação.
+- Testes: `npm test --prefix web` — 20 passaram. `npm test --prefix web -- parity` e `npm test --prefix web -- session` passam. `npm run e2e --prefix web` — 3 passaram (`carrega desconectado, navega e explica o controle`, `publica manifesto e service worker`, `o touchpad segue dominante numa janela larga`). `npm run build --prefix web` gera `web/dist` com manifesto e `sw.js`.
+- Prévia: workflow `.github/workflows/web-pages.yml`, `base` do Vite `/Conectar-PCFlow/`. URL prevista `https://anderhonorato.github.io/Conectar-PCFlow/`. Em 2026-11-10 o `curl -I` dessa URL devolveu HTTP 404. O job `build` do run `42781268041` passou, inclusive o Playwright. O job `deploy` falhou com `Failed to create deployment (status: 404)` e pediu para habilitar Pages. `POST repos/AnderHonorato/Conectar-PCFlow/pages` com `build_type=workflow` devolveu `403 Resource not accessible by integration`. O dono habilita em Settings → Pages → Build and deployment → Source: GitHub Actions. Se o ambiente `github-pages` só aceitar a branch padrão, incluir `cursor/web-pwa-foundation-237f` em Settings → Environments → github-pages. Depois, reexecutar o workflow Prévia Web.
+- Risco: a página HTTPS não abre `ws://` na LAN. Bluetooth não é universal. Energia pede confirmação e, sem sessão, não é enviada. O adaptador de protocolo é provisório (`provisional: true`) até o schema do slice 1.
+
+## Relatório do preflight
+
+Relatório detalhado da execução de preflight. A reconstrução de features não tinha começado naquela execução.
 
 ## Relatório desta execução
 
@@ -178,7 +194,8 @@ Ainda não estão implementados. Detalhe e consequência ficam no plano.
 | Slice | Status |
 |-------|--------|
 | 0 Preflight, plano, matriz e leitura do vídeo | Feito nesta branch. Coluna de evidência preenchida. Implementação não começou. |
-| 1 a 11, 13 e 14 | Não iniciados. |
+| 1 a 11 e 14 | Não iniciados. |
+| 13 Web/PWA | Fundação em `cursor/web-pwa-foundation-237f`: PWA, sessão que não fica pronta sem auth e prévia no Pages. Sem agente. Não é `PASS` da matriz. |
 | 12 Conta e PRO | Plano revisto pelo ADR-018. Não implementado. Banco, backend e pagamento ficam fora do corte. |
 
 ## Leitura do vídeo
