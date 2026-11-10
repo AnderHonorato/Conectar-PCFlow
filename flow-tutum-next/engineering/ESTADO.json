@@ -31,7 +31,7 @@
     },
     "P0-03": {
       "status": "prepared_only",
-      "reason": "Geometria e interface na branch; fonte local Coordinates.cs recebeu validação de largura/altura finitas e 10 casos de regressão em tests/Program.cs, ainda sem execução confirmada nem commit GitHub. Renderizador não integrado."
+      "reason": "Correção real aplicada ao Coordinates.cs local para rejeitar larguras/alturas NaN, ±Infinity e <=0; 10 regressões novas; 17/17 testes .NET Release passaram. Integração com APK ainda pendente."
     },
     "P0-04": {
       "status": "prepared_only",
@@ -67,9 +67,9 @@
     "next_ci_reference": "https://github.com/AnderHonorato/Conectar-PCFlow/actions/runs/42742143452",
     "windows_pcflow_build_is_not_next_release": true,
     "local_device": "Ander-PC / dc7a13ee-58a4-4dce-8cee-288fed5d35f2",
-    "local_geometry_patch": "applied_unverified_2026-11-10",
-    "local_geometry_tests": "not_confirmed_due_to_remote_disconnect"
+    "local_geometry_patch": "applied_and_tested_2026-11-10",
+    "local_geometry_tests": "17/17 passed; .NET Release exit 0 on Ander-PC"
   },
-  "next_priority": "P0-01: reconectar AS, executar teste de geometria, preservar cópia dos fontes e comparar integração Next",
+  "next_priority": "P0-01: comparar Program.cs e endpoints reais com a branch, integrar um módulo por vez e testar fluxo de rede",
   "state_policy": "Modificar somente com evidências. Nunca converter prepared_only em complete por commit isolado."
 }
