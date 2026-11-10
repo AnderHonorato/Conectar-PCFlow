@@ -65,7 +65,7 @@ private fun AppPcFlow() {
     }
 
     Surface(modifier = Modifier.fillMaxSize(), color = Fundo) {
-        if (estado.estado == EstadoConexao.CONECTADO && estado.pc != null) {
+        if (estado.fase == com.ander.pcflow.session.Fase.Pronto && estado.pc != null) {
             TelaControle(estado.pc!!)
         } else {
             TelaConectar(pcs, estado,
@@ -133,7 +133,7 @@ private fun TelaConectar(pcs: List<PcEncontrado>, estado: EstadoSessao, conectar
                 Spacer(Modifier.height(10.dp))
             }
         }
-        if (estado.estado == EstadoConexao.ERRO) {
+        if (estado.fase == com.ander.pcflow.session.Fase.Erro || estado.fase == com.ander.pcflow.session.Fase.Reconectando) {
             Text(estado.mensagem, color = Color(0xFFFF8A80), modifier = Modifier.padding(top = 18.dp))
         }
         Spacer(Modifier.weight(1f))

@@ -1,0 +1,11 @@
+{
+  "protocolVersion": 1,
+  "messageId": "66666666-7777-4888-8999-aaaaaaaaaaaa",
+  "name": "session.hello",
+  "timestamp": 1760000000000,
+  "sequence": 1,
+  "payload": {
+    "deviceId": "phone-1",
+    "deviceName": "Pixel"
+  }
+}

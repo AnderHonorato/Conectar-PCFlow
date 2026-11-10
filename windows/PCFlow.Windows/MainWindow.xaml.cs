@@ -1,3 +1,4 @@
+using PCFlow.Core;
 using PCFlow.Windows.Core;
 using System.ComponentModel;
 using System.Windows;
@@ -7,7 +8,7 @@ namespace PCFlow.Windows;
 
 public partial class MainWindow : Window
 {
-    private readonly ServidorPcFlow _servidor = new();
+    private readonly ServidorPcFlow _servidor = new(new EntradaDoAgente());
     private readonly Forms.NotifyIcon _tray;
     private bool _encerrando;
 
@@ -39,7 +40,7 @@ public partial class MainWindow : Window
     private void AtualizarTela()
     {
         TextoPin.Text = FormatarPin(_servidor.CodigoPareamento);
-        TextoEndereco.Text = $"{_servidor.EnderecoLocal}:{ServidorPcFlow.PortaControle}";
+        TextoEndereco.Text = $"{_servidor.EnderecoLocal}:{_servidor.PortaControle}";
         ListaDispositivos.ItemsSource = null;
         ListaDispositivos.ItemsSource = _servidor.Dispositivos.OrderByDescending(d => d.UltimaConexao).ToList();
     }
@@ -63,6 +64,12 @@ public partial class MainWindow : Window
             System.Windows.Application.Current.Shutdown();
         }
         base.OnClosing(e);
+    }
+
+    private void Revogar_Click(object sender, RoutedEventArgs e)
+    {
+        if (ListaDispositivos.SelectedItem is DispositivoAutorizado dispositivo)
+            _servidor.Revogar(dispositivo.Id);
     }
 
     private void Minimizar_Click(object sender, RoutedEventArgs e) => Hide();
