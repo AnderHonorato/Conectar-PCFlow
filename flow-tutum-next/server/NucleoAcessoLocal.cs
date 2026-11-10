@@ -118,6 +118,9 @@ public sealed class SessoesRedeLocal
 
     public string? Emitir(IPAddress endereco, DateTimeOffset agora)
     {
+        // A camada de sessão também precisa recusar endereços não locais:
+        // um chamador futuro pode ignorar a política HTTP por engano.
+        if (!EnderecoPrivadoValido(endereco)) return null;
         lock (_sincronizacao)
         {
             if (!_ativo) return null;
@@ -131,8 +134,8 @@ public sealed class SessoesRedeLocal
 
     public bool Verificar(string? token, IPAddress? endereco, DateTimeOffset agora)
     {
-        if (token is null || endereco is null || token.Length != 64 ||
-            !token.All(Uri.IsHexDigit)) return false;
+        if (token is null || endereco is null || !EnderecoPrivadoValido(endereco) ||
+            token.Length != 64 || !token.All(Uri.IsHexDigit)) return false;
         lock (_sincronizacao)
         {
             if (!_ativo) return false;
@@ -149,6 +152,16 @@ public sealed class SessoesRedeLocal
     {
         foreach (var chave in _sessoes.Where(p => p.Value.ExpiraEm <= agora)
                      .Select(p => p.Key).ToArray()) _sessoes.Remove(chave);
+    }
+
+    private static bool EnderecoPrivadoValido(IPAddress endereco)
+    {
+        var ipv4 = endereco.IsIPv4MappedToIPv6 ? endereco.MapToIPv4() : endereco;
+        if (ipv4.AddressFamily != AddressFamily.InterNetwork) return false;
+        var bytes = ipv4.GetAddressBytes();
+        return bytes[0] == 10 ||
+               (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31) ||
+               (bytes[0] == 192 && bytes[1] == 168);
     }
 
     private static string Normalizar(IPAddress endereco) =>
