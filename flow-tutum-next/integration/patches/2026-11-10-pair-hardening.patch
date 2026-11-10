@@ -1,0 +1,16 @@
+diff --git a/src/Program.cs b/src/Program.cs
+--- a/src/Program.cs
++++ b/src/Program.cs
+@@ -1,5 +1,16 @@
+-    var info=await ctx.Request.ReadFromJsonAsync<PairInput>();
++    // Pareamento e um endpoint nao autenticado: limitar corpo e tratar JSON invalido.
++    PairInput? info;
++    try {
++        if(ctx.Request.ContentLength is > 4096)return Results.StatusCode(413);
++        var sizeFeature=ctx.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>();
++        if(sizeFeature is {IsReadOnly:false})sizeFeature.MaxRequestBodySize=4096;
++        info=await ctx.Request.ReadFromJsonAsync<PairInput>();
++    }catch(JsonException){return Results.BadRequest(new{error="JSON de pareamento invalido."});}
++    catch(BadHttpRequestException ex) when(ex.StatusCode==413){return Results.StatusCode(413);}
++    catch(InvalidDataException){return Results.StatusCode(413);}
+     if(info is null||info.Pin!=pin){
