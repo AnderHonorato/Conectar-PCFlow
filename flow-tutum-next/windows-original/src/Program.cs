@@ -286,8 +286,11 @@ app.Map("/ws/input",async (HttpContext ctx)=> {
                 response="{\"ready\":true}";
             }else{
                 try {
-                    if(!inputOwners.TryGetValue(id,out var owner)||owner!=connectionId)
-                        throw new UnauthorizedAccessException("Conexao substituida.");
+                    if(!inputOwners.TryGetValue(id,out var owner)||owner!=connectionId) {
+                        await socket.CloseAsync(WebSocketCloseStatus.PolicyViolation,
+                            "Conexao substituida",CancellationToken.None);
+                        return;
+                    }
                     var desktop=SessionStatus.Read();
                     if(!desktop.Available)throw new InvalidOperationException(desktop.Message);
                     if(!store.IsActiveHash(id))throw new UnauthorizedAccessException("Dispositivo desvinculado.");
