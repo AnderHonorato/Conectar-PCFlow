@@ -374,6 +374,68 @@ apresentacao.addEventListener("click",evento=>{
 setInterval(sincronizarApresentacao,1200);
 sincronizarApresentacao();
 
+// Modo palco: controle de slides em tela dedicada, sem alterar a sessão do Windows.
+const abrirPalco=document.createElement("button");
+abrirPalco.type="button";abrirPalco.className="abrir-palco";
+abrirPalco.textContent="Abrir controle de palco";
+abrirPalco.setAttribute("aria-haspopup","dialog");
+apresentacao.querySelector(".apresentacao-cabecalho").append(abrirPalco);
+const palco=document.createElement("section");
+palco.id="palco-apresentacao";
+palco.className="palco-apresentacao";
+palco.hidden=true;
+palco.setAttribute("role","dialog");
+palco.setAttribute("aria-modal","true");
+palco.setAttribute("aria-label","Controle de palco");
+palco.innerHTML=`<header class="palco-cabecalho"><div><small>FLOW TUTUM NEXT · ANDER FLOW</small><strong>Modo palco</strong><span id="palco-estado" role="status" aria-live="polite">Aguardando sessão</span></div><button type="button" id="fechar-palco" aria-label="Fechar modo palco">Fechar ✕</button></header>
+<div class="palco-principal"><button type="button" data-palco="left" aria-label="Slide anterior"><span aria-hidden="true">←</span> Anterior</button><button type="button" data-palco="right" aria-label="Próximo slide">Próximo <span aria-hidden="true">→</span></button></div>
+<div class="palco-secundario"><button type="button" data-palco="f5">Iniciar slides</button><button type="button" data-palco="escape">Encerrar slides</button><button type="button" data-palco="pageup">Página acima</button><button type="button" data-palco="pagedown">Página abaixo</button></div>
+<p>Controle o programa aberto no Windows. O envio de uma tecla não confirma a troca de slide.</p>`;
+document.body.append(palco);
+let focoAnteriorPalco=null;
+function sincronizarPalco(){
+ const autorizado=state.approved&&state.authenticated&&state.sessionReady&&state.ws?.readyState===WebSocket.OPEN;
+ palco.querySelectorAll("[data-palco]").forEach(botao=>botao.disabled=!autorizado);
+ el("palco-estado").textContent=autorizado?"Conectado · pronto para enviar":"Sem sessão autorizada";
+}
+function fecharPalco(){
+ if(palco.hidden)return;
+ palco.hidden=true;
+ document.body.classList.remove("palco-aberto");
+ (focoAnteriorPalco?.isConnected?focoAnteriorPalco:abrirPalco).focus();
+}
+abrirPalco.addEventListener("click",()=>{
+ focoAnteriorPalco=document.activeElement;
+ palco.hidden=false;
+ document.body.classList.add("palco-aberto");
+ sincronizarPalco();
+ el("fechar-palco").focus();
+});
+el("fechar-palco").addEventListener("click",fecharPalco);
+palco.addEventListener("click",evento=>{
+ const botao=evento.target.closest("[data-palco]");
+ if(!botao||botao.disabled||!palco.contains(botao))return;
+ sincronizarPalco();
+ if(botao.disabled)return;
+ const tecla=botao.dataset.palco;
+ if(!["left","right","f5","escape","pageup","pagedown"].includes(tecla))return;
+ const enviado=wsSend({phase:"key",keys:tecla});
+ el("palco-estado").textContent=enviado?"Tecla enviada · "+botao.textContent.trim():"Falha ao enviar tecla";
+});
+palco.addEventListener("keydown",evento=>{
+ if(evento.key==="Escape"){evento.preventDefault();fecharPalco();return}
+ if(evento.key!=="Tab")return;
+ const focaveis=[...palco.querySelectorAll("button:not(:disabled)")];
+ const primeiro=focaveis[0],ultimo=focaveis[focaveis.length-1];
+ if(evento.shiftKey&&document.activeElement===primeiro){evento.preventDefault();ultimo.focus()}
+ else if(!evento.shiftKey&&document.activeElement===ultimo){evento.preventDefault();primeiro.focus()}
+});
+window.addEventListener("blur",()=>{if(!palco.hidden)sincronizarPalco()});
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&!palco.hidden)sincronizarPalco()});
+document.querySelector("#disconnect")?.addEventListener("click",fecharPalco);
+setInterval(()=>{if(!palco.hidden)sincronizarPalco()},1200);
+
+
 // Leitura contínua: rolagem sustentada somente enquanto o usuário mantém pressionado.
 const leitura=document.createElement("section");
 leitura.className="controle-leitura";
