@@ -112,3 +112,25 @@ footer{display:flex;justify-content:space-between;gap:10px;max-width:1500px;widt
 .viewer.exploring{border-color:#d8a17d}
 @media(max-width:620px){.zoom-tools{max-width:calc(100% - 10px);flex-wrap:wrap;justify-content:flex-end}.zoom-tools #explore-toggle{min-height:44px;min-width:70px}}
 @media(prefers-reduced-motion:reduce){.zoom-tools #explore-toggle{transition:none}}
+
+
+/* Guia contextual de gestos: permanece dentro da aba Touchpad. */
+.pad-toolbar #ajuda-gestos{min-height:44px;min-width:76px;background:#e6b98e;color:#172c33;border:1px solid #f0c9a2;border-radius:12px;font-weight:750}
+.pad-toolbar #ajuda-gestos[aria-expanded="true"]{background:#a9e6da}
+.painel-gestos{padding:14px;background:#132b36;border:1px solid #3b7180;border-radius:18px;color:#e6f4f2;overflow:auto;max-height:min(44dvh,320px)}
+.painel-gestos[hidden]{display:none}
+.gestos-cabecalho{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.gestos-cabecalho strong{font-size:17px}
+.gestos-cabecalho button{min-height:44px;min-width:44px;background:#244552;border:1px solid #59848b;color:#fff;border-radius:12px;font-size:22px}
+.gestos-grade{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0}
+.gestos-grade p{margin:0;padding:10px;background:#1b3945;border-radius:12px;line-height:1.4}
+.gestos-grade b,.gestos-grade span{display:block}
+.gestos-grade b{color:#f0c89e;font-size:13px;margin-bottom:4px}
+.gestos-grade span,.painel-gestos small{font-size:12px;color:#c0d4d9}
+.gestos-vibracao{display:flex;align-items:center;gap:10px;min-height:44px;font-size:13px}
+.gestos-vibracao input{width:20px;height:20px;accent-color:#e6b98e}
+.retorno-gesto{position:absolute;left:50%;top:18px;transform:translateX(-50%);background:#e9c29c;color:#19313b;padding:7px 13px;border-radius:999px;font-size:12px;font-weight:750;opacity:0;transition:opacity .16s ease;pointer-events:none;white-space:nowrap;max-width:95%;overflow:hidden;text-overflow:ellipsis}
+.retorno-gesto.ativo{opacity:1}
+@media(max-width:390px){.gestos-grade{grid-template-columns:1fr}.pad-toolbar #ajuda-gestos{min-width:65px;padding:7px}}
+@media(orientation:landscape) and (max-height:530px){.painel-gestos{max-height:45dvh}.gestos-grade{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(prefers-reduced-motion:reduce){.retorno-gesto{transition:none}}
