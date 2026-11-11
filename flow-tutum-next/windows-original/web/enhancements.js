@@ -96,6 +96,30 @@ el("pad-double").onclick=()=>{
 };
 el("pad-horizontal-left").onclick=()=>wsSend({phase:"hwheel",wheel:-240});
 el("pad-horizontal-right").onclick=()=>wsSend({phase:"hwheel",wheel:240});
+// Central de gestos: instruções acessíveis e retorno tátil opcional, sem comandos remotos.
+const barra=el("touchpad-layout").querySelector(".pad-toolbar");
+const ajuda=document.createElement("button");
+ajuda.type="button";ajuda.id="ajuda-gestos";ajuda.textContent="Gestos ?";
+ajuda.setAttribute("aria-expanded","false");
+ajuda.setAttribute("aria-controls","painel-gestos");
+barra.append(ajuda);
+const painel=document.createElement("section");
+painel.id="painel-gestos";painel.className="painel-gestos";painel.hidden=true;
+painel.innerHTML='<div class="gestos-cabecalho"><strong>Como controlar</strong><button type="button" id="fechar-gestos" aria-label="Fechar ajuda">×</button></div><div class="gestos-grade"><p><b>☝ Um dedo</b><span>Deslize para mover o ponteiro. Toque para clicar.</span></p><p><b>✌ Dois dedos</b><span>Deslize para rolar em qualquer direção. Toque para clique direito.</span></p><p><b>◉ Segurar</b><span>Ative “Segurar e arrastar” e mova o dedo para arrastar.</span></p><p><b>⌨ Teclado</b><span>Abra o teclado para digitar no Windows.</span></p></div><label class="gestos-vibracao"><input id="vibracao-gestos" type="checkbox"> Vibração discreta ao clicar</label><small>Os gestos só controlam o computador durante uma sessão autorizada.</small>';
+barra.insertAdjacentElement("afterend",painel);
+const vibracao=el("vibracao-gestos");
+vibracao.checked=localStorage.getItem("flow-vibracao-gestos")==="sim";
+vibracao.addEventListener("change",()=>localStorage.setItem("flow-vibracao-gestos",vibracao.checked?"sim":"nao"));
+const pulsar=()=>{if(vibracao.checked&&state.approved&&navigator.vibrate)navigator.vibrate(12)};
+function abrirAjuda(aberto){painel.hidden=!aberto;ajuda.setAttribute("aria-expanded",String(aberto));if(aberto)el("fechar-gestos").focus()}
+ajuda.addEventListener("click",()=>abrirAjuda(painel.hidden));
+el("fechar-gestos").addEventListener("click",()=>{abrirAjuda(false);ajuda.focus()});
+painel.addEventListener("keydown",e=>{if(e.key==="Escape"){abrirAjuda(false);ajuda.focus()}});
+const retorno=document.createElement("output");
+retorno.id="retorno-gesto";retorno.className="retorno-gesto";retorno.setAttribute("aria-live","off");retorno.textContent="Pronto para controlar";
+el("touchpad-area").append(retorno);
+let retornoTimer=0;
+function mostrarGesto(mensagem){retorno.textContent=mensagem;retorno.classList.add("ativo");clearTimeout(retornoTimer);retornoTimer=setTimeout(()=>retorno.classList.remove("ativo"),850)}
 const pad=el("touchpad-area"),padContacts=new Map();
 let padGestureMulti=false,padMoved=false,padDown=0,padLastCenter=null,padMultiScrolled=false;
 const scrollThreshold=3;
@@ -111,8 +135,8 @@ pad.addEventListener("pointerdown",event=>{
  if(!state.approved)return;
  event.preventDefault();pad.setPointerCapture(event.pointerId);
  padContacts.set(event.pointerId,{x:event.clientX,y:event.clientY,moved:0});
- if(padContacts.size===1){padMoved=false;padGestureMulti=false;padMultiScrolled=false;padDown=Date.now();padLastCenter=null}
- if(padContacts.size===2){padGestureMulti=true;padLastCenter=centroContatos()}
+ if(padContacts.size===1){padMoved=false;padGestureMulti=false;padMultiScrolled=false;padDown=Date.now();padLastCenter=null;mostrarGesto(hold?"Arrastando":"Mover ponteiro")}
+ if(padContacts.size===2){padGestureMulti=true;padLastCenter=centroContatos();mostrarGesto("Dois dedos · rolar")}
  if(padContacts.size>2){padGestureMulti=true;padLastCenter=null}
 });
 pad.addEventListener("pointermove",event=>{
@@ -129,11 +153,11 @@ pad.addEventListener("pointermove",event=>{
   if(padLastCenter){
    const dx=centro.x-padLastCenter.x,dy=centro.y-padLastCenter.y;
    if(Math.abs(dy)>=scrollThreshold){
-    if(wsSend({phase:"wheel",wheel:Math.round(-dy*7)}))padMultiScrolled=true;
+    if(wsSend({phase:"wheel",wheel:Math.round(-dy*7)})){padMultiScrolled=true;mostrarGesto("Rolagem vertical")}
     padLastCenter.y=centro.y;
    }
    if(Math.abs(dx)>=scrollThreshold){
-    if(wsSend({phase:"hwheel",wheel:Math.round(-dx*7)}))padMultiScrolled=true;
+    if(wsSend({phase:"hwheel",wheel:Math.round(-dx*7)})){padMultiScrolled=true;mostrarGesto("Rolagem horizontal")}
     padLastCenter.x=centro.x;
    }
   }else padLastCenter=centro;
@@ -157,9 +181,9 @@ pad.addEventListener("pointerup",event=>{
  const duracao=Date.now()-padDown;
  // Dois dedos sem rolagem = clique direito; rolagem nunca vira clique.
  if(padGestureMulti){
-  if(!padMultiScrolled&&duracao<550)wsSend({phase:"tap",button:"right",...mousePosition()});
+  if(!padMultiScrolled&&duracao<550&&wsSend({phase:"tap",button:"right",...mousePosition()})){mostrarGesto("Clique direito");pulsar()}
  }else if(!padMoved&&contact.moved<9&&!hold){
-  wsSend({phase:"tap",button:duracao>700?"right":"left",...mousePosition()});
+  if(wsSend({phase:"tap",button:duracao>700?"right":"left",...mousePosition()})){mostrarGesto(duracao>700?"Clique direito":"Clique esquerdo");pulsar()}
  }
  encerrarGesto();
 });
