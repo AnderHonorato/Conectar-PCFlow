@@ -134,3 +134,18 @@ footer{display:flex;justify-content:space-between;gap:10px;max-width:1500px;widt
 @media(max-width:390px){.gestos-grade{grid-template-columns:1fr}.pad-toolbar #ajuda-gestos{min-width:65px;padding:7px}}
 @media(orientation:landscape) and (max-height:530px){.painel-gestos{max-height:45dvh}.gestos-grade{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(prefers-reduced-motion:reduce){.retorno-gesto{transition:none}}
+
+/* Diagnóstico de sessão: estados reais, sem simular ping ou conectividade. */
+.diagnostico-conexao{margin-bottom:14px;padding:16px;border:1px solid #547a80;border-radius:18px;background:#182d36;box-shadow:0 12px 28px #0003}
+.diagnostico-topo{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
+.diagnostico-topo strong{font-size:18px;letter-spacing:-.02em}
+.diagnostico-topo button{width:44px;height:44px;border:1px solid #698a90;background:#244450;color:#fff;border-radius:12px;font-size:22px}
+.diagnostico-grade{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.diagnostico-grade>div{min-width:0;padding:11px;border:1px solid #365761;border-radius:12px;background:#203944}
+.diagnostico-grade span,.diagnostico-grade strong{display:block;overflow-wrap:anywhere}
+.diagnostico-grade span{font-size:11px;color:#bed1d5;margin-bottom:5px}
+.diagnostico-grade strong{font-size:13px;color:#f2d1ac}
+#diag-orientacao{margin:12px 0;color:#e1eeec;font-size:13px}
+#atualizar-diagnostico{min-height:44px;padding:10px 16px;border:1px solid #e5bd95;border-radius:12px;background:#e5bd95;color:#18303a;font-weight:750}
+@media(max-width:620px){.diagnostico-grade{grid-template-columns:repeat(2,minmax(0,1fr))}.diagnostico-conexao{padding:12px}}
+@media(max-width:360px){.diagnostico-grade{grid-template-columns:1fr}}
