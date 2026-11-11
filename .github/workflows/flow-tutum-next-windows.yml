@@ -52,6 +52,8 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw "Falha no teste de WebSocket: $LASTEXITCODE" }
             node tests/ws-auth-deadline-integration.mjs
             if ($LASTEXITCODE -ne 0) { throw "Falha no deadline de autenticacao WS: $LASTEXITCODE" }
+            node tests/ws-payload-integration.mjs
+            if ($LASTEXITCODE -ne 0) { throw "Falha na validacao de payload WS: $LASTEXITCODE" }
             $pin = $null
             for ($i=0; $i -lt 40; $i++) {
               $text = if (Test-Path $log) { Get-Content $log -Raw } else { '' }
