@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+<PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0-windows</TargetFramework><UseWindowsForms>true</UseWindowsForms><EnableDefaultCompileItems>false</EnableDefaultCompileItems><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings></PropertyGroup>
+<ItemGroup><Compile Include="..\src\Coordinates.cs" Link="Coordinates.cs"/><Compile Include="..\src\InputEngine.cs" Link="InputEngine.cs"/><Compile Include="..\src\KeyboardEngine.cs" Link="KeyboardEngine.cs"/><Compile Include="..\src\SessionStatus.cs" Link="SessionStatus.cs"/><Compile Include="InputAbiTests.cs"/></ItemGroup>
+</Project>
