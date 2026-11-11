@@ -10,7 +10,7 @@ let now=10000,requests=0,loadCalls=0,dialogs=[],toasts=[],fail=false;
 let release;
 const state={stopped:false,info:null,token:'token-valido',localSupported:false};
 const context={
- state,document:{hidden:false},Date:{now:()=>now},
+ state,navigator:{onLine:true},document:{hidden:false},Date:{now:()=>now},
  AbortSignal:{timeout:()=>({})},
  fetch:async()=>{requests++;if(fail)throw Error('Wi-Fi desconectado');return {ok:true,json:async()=>({localDirect:true})}},
  loadInfo:async()=>{loadCalls++;state.info={device:'PC'}},
@@ -38,6 +38,9 @@ assert.equal(dialogs.at(-1),'discovery-dialog');
 const stableRequests=requests;
 now+=6000;await context.recoverConnection();
 assert.equal(requests,stableRequests,'Descoberta sem token nao deve abrir dialogos repetidos');
+context.navigator.onLine=false;now+=6000;await context.recoverConnection();
+assert.equal(requests,stableRequests,'Nao consulta rede durante estado offline');
+context.navigator.onLine=true;
 state.stopped=true;now+=6000;await context.recoverConnection();
 assert.equal(requests,stableRequests,'Desconexao voluntaria bloqueia reconexao');
 console.log('RECUPERACAO_INICIAL=PASS: falha, retorno, token, descoberta, antirepeticao e desconexao');
