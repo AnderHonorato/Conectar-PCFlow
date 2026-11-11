@@ -33,6 +33,23 @@ function layout(){
  const y=(h-ih*scale)/2+state.panY*(canvas.height/Math.max(1,canvas.clientHeight));
  return {x,y,w:iw*scale,h:ih*scale};
 }
+// Zoom ancorado no ponto tocado: o pixel sob os dedos permanece no mesmo lugar.
+function zoomNoPonto(novoZoom,pontoX,pontoY){
+ const anterior=layout(),antigoZoom=state.zoom;
+ state.zoom=Math.max(1,Math.min(5,novoZoom));
+ if(!anterior||!canvas.clientWidth||!canvas.clientHeight){paint();return;}
+ const escala=state.zoom/antigoZoom;
+ const px=pontoX*(canvas.width/canvas.clientWidth),py=pontoY*(canvas.height/canvas.clientHeight);
+ // A geometria final deve satisfazer novaOrigem = ponto - (ponto-origem)*escala.
+ const novaOrigemX=px-(px-anterior.x)*escala;
+ const novaOrigemY=py-(py-anterior.y)*escala;
+ const baseX=(canvas.width-anterior.w*escala)/2;
+ const baseY=(canvas.height-anterior.h*escala)/2;
+ state.panX=(novaOrigemX-baseX)*canvas.clientWidth/canvas.width;
+ state.panY=(novaOrigemY-baseY)*canvas.clientHeight/canvas.height;
+ if(state.zoom===1&&state.fillMode==="fit"){state.panX=0;state.panY=0;}
+ paint();window.dispatchEvent(new Event("flow-zoom-alterado"));
+}
 function paint(){
  if(!canvas.width||!canvas.height)return;
  ctx.fillStyle="#080b11";ctx.fillRect(0,0,canvas.width,canvas.height);
@@ -279,8 +296,8 @@ canvas.addEventListener("pointermove",e=>{
      x:midX,y:midY,zoom:state.zoom};
    const distance=Math.hypot(a.x-b.x,a.y-b.y);
    if(Math.abs(distance-state.gesture.distance)>14){
-      state.zoom=Math.max(1,Math.min(5,state.gesture.zoom*distance/state.gesture.distance));
-      paint();
+      const bounds=canvas.getBoundingClientRect();
+      zoomNoPonto(state.gesture.zoom*distance/state.gesture.distance,midX-bounds.left,midY-bounds.top);
    }else if(state.exploring||state.zoom>1||state.fillMode==="fill"){
       const limits=canvas.getBoundingClientRect();
       state.panX=Math.max(-limits.width*1.6,Math.min(limits.width*1.6,state.panX+(midX-state.gesture.x)));
@@ -339,7 +356,7 @@ canvas.addEventListener("pointerup",e=>{
 const cancel=e=>{state.contacts.delete(e.pointerId);state.pointer=null;state.gesture=null;if(!state.exploring)wsSend({phase:"cancel"});};
 canvas.addEventListener("pointercancel",cancel);canvas.addEventListener("lostpointercapture",e=>{if(state.contacts.has(e.pointerId))cancel(e)});
 canvas.addEventListener("contextmenu",e=>e.preventDefault());
-canvas.addEventListener("wheel",e=>{e.preventDefault();if(e.ctrlKey||state.exploring){state.zoom=Math.max(1,Math.min(4,state.zoom-e.deltaY*.003));paint()}else wsSend({phase:"wheel",wheel:Math.round(-e.deltaY*2)});},{passive:false});
+canvas.addEventListener("wheel",e=>{e.preventDefault();if(e.ctrlKey||state.exploring){zoomNoPonto(state.zoom-e.deltaY*.003,e.clientX-canvas.getBoundingClientRect().left,e.clientY-canvas.getBoundingClientRect().top)}else wsSend({phase:"wheel",wheel:Math.round(-e.deltaY*2)});},{passive:false});
 el("mode-direct").onclick=()=>setMode("direct");el("mode-trackpad").onclick=()=>setMode("trackpad");
 el("right-click").onclick=()=>wsSend({phase:"tap",x:state.cursor.x,y:state.cursor.y,button:"right"});
 el("open-keyboard").onclick=()=>{
