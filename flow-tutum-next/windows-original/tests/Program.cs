@@ -26,4 +26,16 @@ foreach(var invalidSize in new[]{double.NaN,double.PositiveInfinity,double.Negat
     catch(ArgumentException) { rejected=true; }
     Check(rejected,"Altura DOM invalida recusada: "+invalidSize);
 }
+// Teclas multimídia devem gerar pares completos DOWN/UP sem modificadores presos.
+foreach(var atalho in new[]{"midia-reproduzir","midia-parar","midia-anterior","midia-proxima","volume-mudo","volume-menos","volume-mais"}) {
+    var sequencia=KeyboardEngine.BuildShortcut(atalho);
+    Check(sequencia.Count==2 && sequencia[0].Flags==0 &&
+          sequencia[1].Flags==KeyboardEngine.KeyUp &&
+          sequencia[0].VirtualKey==sequencia[1].VirtualKey,
+          "Multimidia com tecla liberada: "+atalho);
+}
+bool atalhoInvalido=false;
+try {KeyboardEngine.BuildShortcut("midia-executar-comando");}
+catch(ArgumentException){atalhoInvalido=true;}
+Check(atalhoInvalido,"Comando de midia desconhecido recusado");
 Console.WriteLine("FLOW_TUTUM_GEOMETRIA="+tests+" TESTES PASSARAM");
