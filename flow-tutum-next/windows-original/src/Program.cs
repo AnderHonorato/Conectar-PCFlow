@@ -275,10 +275,27 @@ app.Map("/ws/input",async (HttpContext ctx)=> {
                 result=await socket.ReceiveAsync(new ArraySegment<byte>(bytes),
                     id is null?authDeadline.Token:ctx.RequestAborted);
                 if(result.MessageType==WebSocketMessageType.Close)return;
+                if(result.MessageType!=WebSocketMessageType.Text){
+                    await socket.CloseAsync(WebSocketCloseStatus.InvalidMessageType,
+                        "Somente texto JSON",CancellationToken.None);
+                    return;
+                }
+                if(m.Length+result.Count>8192){
+                    await socket.CloseAsync(WebSocketCloseStatus.MessageTooBig,
+                        "Pacote excede 8192 bytes",CancellationToken.None);
+                    return;
+                }
                 m.Write(bytes,0,result.Count);
-                if(m.Length>8192)throw new InvalidOperationException("Pacote excede o limite.");
             }while(!result.EndOfMessage);
-            var cmd=JsonSerializer.Deserialize<InputPacket>(m.ToArray(),new JsonSerializerOptions{PropertyNameCaseInsensitive=true});
+            InputPacket? cmd;
+            try {
+                cmd=JsonSerializer.Deserialize<InputPacket>(m.ToArray(),
+                    new JsonSerializerOptions{PropertyNameCaseInsensitive=true});
+            }catch(JsonException){
+                await socket.CloseAsync(WebSocketCloseStatus.InvalidPayloadData,
+                    "JSON invalido",CancellationToken.None);
+                return;
+            }
             if(cmd is null)continue;
             string response;
             if(id is null) {
