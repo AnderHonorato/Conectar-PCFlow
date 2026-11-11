@@ -1,0 +1,15 @@
+/* Navegação rápida — Ander Flow */
+.navegacao-rapida{padding:16px;border:1px solid #3e5962;border-radius:18px;background:#18252e;color:#edf5f4;margin:12px 0}
+.navegacao-rapida header{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.navegacao-rapida header strong{display:block;font-size:16px}
+.navegacao-rapida header small,.navegacao-rapida p{display:block;color:#b5c9cf;font-size:12px}
+#navegacao-estado{color:#8ce1d5;font-size:12px}
+.navegacao-grupos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:10px}
+.navegacao-grupos h3{font-size:13px;color:#e2c19c;margin:8px 0}
+.navegacao-botoes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.navegacao-botoes button{min-height:48px;border:1px solid #52717a;background:#263a43;color:#effafa;border-radius:12px;padding:10px 6px;transition:background .15s ease,transform .15s ease}
+.navegacao-botoes button:active,.navegacao-botoes button.enviado{background:#236f6a;transform:scale(.98)}
+.navegacao-botoes button:disabled{opacity:.45}
+.navegacao-botoes button:focus-visible{outline:3px solid #8ce1d5;outline-offset:2px}
+@media(max-width:620px){.navegacao-grupos{grid-template-columns:1fr}.navegacao-rapida{padding:12px}}
+@media(prefers-reduced-motion:reduce){.navegacao-botoes button{transition:none}}
