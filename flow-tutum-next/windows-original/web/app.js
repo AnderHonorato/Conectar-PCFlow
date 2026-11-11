@@ -279,7 +279,7 @@ canvas.addEventListener("pointermove",e=>{
    if(Math.abs(distance-state.gesture.distance)>14){
       state.zoom=Math.max(1,Math.min(5,state.gesture.zoom*distance/state.gesture.distance));
       paint();
-   }else if(state.zoom>1||state.fillMode==="fill"){
+   }else if(state.exploring||state.zoom>1||state.fillMode==="fill"){
       const limits=canvas.getBoundingClientRect();
       state.panX=Math.max(-limits.width*1.6,Math.min(limits.width*1.6,state.panX+(midX-state.gesture.x)));
       state.panY=Math.max(-limits.height*1.6,Math.min(limits.height*1.6,state.panY+(midY-state.gesture.y)));
