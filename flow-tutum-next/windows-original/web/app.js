@@ -372,9 +372,9 @@ setInterval(refreshPermission,3000);
 setInterval(syncCursor,1500);
 // A falha de /api/health na abertura nao deve impedir a inicializacao do fallback
 // de video nem exigir que o usuario recarregue a pagina apos voltar ao Wi-Fi.
-let recovering=false,lastRecovery=0;
+let recovering=false,lastRecovery=0,discoveryReady=false;
 async function recoverConnection(){
- if(state.stopped||recovering||state.info||document.hidden||Date.now()-lastRecovery<5000)return;
+ if(state.stopped||recovering||state.info||(!state.token&&discoveryReady)||document.hidden||Date.now()-lastRecovery<5000)return;
  recovering=true;lastRecovery=Date.now();
  try{
   const response=await fetch("/api/health",{cache:"no-store",signal:AbortSignal.timeout(4000)});
@@ -384,9 +384,9 @@ async function recoverConnection(){
   if(state.token){
    await loadInfo();
   }else if(state.localSupported){
-   showDialog("discovery-dialog");toast("Computador encontrado");
+   discoveryReady=true;showDialog("discovery-dialog");toast("Computador encontrado");
   }else{
-   showDialog("pair-dialog");toast("Pronto para parear");
+   discoveryReady=true;showDialog("pair-dialog");toast("Pronto para parear");
   }
  }catch{
   toast("Servidor indisponível · reconectando",true);
