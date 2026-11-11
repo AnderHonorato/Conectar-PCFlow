@@ -51,6 +51,47 @@ el("pointer-sensitivity").oninput=e=>{
  state.sensitivity=Number(e.target.value);
  localStorage.setItem("flow-pointer-speed",String(state.sensitivity));
 };
+// Perfis de uso: ajustes locais e reversíveis, sem alterar a autorização do Windows.
+const perfisControle={
+ "precisao":{nome:"Precisão",sensibilidade:0.8,toque:"click",descricao:"Movimentos delicados para editar textos e planilhas."},
+ "cotidiano":{nome:"Cotidiano",sensibilidade:1.5,toque:"click",descricao:"Equilíbrio entre velocidade e controle."},
+ "rapido":{nome:"Rápido",sensibilidade:2.5,toque:"click",descricao:"Deslocamento amplo com menos movimentos."}
+};
+const perfilContainer=document.createElement("section");
+perfilContainer.className="perfis-controle";
+perfilContainer.setAttribute("aria-label","Perfis do touchpad");
+perfilContainer.innerHTML='<div class="perfis-titulo"><strong>Seu jeito de controlar</strong><small>Toque para trocar o perfil</small></div><div class="perfis-opcoes" role="group" aria-label="Escolha o perfil"><button type="button" data-perfil="precisao">Precisão</button><button type="button" data-perfil="cotidiano">Cotidiano</button><button type="button" data-perfil="rapido">Rápido</button></div><p id="perfil-descricao" role="status"></p>';
+el("touchpad-layout").insertBefore(perfilContainer,el("touchpad-layout").querySelector(".pad-interaction"));
+function atualizarPerfilAtivo(chave){
+ perfilContainer.querySelectorAll("[data-perfil]").forEach(botao=>{
+  const ativo=botao.dataset.perfil===chave;
+  botao.classList.toggle("selecionado",ativo);
+  botao.setAttribute("aria-pressed",String(ativo));
+ });
+ el("perfil-descricao").textContent=perfisControle[chave]?.descricao||"Ajustes personalizados.";
+}
+function aplicarPerfil(chave){
+ const perfil=perfisControle[chave];
+ if(!perfil)return;
+ state.sensitivity=perfil.sensibilidade;
+ state.tapBehavior=perfil.toque;
+ el("pointer-sensitivity").value=String(perfil.sensibilidade);
+ el("touch-behavior").value=perfil.toque;
+ localStorage.setItem("flow-pointer-speed",String(perfil.sensibilidade));
+ localStorage.setItem("flow-touch-behavior",perfil.toque);
+ localStorage.setItem("flow-perfil-controle",chave);
+ atualizarPerfilAtivo(chave);
+}
+perfilContainer.querySelectorAll("[data-perfil]").forEach(botao=>botao.addEventListener("click",()=>aplicarPerfil(botao.dataset.perfil)));
+const perfilSalvo=localStorage.getItem("flow-perfil-controle");
+if(perfilSalvo&&perfisControle[perfilSalvo])aplicarPerfil(perfilSalvo);
+else atualizarPerfilAtivo("personalizado");
+function marcarPersonalizado(){
+ localStorage.setItem("flow-perfil-controle","personalizado");
+ atualizarPerfilAtivo("personalizado");
+}
+el("pointer-sensitivity").addEventListener("input",marcarPersonalizado);
+el("touch-behavior").addEventListener("change",marcarPersonalizado);
 el("connect-local").onclick=async()=>{
  const button=el("connect-local");
  button.disabled=true;el("local-connect-error").textContent="";
