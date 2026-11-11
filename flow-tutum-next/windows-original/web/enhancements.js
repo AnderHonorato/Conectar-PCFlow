@@ -305,6 +305,37 @@ el("atualizar-diagnostico").onclick=async()=>{
 };
 document.addEventListener("visibilitychange",()=>{if(document.hidden){clearInterval(intervaloDiagnostico)}else if(!diagnostico.hidden){atualizarIndicadores();intervaloDiagnostico=setInterval(atualizarIndicadores,1200)}});
 
+// Central de mídia: ações reais, sem simular reprodução ou nível de volume.
+const midia=document.createElement("section");
+midia.className="central-midia";
+midia.setAttribute("aria-label","Controles multimídia do Windows");
+midia.innerHTML=`<div class="midia-cabecalho"><div><strong>Controle de mídia</strong><small>Comandos para o Windows conectado</small></div><span class="midia-estado" id="midia-estado" role="status" aria-live="polite">Aguardando autorização</span></div>
+<div class="midia-botoes" role="group" aria-label="Reprodução"><button type="button" data-atalho-midia="midia-anterior" aria-label="Faixa anterior" title="Faixa anterior">⏮</button><button type="button" data-atalho-midia="midia-reproduzir" aria-label="Reproduzir ou pausar" title="Reproduzir ou pausar">⏯</button><button type="button" data-atalho-midia="midia-proxima" aria-label="Próxima faixa" title="Próxima faixa">⏭</button><button type="button" data-atalho-midia="midia-parar" aria-label="Parar reprodução" title="Parar reprodução">⏹</button></div>
+<div class="midia-botoes midia-volume" role="group" aria-label="Volume"><button type="button" data-atalho-midia="volume-mudo">Silenciar</button><button type="button" data-atalho-midia="volume-menos">− Volume</button><button type="button" data-atalho-midia="volume-mais">+ Volume</button></div>
+<p>Os botões enviam teclas multimídia ao Windows. A reprodução depende do aplicativo aberto no computador.</p>`;
+el("touchpad-layout").appendChild(midia);
+const estadoMidia=midia.querySelector("#midia-estado");
+let ultimoComandoMidia=0;
+function atualizarMidia(){
+ const permitido=state.approved&&state.authenticated&&state.ws?.readyState===WebSocket.OPEN&&state.sessionReady;
+ midia.querySelectorAll("[data-atalho-midia]").forEach(b=>b.disabled=!permitido);
+ if(!permitido)estadoMidia.textContent="Aguardando conexão autorizada";
+ else if(estadoMidia.textContent.startsWith("Aguardando"))estadoMidia.textContent="Pronto para controlar";
+}
+midia.addEventListener("click",e=>{
+ const botao=e.target.closest("[data-atalho-midia]");
+ if(!botao||botao.disabled)return;
+ const agora=Date.now();
+ if(agora-ultimoComandoMidia<180)return;
+ ultimoComandoMidia=agora;
+ const enviado=wsSend({phase:"key",keys:botao.dataset.atalhoMidia});
+ estadoMidia.textContent=enviado?"Comando enviado: "+(botao.getAttribute("aria-label")||botao.textContent.trim()):"Não foi possível enviar";
+ if(enviado){botao.classList.add("midia-acionado");setTimeout(()=>botao.classList.remove("midia-acionado"),220)}
+ atualizarMidia();
+});
+setInterval(atualizarMidia,1000);
+atualizarMidia();
+
 let prior="",composing=false;
 const field=el("keyboard-text");
 field.spellcheck=false;
