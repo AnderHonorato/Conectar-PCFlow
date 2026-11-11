@@ -336,6 +336,44 @@ midia.addEventListener("click",e=>{
 setInterval(atualizarMidia,1000);
 atualizarMidia();
 
+// Controle de apresentação: teclado remoto autorizado, sem alterar o protocolo Windows.
+const apresentacao=document.createElement("section");
+apresentacao.className="controle-apresentacao";
+apresentacao.setAttribute("aria-label","Controle de apresentação e leitura");
+apresentacao.innerHTML=`<div class="apresentacao-cabecalho"><div><strong>Apresentação e leitura</strong><small>Slides, documentos e navegação sem mouse</small></div><span id="apresentacao-estado" role="status" aria-live="polite">Aguardando conexão</span></div>
+<div class="apresentacao-grade" role="group" aria-label="Navegação por páginas">
+<button type="button" data-tecla-apresentacao="left" aria-label="Slide anterior">◀ <span>Anterior</span></button>
+<button type="button" data-tecla-apresentacao="right" aria-label="Próximo slide"><span>Próximo</span> ▶</button>
+<button type="button" data-tecla-apresentacao="pageup">Página acima</button>
+<button type="button" data-tecla-apresentacao="pagedown">Página abaixo</button>
+<button type="button" data-tecla-apresentacao="home">Início</button>
+<button type="button" data-tecla-apresentacao="end">Fim</button>
+<button type="button" data-tecla-apresentacao="f5">Iniciar slides (F5)</button>
+<button type="button" data-tecla-apresentacao="escape">Sair da apresentação</button>
+</div><p>As teclas atuam no aplicativo em primeiro plano do Windows. A execução depende do programa aberto.</p>`;
+el("touchpad-layout").appendChild(apresentacao);
+const estadoApresentacao=apresentacao.querySelector("#apresentacao-estado");
+const comandosApresentacao=new Set(["left","right","pageup","pagedown","home","end","f5","escape"]);
+function sincronizarApresentacao(){
+ const autorizado=state.approved&&state.authenticated&&state.sessionReady&&state.ws?.readyState===WebSocket.OPEN;
+ apresentacao.querySelectorAll("[data-tecla-apresentacao]").forEach(botao=>botao.disabled=!autorizado);
+ if(!autorizado)estadoApresentacao.textContent="Aguardando conexão autorizada";
+ else if(estadoApresentacao.textContent.startsWith("Aguardando"))estadoApresentacao.textContent="Pronto para navegar";
+}
+apresentacao.addEventListener("click",evento=>{
+ const botao=evento.target.closest("[data-tecla-apresentacao]");
+ if(!botao||!apresentacao.contains(botao)||botao.disabled)return;
+ const tecla=botao.dataset.teclaApresentacao;
+ if(!comandosApresentacao.has(tecla))return;
+ sincronizarApresentacao();
+ if(botao.disabled)return;
+ const enviado=wsSend({phase:"key",keys:tecla});
+ estadoApresentacao.textContent=enviado?"Enviado: "+botao.textContent.trim():"Falha ao enviar comando";
+ if(enviado){botao.classList.add("apresentacao-acionado");setTimeout(()=>botao.classList.remove("apresentacao-acionado"),200);}
+});
+setInterval(sincronizarApresentacao,1200);
+sincronizarApresentacao();
+
 // Modo foco: amplia apenas a tela remota, sem alterar o monitor ou enviar comandos.
 const botaoFoco=el("modo-foco");
 const atualizarFoco=()=>{
