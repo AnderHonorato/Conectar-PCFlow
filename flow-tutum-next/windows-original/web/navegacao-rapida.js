@@ -16,6 +16,47 @@ destino.append(painel);
 const estado=painel.querySelector("#navegacao-estado");
 const autorizados=new Set(["alt+left","alt+right","ctrl+r","ctrl+l","ctrl+t","ctrl+w","ctrl+f","ctrl+a","ctrl+z","ctrl+shift+z","alt+tab","escape"]);
 const conectado=()=>Boolean(state.approved&&state.authenticated&&state.sessionReady&&state.ws?.readyState===WebSocket.OPEN);
+// Favoritos locais: não alteram autorização, sessão ou comandos no Windows.
+const favoritos=new Set(JSON.parse(localStorage.getItem("flow-atalhos-favoritos")||"[]").filter(chave=>autorizados.has(chave)));
+const ferramentas=document.createElement("div");
+ferramentas.className="navegacao-ferramentas";
+ferramentas.innerHTML='<label for="buscar-atalho">Buscar atalho</label><input id="buscar-atalho" type="search" placeholder="Ex.: localizar, nova aba" autocomplete="off"><button type="button" id="limpar-busca">Limpar</button>';
+painel.querySelector(".navegacao-grupos").before(ferramentas);
+painel.querySelectorAll("[data-comando]").forEach(botao=>{
+ const comando=botao.dataset.comando;
+ const favorito=document.createElement("button");
+ favorito.type="button";favorito.className="favorito-atalho";
+ favorito.dataset.favorito=comando;
+ favorito.setAttribute("aria-label","Favoritar "+botao.textContent.trim());
+ botao.after(favorito);
+});
+const busca=ferramentas.querySelector("input");
+function atualizarLista(){
+ const termo=busca.value.trim().toLocaleLowerCase("pt-BR");
+ painel.querySelectorAll("[data-comando]").forEach(botao=>{
+  const chave=botao.dataset.comando,grupo=botao.parentElement;
+  const favorito=grupo.querySelector('[data-favorito="'+chave+'"]');
+  const visivel=!termo||botao.textContent.toLocaleLowerCase("pt-BR").includes(termo)||chave.includes(termo);
+  botao.hidden=!visivel;favorito.hidden=!visivel;
+  favorito.textContent=favoritos.has(chave)?"★":"☆";
+  favorito.setAttribute("aria-pressed",String(favoritos.has(chave)));
+ });
+ painel.querySelectorAll(".navegacao-botoes").forEach(grupo=>{
+  const secao=grupo.parentElement;
+  secao.hidden=![...grupo.querySelectorAll("[data-comando]")].some(b=>!b.hidden);
+ });
+}
+busca.addEventListener("input",atualizarLista);
+ferramentas.querySelector("#limpar-busca").addEventListener("click",()=>{busca.value="";atualizarLista();busca.focus()});
+painel.addEventListener("click",evento=>{
+ const favorito=evento.target.closest("[data-favorito]");
+ if(!favorito)return;
+ const chave=favorito.dataset.favorito;
+ if(favoritos.has(chave))favoritos.delete(chave);else favoritos.add(chave);
+ localStorage.setItem("flow-atalhos-favoritos",JSON.stringify([...favoritos]));
+ atualizarLista();
+});
+atualizarLista();
 function atualizar(){
  const ativo=conectado();
  painel.querySelectorAll("[data-comando]").forEach(botao=>botao.disabled=!ativo);
