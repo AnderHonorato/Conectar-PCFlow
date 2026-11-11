@@ -45,10 +45,22 @@ jobs:
           $env:FLOW_TUTUM_NEXT_TAILNET = '0'
           $env:APPDATA = Join-Path $env:RUNNER_TEMP 'flow-next-integration-appdata'
           New-Item -ItemType Directory -Force -Path $env:APPDATA | Out-Null
-          $server = Start-Process dotnet -ArgumentList @('run','--project','src/FlowTutum.Next.csproj','--no-build','--configuration','Release') -WorkingDirectory (Get-Location).Path -PassThru -WindowStyle Hidden
+          $log = Join-Path $env:RUNNER_TEMP 'flow-next-test-stdout.log'
+          $server = Start-Process dotnet -ArgumentList @('run','--project','src/FlowTutum.Next.csproj','--no-build','--configuration','Release') -WorkingDirectory (Get-Location).Path -PassThru -WindowStyle Hidden -RedirectStandardOutput $log
           try {
             node tests/ws-origin-integration.mjs
             if ($LASTEXITCODE -ne 0) { throw "Falha no teste de WebSocket: $LASTEXITCODE" }
+            $pin = $null
+            for ($i=0; $i -lt 40; $i++) {
+              $text = if (Test-Path $log) { Get-Content $log -Raw } else { '' }
+              if ($text -match 'Codigo temporario de pareamento: (\d{6})') { $pin = $Matches[1]; break }
+              Start-Sleep -Milliseconds 250
+            }
+            if (-not $pin) { throw 'PIN do servidor isolado indisponivel' }
+            $env:FLOW_TUTUM_TEST_PIN = $pin
+            node tests/ws-replacement-integration.mjs
+            if ($LASTEXITCODE -ne 0) { throw "Falha no teste de substituicao WS: $LASTEXITCODE" }
+            Remove-Item Env:FLOW_TUTUM_TEST_PIN -ErrorAction SilentlyContinue
           } finally {
             if ($server -and -not $server.HasExited) { Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue }
           }
