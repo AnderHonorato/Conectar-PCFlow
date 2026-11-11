@@ -393,7 +393,23 @@ async function recoverConnection(){
   if(!state.token)showDialog("pair-dialog");
  }finally{recovering=false;}
 }
-window.addEventListener("online",recoverConnection);
+// Desliga recursos de streaming e entrada quando o Android perde a rede;
+// preserva o pareamento para retomar sem novo PIN ao reconectar.
+function markNetworkOffline(){
+ if(state.stopped)return;
+ state.videoAbort?.abort();
+ if(state.image?.close)state.image.close();
+ state.image=null;state.videoActive=false;state.info=null;
+ state.sessionReady=false;state.approved=false;state.authenticated=false;
+ state.pointer=null;state.contacts.clear();
+ try{state.ws?.close()}catch{}
+ el("empty").hidden=false;
+ el("stream-state").textContent="Wi-Fi desconectado";
+ toast("Sem rede · aguardando reconexão",true);
+ paint();
+}
+window.addEventListener("offline",markNetworkOffline);
+window.addEventListener("online",()=>{lastRecovery=0;recoverConnection()});
 setInterval(recoverConnection,5000);
 window.FlowTutumNext={state,wsSend,paint,sizeCanvas,setMode,api,loadInfo,toast,showDialog,closeDialog,recoverConnection};
 frameLoop();
