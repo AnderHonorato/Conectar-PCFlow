@@ -14,6 +14,7 @@ function setZoom(value){
  if(state.zoom===1){state.panX=0;state.panY=0}
  zoomText();paint();
 }
+window.addEventListener("flow-zoom-alterado",zoomText);
 const explorar=el("explore-toggle");
 function atualizarExploracao(){
  explorar.setAttribute("aria-pressed",String(state.exploring));
