@@ -189,3 +189,20 @@ footer{display:flex;justify-content:space-between;gap:10px;max-width:1500px;widt
 .modo-foco-ativo .viewer{flex:1 1 auto;min-height:0!important;height:100dvh!important;max-height:100dvh!important;width:100%!important;margin:0!important;border-radius:0!important}
 .modo-foco-ativo .modo-foco-acao{top:max(10px,env(safe-area-inset-top));right:max(10px,env(safe-area-inset-right));background:var(--bg)}
 @media(max-width:390px){.modo-foco-acao{padding:8px;min-width:52px}.modo-foco-acao span{font-size:12px}}
+
+/* Navegação de slides e leitura: superfície de controle para polegares. */
+.controle-apresentacao{display:grid;gap:12px;margin:14px 0;padding:16px;background:var(--panel);border:1px solid var(--line);border-radius:18px}
+.apresentacao-cabecalho{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.apresentacao-cabecalho>div{display:grid;gap:4px}.apresentacao-cabecalho strong{font-size:15px;color:var(--white)}
+.apresentacao-cabecalho small,.controle-apresentacao p{font-size:12px;line-height:1.5;color:var(--muted)}
+#apresentacao-estado{font-size:11px;font-weight:650;color:var(--accent)}
+.apresentacao-grade{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.apresentacao-grade button{min-height:52px;padding:9px;border:1px solid var(--line);border-radius:14px;background:var(--bg);color:var(--white);font:inherit;font-size:13px;font-weight:650;touch-action:manipulation;cursor:pointer}
+.apresentacao-grade button:first-child,.apresentacao-grade button:nth-child(2){min-height:64px;font-size:15px;background:#25434a}
+.apresentacao-grade button:disabled{opacity:.45;cursor:not-allowed}
+.apresentacao-grade button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.apresentacao-grade button:active,.apresentacao-grade button.apresentacao-acionado{background:#28504a;border-color:var(--accent)}
+.controle-apresentacao p{margin:0}
+@media(max-width:390px){.controle-apresentacao{padding:10px}.apresentacao-grade{gap:6px}.apresentacao-grade button{min-height:48px;font-size:12px}}
+@media(orientation:landscape) and (max-height:530px){.apresentacao-grade{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(prefers-reduced-motion:no-preference){.apresentacao-grade button{transition:background-color .15s ease,border-color .15s ease}}
