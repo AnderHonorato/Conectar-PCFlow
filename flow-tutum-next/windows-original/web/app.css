@@ -149,3 +149,15 @@ footer{display:flex;justify-content:space-between;gap:10px;max-width:1500px;widt
 #atualizar-diagnostico{min-height:44px;padding:10px 16px;border:1px solid #e5bd95;border-radius:12px;background:#e5bd95;color:#18303a;font-weight:750}
 @media(max-width:620px){.diagnostico-grade{grid-template-columns:repeat(2,minmax(0,1fr))}.diagnostico-conexao{padding:12px}}
 @media(max-width:360px){.diagnostico-grade{grid-template-columns:1fr}}
+
+/* Perfis de touchpad: seleção acessível e legível em retrato e paisagem. */
+.perfis-controle{border:1px solid var(--line);border-radius:16px;background:var(--panel);padding:14px;margin:12px 0;display:grid;gap:10px}
+.perfis-titulo{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.perfis-titulo strong{font-size:14px;color:var(--white)}
+.perfis-titulo small,#perfil-descricao{font-size:12px;color:var(--muted)}
+.perfis-opcoes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.perfis-opcoes button{min-height:46px;border:1px solid var(--line);background:var(--bg);color:var(--white);border-radius:12px;font-weight:650;padding:8px}
+.perfis-opcoes button.selecionado{background:#28504a;border-color:var(--accent);color:#dcfff7;box-shadow:inset 0 0 0 1px var(--accent)}
+#perfil-descricao{margin:0;min-height:18px}
+@media(max-width:390px){.perfis-controle{padding:10px}.perfis-opcoes{gap:5px}.perfis-opcoes button{font-size:12px;padding:5px}}
+@media(prefers-reduced-motion:no-preference){.perfis-opcoes button{transition:background .16s ease,border-color .16s ease}}
