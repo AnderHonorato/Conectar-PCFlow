@@ -246,6 +246,8 @@ async function syncCursor(){
 }
 function setMode(mode){
  state.mode=mode;state.pointer=null;state.contacts.clear();
+ // O modo explorar pertence apenas à tela remota; sair dele ao abrir o touchpad.
+ if(mode==="trackpad"&&state.exploring){state.exploring=false;window.dispatchEvent(new Event("flow-exploracao-alterada"));}
  el("viewer").hidden=mode==="trackpad";
  el("touchpad-layout").hidden=mode!=="trackpad";
  document.querySelector(".shell").classList.toggle("touchpad-mode",mode==="trackpad");
