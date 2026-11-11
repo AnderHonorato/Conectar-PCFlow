@@ -3,11 +3,10 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 const source=readFileSync(new URL('../web/app.js',import.meta.url),'utf8');
 const begin=source.indexOf('let recovering=false,lastRecovery=0,discoveryReady=false;');
-const end=source.indexOf('window.addEventListener("online",recoverConnection);',begin);
+const end=source.indexOf('window.addEventListener("offline",markNetworkOffline);',begin);
 assert.ok(begin>0&&end>begin,'Funcao de recuperacao deve existir no frontend real');
 const snippet=source.slice(begin,end);
 let now=10000,requests=0,loadCalls=0,dialogs=[],toasts=[],fail=false;
-let release;
 const state={stopped:false,info:null,token:'token-valido',localSupported:false};
 const context={
  state,navigator:{onLine:true},document:{hidden:false},Date:{now:()=>now},
