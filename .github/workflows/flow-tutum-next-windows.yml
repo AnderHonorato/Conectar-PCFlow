@@ -30,6 +30,8 @@ jobs:
         run: |
           node --check web/app.js
           node --check web/enhancements.js
+      - name: Testar recuperacao de conexao na inicializacao
+        run: node --test tests/recovery-startup.test.mjs
       - name: Compilar servidor Windows original
         run: dotnet build src/FlowTutum.Next.csproj -c Release --warnaserror
       - name: Validar geometria e monitor ultrawide
