@@ -14,6 +14,21 @@ function setZoom(value){
  if(state.zoom===1){state.panX=0;state.panY=0}
  zoomText();paint();
 }
+const explorar=el("explore-toggle");
+function atualizarExploracao(){
+ explorar.setAttribute("aria-pressed",String(state.exploring));
+ explorar.textContent=state.exploring?"Controlar":"Explorar";
+ explorar.setAttribute("aria-label",state.exploring?"Voltar ao controle remoto":"Explorar imagem sem controlar o computador");
+ el("viewer").classList.toggle("exploring",state.exploring);
+ el("screen").setAttribute("aria-label",state.exploring?"Arraste para explorar a imagem, sem enviar comandos":"Toque ou deslize para controlar");
+ el("hint").textContent=state.exploring?"Modo explorar: arraste a tela ou use dois dedos para ampliar. Nenhum clique será enviado.":"Toque para clicar • deslize para arrastar • dois dedos para rolar";
+}
+explorar.onclick=()=>{
+ if(state.pointer?.drag)wsSend({phase:"cancel"});
+ state.pointer=null;state.contacts.clear();state.gesture=null;
+ state.exploring=!state.exploring;
+ atualizarExploracao();
+};
 el("zoom-in").onclick=()=>setZoom(state.zoom*1.35);
 el("zoom-out").onclick=()=>setZoom(state.zoom/1.35);
 el("zoom-label").onclick=()=>{state.fillMode="fit";setZoom(1)};
@@ -132,7 +147,7 @@ rail.addEventListener("pointermove",e=>{
 rail.addEventListener("pointerup",()=>railLast=null);
 rail.addEventListener("pointercancel",()=>railLast=null);
 el("pad-keyboard").onclick=()=>el("open-keyboard").click();
-el("mode-direct").addEventListener("click",()=>{releaseHold();setTimeout(sizeCanvas,40)});
+el("mode-direct").addEventListener("click",()=>{releaseHold();atualizarExploracao();setTimeout(sizeCanvas,40)});
 el("mode-trackpad").addEventListener("click",()=>zoomText());
 let prior="",composing=false;
 const field=el("keyboard-text");
