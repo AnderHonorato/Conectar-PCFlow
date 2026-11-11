@@ -17,6 +17,10 @@ public static class KeyboardEngine {
       ["pageup"]=0x21,["pagedown"]=0x22,["insert"]=0x2D,
       ["f1"]=0x70,["f2"]=0x71,["f3"]=0x72,["f4"]=0x73,["f5"]=0x74,
       ["f6"]=0x75,["f7"]=0x76,["f8"]=0x77,["f9"]=0x78,["f10"]=0x79,
+      // Teclas multimídia padrão do Windows; respeitam a autorização da sessão.
+      ["midia-reproduzir"]=0xB3,["midia-parar"]=0xB2,
+      ["midia-anterior"]=0xB1,["midia-proxima"]=0xB0,
+      ["volume-mudo"]=0xAD,["volume-menos"]=0xAE,["volume-mais"]=0xAF,
       ["f11"]=0x7A,["f12"]=0x7B
     };
     [StructLayout(LayoutKind.Sequential)] private struct KeyInput {
