@@ -1,0 +1,13 @@
+/* Proteção contra toques acidentais · Ander Flow */
+#bloqueio-toque{min-width:48px}
+#cortina-toque[hidden]{display:none!important}
+#cortina-toque{position:fixed;inset:0;z-index:2147483000;background:rgba(12,22,29,.96);display:grid;place-items:center;padding:max(18px,env(safe-area-inset-top)) 18px max(18px,env(safe-area-inset-bottom));color:#f7f4ee;overscroll-behavior:contain;touch-action:none}
+.bloqueio-cartao{width:min(100%,440px);border:1px solid #617b7b;background:#20323b;border-radius:24px;padding:clamp(20px,5vw,34px);text-align:center;box-shadow:0 18px 50px #0005}
+.bloqueio-cartao svg{height:60px;width:60px;fill:none;stroke:#d9b58b;stroke-width:2.8;stroke-linecap:round;stroke-linejoin:round}
+.bloqueio-cartao h2{font-size:clamp(22px,6vw,30px);margin:14px 0}
+.bloqueio-cartao p{line-height:1.5;color:#d4e1e0}
+.bloqueio-cartao .bloqueio-marca{font-size:11px;letter-spacing:.12em;color:#e6c49e}
+.bloqueio-cartao button{display:block;width:100%;min-height:54px;background:#d8b48b;color:#19262d;border:0;border-radius:14px;font-weight:700;font-size:16px;margin:22px 0 12px}
+.bloqueio-cartao button:focus-visible{outline:3px solid #a9fff0;outline-offset:3px}
+.bloqueio-cartao small{color:#bbd0d1}
+@media(prefers-reduced-motion:no-preference){.bloqueio-cartao{animation:bloqueio-entrada .18s ease-out}@keyframes bloqueio-entrada{from{opacity:.5;transform:translateY(8px)}to{opacity:1;transform:none}}}
