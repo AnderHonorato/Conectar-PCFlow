@@ -65,7 +65,7 @@ function wsSend(cmd){
  }
 }
 function startSocket(){
- if(!state.token)return;
+ if(!state.token||navigator.onLine===false||state.stopped)return;
  try{state.ws?.close()}catch{}
  state.authenticated=false;
  const proto=location.protocol==="https:"?"wss":"ws";
@@ -374,7 +374,7 @@ setInterval(syncCursor,1500);
 // de video nem exigir que o usuario recarregue a pagina apos voltar ao Wi-Fi.
 let recovering=false,lastRecovery=0,discoveryReady=false;
 async function recoverConnection(){
- if(state.stopped||recovering||state.info||(!state.token&&discoveryReady)||document.hidden||Date.now()-lastRecovery<5000)return;
+ if(state.stopped||recovering||state.info||navigator.onLine===false||(!state.token&&discoveryReady)||document.hidden||Date.now()-lastRecovery<5000)return;
  recovering=true;lastRecovery=Date.now();
  try{
   const response=await fetch("/api/health",{cache:"no-store",signal:AbortSignal.timeout(4000)});
