@@ -367,18 +367,35 @@ el("pair-form").onsubmit=async e=>{
  }catch(err){el("pair-error").textContent="Não foi possível parear. Verifique o código.";}
 };
 new ResizeObserver(sizeCanvas).observe(canvas);window.addEventListener("resize",sizeCanvas);
-document.addEventListener("visibilitychange",()=>{if(!document.hidden)sizeCanvas()});
+document.addEventListener("visibilitychange",()=>{if(!document.hidden){sizeCanvas();recoverConnection()}});
 setInterval(refreshPermission,3000);
 setInterval(syncCursor,1500);
-window.FlowTutumNext={state,wsSend,paint,sizeCanvas,setMode,api,loadInfo,toast,showDialog,closeDialog};
-(async()=>{try{
- const response=await fetch("/api/health",{cache:"no-store"});
- if(!response.ok)throw Error();
- const health=await response.json();
- state.localSupported=!!health.localDirect;
- if(state.token)await loadInfo();
- else if(state.localSupported){showDialog("discovery-dialog");toast("Computador encontrado");}
- else{showDialog("pair-dialog");toast("Pronto para parear");}
- frameLoop();}
-catch{toast("Servidor indisponível",true);showDialog("pair-dialog");}})();
+// A falha de /api/health na abertura nao deve impedir a inicializacao do fallback
+// de video nem exigir que o usuario recarregue a pagina apos voltar ao Wi-Fi.
+let recovering=false,lastRecovery=0;
+async function recoverConnection(){
+ if(state.stopped||recovering||state.info||document.hidden||Date.now()-lastRecovery<5000)return;
+ recovering=true;lastRecovery=Date.now();
+ try{
+  const response=await fetch("/api/health",{cache:"no-store",signal:AbortSignal.timeout(4000)});
+  if(!response.ok)throw Error("Servidor indisponível");
+  const health=await response.json();
+  state.localSupported=!!health.localDirect;
+  if(state.token){
+   await loadInfo();
+  }else if(state.localSupported){
+   showDialog("discovery-dialog");toast("Computador encontrado");
+  }else{
+   showDialog("pair-dialog");toast("Pronto para parear");
+  }
+ }catch{
+  toast("Servidor indisponível · reconectando",true);
+  if(!state.token)showDialog("pair-dialog");
+ }finally{recovering=false;}
+}
+window.addEventListener("online",recoverConnection);
+setInterval(recoverConnection,5000);
+window.FlowTutumNext={state,wsSend,paint,sizeCanvas,setMode,api,loadInfo,toast,showDialog,closeDialog,recoverConnection};
+frameLoop();
+recoverConnection();
 })();
