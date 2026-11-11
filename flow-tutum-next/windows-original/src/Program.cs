@@ -265,11 +265,15 @@ app.Map("/ws/input",async (HttpContext ctx)=> {
     string? id=null;
     var connectionId=Guid.NewGuid();
     long lastSeq=0;
+    // Um cliente que nao autentica nao pode manter um socket aberto indefinidamente.
+    using var authDeadline=CancellationTokenSource.CreateLinkedTokenSource(ctx.RequestAborted);
+    authDeadline.CancelAfter(TimeSpan.FromSeconds(10));
     try {
         while(socket.State==WebSocketState.Open) {
             using var m=new MemoryStream();WebSocketReceiveResult result;
             do {
-                result=await socket.ReceiveAsync(new ArraySegment<byte>(bytes),ctx.RequestAborted);
+                result=await socket.ReceiveAsync(new ArraySegment<byte>(bytes),
+                    id is null?authDeadline.Token:ctx.RequestAborted);
                 if(result.MessageType==WebSocketMessageType.Close)return;
                 m.Write(bytes,0,result.Count);
                 if(m.Length>8192)throw new InvalidOperationException("Pacote excede o limite.");
