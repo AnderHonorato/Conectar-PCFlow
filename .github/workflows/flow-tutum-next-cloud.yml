@@ -1,0 +1,64 @@
+name: Flow Tutum Next - fontes e validacao cloud
+
+on:
+  push:
+    branches: [feat/flow-tutum-next-core-fullstack]
+    paths:
+      - 'flow-tutum-next/**'
+      - '.github/workflows/flow-tutum-next-cloud.yml'
+  pull_request:
+    paths:
+      - 'flow-tutum-next/**'
+      - '.github/workflows/flow-tutum-next-cloud.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validar-interface:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verificar JavaScript e testes
+        shell: bash
+        run: |
+          set -euo pipefail
+          find flow-tutum-next/web flow-tutum-next/windows-original/web -type f \( -name '*.js' -o -name '*.mjs' \) -print0 | xargs -0 -n1 node --check
+          node --test flow-tutum-next/tests/*.test.mjs
+          node --test flow-tutum-next/windows-original/tests/*.test.mjs
+  validar-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Compilar servidor real sem instalar
+        run: dotnet build flow-tutum-next/windows-original/src/FlowTutum.Next.csproj --configuration Release --warnaserror
+      - name: Validar geometria
+        run: dotnet run --project flow-tutum-next/windows-original/tests/FlowTutum.Geometry.Tests.csproj --configuration Release
+      - name: Validar entrada
+        run: dotnet run --project flow-tutum-next/windows-original/tests/FlowTutum.Input.Tests.csproj --configuration Release
+  empacotar-fontes:
+    needs: [validar-interface, validar-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Criar pacote reproduzivel sem segredos nem APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p entrega
+          git archive --format=zip --output=entrega/Flow-Tutum-Next-fontes-${GITHUB_SHA}.zip HEAD flow-tutum-next .github/workflows/flow-tutum-next-cloud.yml
+          (cd entrega && sha256sum *.zip > SHA256SUMS.txt)
+          printf 'CRIADOR=Ander Flow\nPRODUTO=Flow Tutum Next\nSHA=%s\nTIPO=fontes-validadas-sem-APK\n' "$GITHUB_SHA" > entrega/MANIFESTO.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Flow-Tutum-Next-fontes-${{ github.sha }}
+          path: entrega/
+          retention-days: 90
+          if-no-files-found: error
