@@ -103,3 +103,12 @@ footer{display:flex;justify-content:space-between;gap:10px;max-width:1500px;widt
  .dock button{min-height:30px}
  .keyboard-sheet{bottom:3px;max-height:95dvh;width:min(440px,75vw)}
 }
+
+/* Explorar a imagem sem enviar cliques ao computador. */
+.zoom-tools #explore-toggle{min-height:44px;min-width:78px;border:1px solid #6c8d96;background:#24424b;color:#d6f7f2;transition:background .18s ease,color .18s ease}
+.zoom-tools #explore-toggle[aria-pressed="true"]{background:#e8b589;color:#17242a;border-color:#f2ca9d}
+.viewer.exploring #screen{cursor:grab}
+.viewer.exploring #screen:active{cursor:grabbing}
+.viewer.exploring{border-color:#d8a17d}
+@media(max-width:620px){.zoom-tools{max-width:calc(100% - 10px);flex-wrap:wrap;justify-content:flex-end}.zoom-tools #explore-toggle{min-height:44px;min-width:70px}}
+@media(prefers-reduced-motion:reduce){.zoom-tools #explore-toggle{transition:none}}
