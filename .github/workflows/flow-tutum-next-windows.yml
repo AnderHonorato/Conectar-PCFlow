@@ -1,0 +1,38 @@
+name: Validacao Windows original Flow Tutum Next
+
+on:
+  pull_request:
+    paths:
+      - 'flow-tutum-next/windows-original/**'
+      - '.github/workflows/flow-tutum-next-windows.yml'
+  push:
+    branches:
+      - feat/flow-tutum-next-core-fullstack
+    paths:
+      - 'flow-tutum-next/windows-original/**'
+      - '.github/workflows/flow-tutum-next-windows.yml'
+
+jobs:
+  windows-original:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: flow-tutum-next/windows-original
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validar JavaScript do painel
+        run: |
+          node --check web/app.js
+          node --check web/enhancements.js
+      - name: Compilar servidor Windows original
+        run: dotnet build src/FlowTutum.Next.csproj -c Release --warnaserror
+      - name: Validar geometria e monitor ultrawide
+        run: dotnet run --project tests/FlowTutum.Geometry.Tests.csproj -c Release
+      - name: Validar ABI de entrada e teclado Windows
+        run: dotnet run --project tests/FlowTutum.Input.Tests.csproj -c Release
