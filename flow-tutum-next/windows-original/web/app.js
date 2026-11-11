@@ -158,6 +158,9 @@ async function frameLoop() {
   if(!state.token||!state.info||document.hidden||state.videoActive||!state.sessionReady){
     await new Promise(r=>setTimeout(r,state.sessionReady?500:1500));continue;
   }
+  // Recupera H.264 automaticamente apos falhas, mantendo JPEG como fallback.
+  if(state.info.capabilities.codec==="h264-fmp4"&&!state.videoStarting&&
+     Date.now()-state.videoLastAttempt>=15000)startVideo().catch(()=>{});
   const before=performance.now();
   try {
     const resp=await api("/api/frame?monitor="+state.monitor+"&width="+state.quality+"&t="+Date.now());
