@@ -374,6 +374,65 @@ apresentacao.addEventListener("click",evento=>{
 setInterval(sincronizarApresentacao,1200);
 sincronizarApresentacao();
 
+// Leitura contínua: rolagem sustentada somente enquanto o usuário mantém pressionado.
+const leitura=document.createElement("section");
+leitura.className="controle-leitura";
+leitura.setAttribute("aria-label","Leitura contínua");
+leitura.innerHTML=`<div class="leitura-cabecalho"><div><strong>Leitura contínua</strong><small>Segure para rolar PDFs e páginas sem movimentos repetidos</small></div><span id="leitura-estado" role="status" aria-live="polite">Pronto</span></div>
+<div class="leitura-velocidades" role="group" aria-label="Velocidade de leitura">
+<button type="button" data-velocidade="1" aria-pressed="true">Suave</button>
+<button type="button" data-velocidade="2" aria-pressed="false">Normal</button>
+<button type="button" data-velocidade="3" aria-pressed="false">Rápida</button></div>
+<div class="leitura-acoes"><button type="button" data-direcao="-1">↑ Subir</button><button type="button" data-direcao="1">↓ Descer</button></div>
+<p>O movimento para imediatamente ao soltar, trocar de aba ou perder a conexão.</p>`;
+el("touchpad-layout").appendChild(leitura);
+let velocidadeLeitura=1,intervaloLeitura=null,ponteiroLeitura=null;
+const estadoLeitura=leitura.querySelector("#leitura-estado");
+function leituraAutorizada(){return state.approved&&state.authenticated&&state.sessionReady&&state.ws?.readyState===WebSocket.OPEN}
+function pararLeitura(){
+ if(intervaloLeitura!==null){clearInterval(intervaloLeitura);intervaloLeitura=null}
+ ponteiroLeitura=null;
+ leitura.querySelectorAll("[data-direcao]").forEach(b=>b.classList.remove("leitura-ativa"));
+ estadoLeitura.textContent=leituraAutorizada()?"Pronto":"Aguardando conexão autorizada";
+}
+function iniciarLeitura(botao,evento){
+ if(intervaloLeitura!==null||!leituraAutorizada())return;
+ evento.preventDefault();
+ ponteiroLeitura=evento.pointerId;
+ try{botao.setPointerCapture(evento.pointerId)}catch{}
+ const direcao=Number(botao.dataset.direcao);
+ const rolar=()=>{
+  if(!leituraAutorizada()||state.mode!=="trackpad"||document.hidden){pararLeitura();return}
+  if(!wsSend({phase:"wheel",wheel:direcao*velocidadeLeitura*90}))pararLeitura();
+ };
+ botao.classList.add("leitura-ativa");
+ estadoLeitura.textContent=direcao>0?"Descendo…":"Subindo…";
+ rolar();
+ if(intervaloLeitura===null&&leituraAutorizada())intervaloLeitura=setInterval(rolar,150);
+}
+leitura.addEventListener("pointerdown",evento=>{
+ const botao=evento.target.closest("[data-direcao]");
+ if(botao&&!botao.disabled)iniciarLeitura(botao,evento);
+});
+for(const tipo of ["pointerup","pointercancel","lostpointercapture"])leitura.addEventListener(tipo,evento=>{
+ if(ponteiroLeitura===evento.pointerId)pararLeitura();
+});
+leitura.addEventListener("click",evento=>{
+ const botao=evento.target.closest("[data-velocidade]");
+ if(!botao)return;
+ velocidadeLeitura=Number(botao.dataset.velocidade);
+ leitura.querySelectorAll("[data-velocidade]").forEach(b=>b.setAttribute("aria-pressed",String(b===botao)));
+});
+window.addEventListener("blur",pararLeitura);
+document.addEventListener("visibilitychange",()=>{if(document.hidden)pararLeitura()});
+leitura.addEventListener("focusout",evento=>{if(!leitura.contains(evento.relatedTarget))pararLeitura()});
+document.querySelectorAll("#mode-direct,#mode-trackpad,#disconnect").forEach(b=>b.addEventListener("click",pararLeitura));
+setInterval(()=>{
+ const autorizado=leituraAutorizada();
+ leitura.querySelectorAll("[data-direcao]").forEach(b=>b.disabled=!autorizado);
+ if(!autorizado&&intervaloLeitura!==null)pararLeitura();
+},1000);
+
 // Modo foco: amplia apenas a tela remota, sem alterar o monitor ou enviar comandos.
 const botaoFoco=el("modo-foco");
 const atualizarFoco=()=>{
