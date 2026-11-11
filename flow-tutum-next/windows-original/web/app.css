@@ -206,3 +206,21 @@ footer{display:flex;justify-content:space-between;gap:10px;max-width:1500px;widt
 @media(max-width:390px){.controle-apresentacao{padding:10px}.apresentacao-grade{gap:6px}.apresentacao-grade button{min-height:48px;font-size:12px}}
 @media(orientation:landscape) and (max-height:530px){.apresentacao-grade{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(prefers-reduced-motion:no-preference){.apresentacao-grade button{transition:background-color .15s ease,border-color .15s ease}}
+
+/* Leitura contínua: superfície acessível e estável para uso com uma mão. */
+.controle-leitura{margin:14px 0;padding:16px;border:1px solid var(--line);border-radius:18px;background:var(--panel);display:grid;gap:12px}
+.leitura-cabecalho{display:flex;justify-content:space-between;align-items:start;gap:12px;flex-wrap:wrap}
+.leitura-cabecalho strong{display:block;font-size:16px}
+.leitura-cabecalho small{display:block;color:var(--muted);font-size:12px;margin-top:3px}
+#leitura-estado{color:var(--accent);font-size:12px;min-height:20px}
+.leitura-velocidades,.leitura-acoes{display:grid;gap:8px}
+.leitura-velocidades{grid-template-columns:repeat(3,minmax(0,1fr))}
+.leitura-acoes{grid-template-columns:repeat(2,minmax(0,1fr))}
+.controle-leitura button{min-height:48px;touch-action:none;border:1px solid var(--line);background:var(--bg);color:var(--white);border-radius:12px;font-weight:650}
+.controle-leitura button[aria-pressed="true"]{border-color:var(--accent);background:#23463f}
+.controle-leitura .leitura-acoes button{min-height:76px;font-size:17px;user-select:none;-webkit-user-select:none}
+.controle-leitura .leitura-acoes button.leitura-ativa{background:#28504a;border-color:var(--accent)}
+.controle-leitura p{margin:0;color:var(--muted);font-size:12px}
+@media(max-width:390px){.controle-leitura{padding:11px;gap:9px}.leitura-velocidades{gap:5px}.controle-leitura button{font-size:12px}}
+@media(orientation:landscape) and (max-height:530px){.controle-leitura{grid-template-columns:1fr 1fr}.leitura-cabecalho,.controle-leitura p{grid-column:1/-1}}
+@media(prefers-reduced-motion:no-preference){.controle-leitura button{transition:background-color .15s ease,border-color .15s ease}}
