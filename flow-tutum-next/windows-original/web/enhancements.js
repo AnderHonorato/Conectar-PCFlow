@@ -23,6 +23,7 @@ function atualizarExploracao(){
  el("screen").setAttribute("aria-label",state.exploring?"Arraste para explorar a imagem, sem enviar comandos":"Toque ou deslize para controlar");
  el("hint").textContent=state.exploring?"Modo explorar: arraste a tela ou use dois dedos para ampliar. Nenhum clique será enviado.":"Toque para clicar • deslize para arrastar • dois dedos para rolar";
 }
+window.addEventListener("flow-exploracao-alterada",atualizarExploracao);
 explorar.onclick=()=>{
  if(state.pointer?.drag)wsSend({phase:"cancel"});
  state.pointer=null;state.contacts.clear();state.gesture=null;
