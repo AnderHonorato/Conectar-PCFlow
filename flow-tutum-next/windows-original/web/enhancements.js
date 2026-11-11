@@ -336,6 +336,35 @@ midia.addEventListener("click",e=>{
 setInterval(atualizarMidia,1000);
 atualizarMidia();
 
+// Modo foco: amplia apenas a tela remota, sem alterar o monitor ou enviar comandos.
+const botaoFoco=el("modo-foco");
+const atualizarFoco=()=>{
+ const ativo=document.body.classList.contains("modo-foco-ativo");
+ botaoFoco.setAttribute("aria-pressed",String(ativo));
+ botaoFoco.setAttribute("aria-label",ativo?"Sair do modo foco":"Ativar modo foco da tela remota");
+ botaoFoco.querySelector("span").textContent=ativo?"Sair":"Foco";
+ botaoFoco.title=ativo?"Restaurar painéis":"Ocultar painéis e ampliar a tela";
+ sizeCanvas();
+};
+botaoFoco.addEventListener("click",()=>{
+ document.body.classList.toggle("modo-foco-ativo");
+ atualizarFoco();
+});
+document.addEventListener("keydown",evento=>{
+ if(evento.key==="Escape"&&document.body.classList.contains("modo-foco-ativo")){
+  document.body.classList.remove("modo-foco-ativo");
+  atualizarFoco();
+ }
+});
+el("mode-trackpad").addEventListener("click",()=>{
+ if(document.body.classList.contains("modo-foco-ativo")){
+  document.body.classList.remove("modo-foco-ativo");
+  atualizarFoco();
+ }
+});
+window.addEventListener("resize",()=>{
+ if(document.body.classList.contains("modo-foco-ativo"))sizeCanvas();
+});
 let prior="",composing=false;
 const field=el("keyboard-text");
 field.spellcheck=false;
