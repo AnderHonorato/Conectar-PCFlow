@@ -36,3 +36,19 @@ jobs:
         run: dotnet run --project tests/FlowTutum.Geometry.Tests.csproj -c Release
       - name: Validar ABI de entrada e teclado Windows
         run: dotnet run --project tests/FlowTutum.Input.Tests.csproj -c Release
+      - name: Testar HTTP e origem WebSocket com servidor Next isolado
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:FLOW_TUTUM_NEXT_PORT = '49981'
+          $env:FLOW_TUTUM_NEXT_LAN = '0'
+          $env:FLOW_TUTUM_NEXT_TAILNET = '0'
+          $env:APPDATA = Join-Path $env:RUNNER_TEMP 'flow-next-integration-appdata'
+          New-Item -ItemType Directory -Force -Path $env:APPDATA | Out-Null
+          $server = Start-Process dotnet -ArgumentList @('run','--project','src/FlowTutum.Next.csproj','--no-build','--configuration','Release') -WorkingDirectory (Get-Location).Path -PassThru -WindowStyle Hidden
+          try {
+            node tests/ws-origin-integration.mjs
+            if ($LASTEXITCODE -ne 0) { throw "Falha no teste de WebSocket: $LASTEXITCODE" }
+          } finally {
+            if ($server -and -not $server.HasExited) { Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue }
+          }
