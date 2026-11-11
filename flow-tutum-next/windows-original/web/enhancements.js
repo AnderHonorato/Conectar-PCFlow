@@ -206,6 +206,63 @@ rail.addEventListener("pointercancel",()=>railLast=null);
 el("pad-keyboard").onclick=()=>el("open-keyboard").click();
 el("mode-direct").addEventListener("click",()=>{releaseHold();atualizarExploracao();setTimeout(sizeCanvas,40)});
 el("mode-trackpad").addEventListener("click",()=>zoomText());
+// Painel de diagnóstico usa somente medições reais e endpoints já existentes.
+const diagnostico=document.createElement("section");
+diagnostico.id="diagnostico-conexao";
+diagnostico.className="diagnostico-conexao";
+diagnostico.hidden=true;
+diagnostico.setAttribute("aria-label","Diagnóstico da conexão");
+diagnostico.innerHTML='<div class="diagnostico-topo"><strong>Saúde da conexão</strong><button type="button" id="fechar-diagnostico" aria-label="Fechar diagnóstico">×</button></div><div class="diagnostico-grade"><div><span>Controle</span><strong id="diag-controle">Verificando</strong></div><div><span>Permissão</span><strong id="diag-permissao">Verificando</strong></div><div><span>Desktop</span><strong id="diag-desktop">Verificando</strong></div><div><span>Vídeo</span><strong id="diag-video">Verificando</strong></div><div><span>Último quadro</span><strong id="diag-latencia">Sem medida</strong></div><div><span>Rede</span><strong id="diag-rede">Não identificada</strong></div></div><p id="diag-orientacao" role="status">Os indicadores mostram o estado real da sessão.</p><button type="button" id="atualizar-diagnostico">Verificar novamente</button>';
+const barraSuperior=document.querySelector(".topbar");
+const botaoDiagnostico=document.createElement("button");
+botaoDiagnostico.id="abrir-diagnostico";
+botaoDiagnostico.type="button";
+botaoDiagnostico.className="icon-button";
+botaoDiagnostico.textContent="ⓘ";
+botaoDiagnostico.title="Diagnóstico da conexão";
+botaoDiagnostico.setAttribute("aria-label","Abrir diagnóstico da conexão");
+botaoDiagnostico.setAttribute("aria-expanded","false");
+botaoDiagnostico.setAttribute("aria-controls","diagnostico-conexao");
+barraSuperior.insertBefore(botaoDiagnostico,el("open-settings"));
+document.querySelector(".main").prepend(diagnostico);
+let intervaloDiagnostico=0;
+function atualizarIndicadores(){
+ const texto=(id,valor)=>{el(id).textContent=valor};
+ const conectado=state.authenticated&&state.ws?.readyState===WebSocket.OPEN;
+ texto("diag-controle",conectado?"Conectado":"Desconectado");
+ texto("diag-permissao",state.approved?"Autorizado":"Sem autorização");
+ texto("diag-desktop",state.sessionReady?"Disponível":"Indisponível");
+ texto("diag-video",state.videoActive?"H.264 ativo":state.image?"Quadros recebidos":"Sem imagem");
+ const medida=el("latency").textContent.trim();
+ texto("diag-latencia",/^\\d+ ms$/.test(medida)?medida+" (captura)":"Não medida");
+ texto("diag-rede",state.info?.network||"Não identificada");
+ let orientacao="Conexão pronta para uso.";
+ if(!state.sessionReady)orientacao="Verifique se a sessão Windows da conta AS está ativa.";
+ else if(!state.approved)orientacao="Aguarde a autorização de controle no computador.";
+ else if(!conectado)orientacao="Canal de entrada indisponível. Verifique a rede e aguarde a reconexão.";
+ else if(!state.image)orientacao="Controle conectado, mas ainda não há quadros de vídeo.";
+ texto("diag-orientacao",orientacao);
+}
+function abrirDiagnostico(aberto){
+ diagnostico.hidden=!aberto;
+ botaoDiagnostico.setAttribute("aria-expanded",String(aberto));
+ clearInterval(intervaloDiagnostico);
+ if(aberto){atualizarIndicadores();intervaloDiagnostico=setInterval(atualizarIndicadores,1200);el("fechar-diagnostico").focus()}
+ else botaoDiagnostico.focus();
+}
+botaoDiagnostico.onclick=()=>abrirDiagnostico(diagnostico.hidden);
+el("fechar-diagnostico").onclick=()=>abrirDiagnostico(false);
+diagnostico.addEventListener("keydown",evento=>{if(evento.key==="Escape")abrirDiagnostico(false)});
+el("atualizar-diagnostico").onclick=async()=>{
+ const botao=el("atualizar-diagnostico");
+ if(botao.disabled)return;
+ botao.disabled=true;botao.textContent="Verificando…";
+ try{await loadInfo();atualizarIndicadores()}
+ catch{el("diag-orientacao").textContent="Não foi possível consultar o servidor."}
+ finally{botao.disabled=false;botao.textContent="Verificar novamente"}
+};
+document.addEventListener("visibilitychange",()=>{if(document.hidden){clearInterval(intervaloDiagnostico)}else if(!diagnostico.hidden){atualizarIndicadores();intervaloDiagnostico=setInterval(atualizarIndicadores,1200)}});
+
 let prior="",composing=false;
 const field=el("keyboard-text");
 field.spellcheck=false;
