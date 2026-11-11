@@ -97,13 +97,23 @@ el("pad-double").onclick=()=>{
 el("pad-horizontal-left").onclick=()=>wsSend({phase:"hwheel",wheel:-240});
 el("pad-horizontal-right").onclick=()=>wsSend({phase:"hwheel",wheel:240});
 const pad=el("touchpad-area"),padContacts=new Map();
-let padGestureMulti=false,padMoved=false,padDown=0;
+let padGestureMulti=false,padMoved=false,padDown=0,padLastCenter=null,padMultiScrolled=false;
+const scrollThreshold=3;
+function centroContatos(){
+ const contatos=[...padContacts.values()];
+ return {x:contatos.reduce((s,p)=>s+p.x,0)/contatos.length,
+         y:contatos.reduce((s,p)=>s+p.y,0)/contatos.length};
+}
+function encerrarGesto(){
+ padContacts.clear();padLastCenter=null;padGestureMulti=false;padMultiScrolled=false;padMoved=false;
+}
 pad.addEventListener("pointerdown",event=>{
  if(!state.approved)return;
  event.preventDefault();pad.setPointerCapture(event.pointerId);
  padContacts.set(event.pointerId,{x:event.clientX,y:event.clientY,moved:0});
- if(padContacts.size===1){padMoved=false;padGestureMulti=false;padDown=Date.now()}
- if(padContacts.size>1)padGestureMulti=true;
+ if(padContacts.size===1){padMoved=false;padGestureMulti=false;padMultiScrolled=false;padDown=Date.now();padLastCenter=null}
+ if(padContacts.size===2){padGestureMulti=true;padLastCenter=centroContatos()}
+ if(padContacts.size>2){padGestureMulti=true;padLastCenter=null}
 });
 pad.addEventListener("pointermove",event=>{
  if(!padContacts.has(event.pointerId))return;
@@ -113,10 +123,24 @@ pad.addEventListener("pointermove",event=>{
  previous.x=event.clientX;previous.y=event.clientY;
  previous.moved+=Math.abs(deltaX)+Math.abs(deltaY);
  if(padContacts.size>=2){
-  if(Math.abs(deltaY)>1.5)wsSend({phase:"wheel",wheel:Math.round(-deltaY*7)});
-  if(Math.abs(deltaX)>2)wsSend({phase:"hwheel",wheel:Math.round(-deltaX*7)});
+  // Usa o centro dos dois dedos: a rolagem não duplica quando ambos se movem.
+  if(padContacts.size!==2)return;
+  const centro=centroContatos();
+  if(padLastCenter){
+   const dx=centro.x-padLastCenter.x,dy=centro.y-padLastCenter.y;
+   if(Math.abs(dy)>=scrollThreshold){
+    if(wsSend({phase:"wheel",wheel:Math.round(-dy*7)}))padMultiScrolled=true;
+    padLastCenter.y=centro.y;
+   }
+   if(Math.abs(dx)>=scrollThreshold){
+    if(wsSend({phase:"hwheel",wheel:Math.round(-dx*7)}))padMultiScrolled=true;
+    padLastCenter.x=centro.x;
+   }
+  }else padLastCenter=centro;
   return;
  }
+ // Nunca mover o cursor após o fim de um gesto de dois dedos.
+ if(padGestureMulti)return;
  if(Math.abs(deltaX)+Math.abs(deltaY)<0.75)return;
  const bounds=pad.getBoundingClientRect();
  state.cursor.x=clamp(state.cursor.x+deltaX/Math.max(1,bounds.width)*state.sensitivity,0,1);
@@ -128,13 +152,21 @@ pad.addEventListener("pointerup",event=>{
  if(!padContacts.has(event.pointerId))return;
  event.preventDefault();const contact=padContacts.get(event.pointerId);
  padContacts.delete(event.pointerId);
+ padLastCenter=null;
  if(padContacts.size>0)return;
- if(!padMoved && contact.moved<9 && !hold){
-  wsSend({phase:"tap",button:padGestureMulti||Date.now()-padDown>700?"right":"left",...mousePosition()});
+ const duracao=Date.now()-padDown;
+ // Dois dedos sem rolagem = clique direito; rolagem nunca vira clique.
+ if(padGestureMulti){
+  if(!padMultiScrolled&&duracao<550)wsSend({phase:"tap",button:"right",...mousePosition()});
+ }else if(!padMoved&&contact.moved<9&&!hold){
+  wsSend({phase:"tap",button:duracao>700?"right":"left",...mousePosition()});
  }
- padGestureMulti=false;
+ encerrarGesto();
 });
-pad.addEventListener("pointercancel",e=>{padContacts.delete(e.pointerId);releaseHold()});
+pad.addEventListener("pointercancel",()=>{encerrarGesto();releaseHold()});
+pad.addEventListener("lostpointercapture",event=>{
+ if(padContacts.has(event.pointerId)){encerrarGesto();releaseHold()}
+});
 pad.addEventListener("contextmenu",e=>e.preventDefault());
 const rail=el("pad-scroll");let railLast=null;
 rail.addEventListener("pointerdown",e=>{
