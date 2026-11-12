@@ -102,7 +102,9 @@ var recursosInterface=new [] {
     "diagnostico-sessao.js","diagnostico-sessao.css",
     "guia-gestos.js","guia-gestos.css",
     "controle-midia.js","controle-midia.css",
-    "apresentacao.js","apresentacao.css"
+    "apresentacao.js","apresentacao.css",
+    "paleta-comandos.js","paleta-comandos.css",
+    "favoritos.js","favoritos.css"
 };
 foreach(var recurso in recursosInterface) {
     var arquivo=recurso;
