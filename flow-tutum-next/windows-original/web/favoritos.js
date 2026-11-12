@@ -80,5 +80,6 @@ lista.addEventListener("pointermove",e=>{
 function finalizarArraste(){if(arraste){try{lista.releasePointerCapture(arraste.pointer)}catch{}}arraste=null}
 lista.addEventListener("pointerup",finalizarArraste);
 lista.addEventListener("pointercancel",()=>{finalizarArraste();ignorarClique=false});
+window.addEventListener("flow-favoritos-alterados",()=>{const novos=carregarPerfis();perfis=novos;favoritos=[...novos.listas[novos.ativo]];renderizar();mensagem("Favoritos atualizados pela busca de ações.")});
 renderizar();
 })();
