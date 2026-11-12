@@ -1,0 +1,16 @@
+/* Controle de mídia: painel editorial 2D, botões acessíveis e adaptação horizontal. */
+.midia-abrir{min-height:44px;border:1px solid var(--line);border-radius:12px;padding:8px 12px;background:var(--panel);color:var(--white);font:inherit}
+.midia-painel[hidden]{display:none!important}
+.midia-painel{position:fixed;inset:auto 12px max(12px,env(safe-area-inset-bottom)) 12px;z-index:9000;max-width:520px;margin:auto;padding:18px;border:1px solid var(--line);border-radius:24px;background:var(--bg);box-shadow:0 18px 60px #0008;color:var(--white)}
+.midia-cabecalho{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.midia-cabecalho h2{font-size:20px;margin:0}
+.midia-cabecalho button,.midia-grade button{min-height:48px;border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--white);font:inherit}
+.midia-cabecalho button{padding:8px 16px}
+.midia-grade{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.midia-grade button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px 6px;font-size:12px;text-align:center}
+.midia-grade button span:first-child{font-size:27px}
+.midia-grade button:disabled{opacity:.4}
+.midia-grade button:focus-visible,.midia-abrir:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+.midia-retorno{font-size:13px;color:var(--muted);min-height:36px;margin:14px 0 0}
+@media(orientation:landscape) and (max-height:450px){.midia-painel{max-width:680px;padding:12px}.midia-grade{grid-template-columns:repeat(6,minmax(0,1fr))}.midia-grade button{min-height:60px}}
+@media(prefers-reduced-motion:no-preference){.midia-grade button:not(:disabled):active{transform:scale(.97)}}
