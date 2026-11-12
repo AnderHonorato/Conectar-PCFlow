@@ -87,6 +87,22 @@ app.MapGet("/",()=>Results.File(Path.Combine(appRoot,"index.html"),"text/html; c
 app.MapGet("/app.css",()=>Results.File(Path.Combine(appRoot,"app.css"),"text/css; charset=utf-8"));
 app.MapGet("/app.js",()=>Results.File(Path.Combine(appRoot,"app.js"),"application/javascript; charset=utf-8"));
 app.MapGet("/enhancements.js",()=>Results.File(Path.Combine(appRoot,"enhancements.js"),"application/javascript; charset=utf-8"));
+// Arquivos da interface são publicados por lista fechada: nada de servir a pasta inteira.
+// Sem estas rotas, os módulos de toque e suas folhas de estilo retornavam 404.
+var recursosInterface=new [] {
+    "navegacao-rapida.js","navegacao-rapida.css",
+    "bloqueio-toque.js","bloqueio-toque.css",
+    "perfis-uso.js","perfis-uso.css",
+    "politica-visualizacao.js","modo-visualizacao.js","modo-visualizacao.css",
+    "gestos-configuraveis.mjs","gestos-configuraveis.css"
+};
+foreach(var recurso in recursosInterface) {
+    var arquivo=recurso;
+    var tipo=arquivo.EndsWith(".css",StringComparison.OrdinalIgnoreCase)
+        ?"text/css; charset=utf-8":"application/javascript; charset=utf-8";
+    app.MapGet("/"+arquivo,()=>Results.File(Path.Combine(appRoot,arquivo),tipo));
+}
+
 app.MapGet("/FlowTutum.apk",()=>{
     var file=Path.Combine(appRoot,"FlowTutum.apk");
     return File.Exists(file)?Results.File(file,
