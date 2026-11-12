@@ -48,7 +48,7 @@ function renderizar(){
   const item=ACOES.find(x=>x.id===id);if(!item)continue;
   const grupo=document.createElement("div");grupo.className="favoritos-item";grupo.dataset.favorito=id;
   grupo.append(botao(item.nome,()=>acionar(item)));
-  if(editando){grupo.append(botao("←",()=>mover(id,-1),"Mover "+item.nome+" para esquerda"),botao("→",()=>mover(id,1),"Mover "+item.nome+" para direita"),botao("×",()=>{favoritos=favoritos.filter(x=>x!==id);salvar();renderizar()},"Remover "+item.nome))}
+  if(editando){grupo.append(botao("↕",()=>{},"Arrastar "+item.nome+" para reorganizar"));grupo.lastElementChild.className="favoritos-alca";grupo.append(botao("←",()=>mover(id,-1),"Mover "+item.nome+" para esquerda"),botao("→",()=>mover(id,1),"Mover "+item.nome+" para direita"),botao("×",()=>{favoritos=favoritos.filter(x=>x!==id);salvar();renderizar()},"Remover "+item.nome))}
   lista.append(grupo);
  }
  if(!favoritos.length)lista.append("Nenhum favorito. Toque em Organizar para adicionar.");
@@ -56,17 +56,18 @@ function renderizar(){
  catalogo.hidden=!editando;rotuloBusca.hidden=!editando;editar.setAttribute("aria-pressed",String(editando));editar.textContent=editando?"Concluir":"Organizar";
 }
 editar.addEventListener("click",()=>{editando=!editando;lista.classList.toggle("favoritos-organizando",editando);renderizar()});
-// Arrastar no modo organizar altera apenas a ordem local; nunca envia comando ao Windows.
+// A alça dedicada impede que o toque nos comandos execute uma ação durante a organização.
 let arraste=null,ignorarClique=false;
 lista.addEventListener("click",e=>{if(ignorarClique){e.preventDefault();e.stopImmediatePropagation();ignorarClique=false}},true);
 lista.addEventListener("pointerdown",e=>{
- if(!editando||(e.pointerType==="mouse"&&e.button!==0))return;
- const alvo=e.target.closest(".favoritos-item");if(!alvo||!lista.contains(alvo))return;
- arraste={id:alvo.dataset.favorito,x:e.clientX,y:e.clientY,ativo:false,pointer:e.pointerId};
+ if(!editando||!e.target.closest(".favoritos-alca")||(e.pointerType==="mouse"&&e.button!==0))return;
+ const alvo=e.target.closest(".favoritos-item");if(!alvo)return;
+ arraste={id:alvo.dataset.favorito,x:e.clientX,y:e.clientY,pointer:e.pointerId,ativo:false};
+ try{lista.setPointerCapture(e.pointerId)}catch{}
 });
 lista.addEventListener("pointermove",e=>{
  if(!arraste||e.pointerId!==arraste.pointer)return;
- if(Math.hypot(e.clientX-arraste.x,e.clientY-arraste.y)>12)arraste.ativo=true;
+ if(Math.hypot(e.clientX-arraste.x,e.clientY-arraste.y)>10)arraste.ativo=true;
  if(!arraste.ativo)return;
  ignorarClique=true;
  const alvo=document.elementFromPoint(e.clientX,e.clientY)?.closest(".favoritos-item");
@@ -76,7 +77,8 @@ lista.addEventListener("pointermove",e=>{
  favoritos=reordenar(favoritos,origem,destino);salvar();renderizar();
  mensagem("Ordem salva no perfil "+perfis.ativo);
 });
-lista.addEventListener("pointerup",()=>arraste=null);
-lista.addEventListener("pointercancel",()=>{arraste=null;ignorarClique=false});
+function finalizarArraste(){if(arraste){try{lista.releasePointerCapture(arraste.pointer)}catch{}}arraste=null}
+lista.addEventListener("pointerup",finalizarArraste);
+lista.addEventListener("pointercancel",()=>{finalizarArraste();ignorarClique=false});
 renderizar();
 })();
