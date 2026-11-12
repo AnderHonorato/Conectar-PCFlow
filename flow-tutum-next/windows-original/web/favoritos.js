@@ -5,8 +5,8 @@ const ACOES=[
 {id:"teclado",nome:"Teclado",tipo:"local",executar:()=>document.getElementById("open-keyboard")?.click()},
 {id:"explorar",nome:"Explorar",tipo:"local",executar:()=>document.getElementById("explore-toggle")?.click()},
 {id:"zoom",nome:"Ampliar",tipo:"local",executar:()=>document.getElementById("zoom-in")?.click()},
-{id:"play",nome:"Reproduzir / pausar",tipo:"remoto",comando:{phase:"key",keys:"media-play-pause"}},
-{id:"volume",nome:"Silenciar",tipo:"remoto",comando:{phase:"key",keys:"volume-mute"}},
+{id:"play",nome:"Reproduzir / pausar",tipo:"remoto",comando:{phase:"key",keys:"midia-reproduzir"}},
+{id:"volume",nome:"Silenciar",tipo:"remoto",comando:{phase:"key",keys:"volume-mudo"}},
 {id:"desktop",nome:"Área de trabalho",tipo:"remoto",comando:{phase:"key",keys:"win+d"}}
 ];
 const CHAVE="flow-next-favoritos-v1",PADRAO=["touchpad","teclado","explorar","play"];
