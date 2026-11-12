@@ -190,6 +190,7 @@ async function frameLoop() {
     sizeCanvas();el("empty").hidden=true;
     const elapsed=Math.round(performance.now()-before);
     el("latency").textContent=elapsed+" ms";
+    window.dispatchEvent(new CustomEvent("flow-captura-medida",{detail:{ms:elapsed}}));
     el("stream-state").textContent=bitmap.width+"×"+bitmap.height+" · "+(1000/Math.max(100,elapsed)).toFixed(1)+" FPS aprox.";
     state.frameError=null;
   }catch(error){if(state.frameError!==error.message)toast("Captura: "+error.message,true);state.frameError=error.message;
