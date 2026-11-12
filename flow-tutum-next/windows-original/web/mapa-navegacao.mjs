@@ -19,3 +19,9 @@ export function posicaoPan(nx,ny,iw,ih,vw,vh){
  if(![nx,ny,iw,ih,vw,vh].every(Number.isFinite)||iw<=0||ih<=0||vw<=0||vh<=0)return null;
  return limitarPan((.5-Math.max(0,Math.min(1,nx)))*iw,(.5-Math.max(0,Math.min(1,ny)))*ih,iw,ih,vw,vh);
 }
+
+// Pinça limitada para evitar saltos, divisões por zero e escala fora do intervalo.
+export function escalaPinca(distanciaInicial,distanciaAtual,zoomInicial){
+ if(![distanciaInicial,distanciaAtual,zoomInicial].every(Number.isFinite)||distanciaInicial<8||distanciaAtual<0||zoomInicial<=0)return null;
+ return Math.max(1,Math.min(5,zoomInicial*distanciaAtual/distanciaInicial));
+}
