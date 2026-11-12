@@ -12,9 +12,10 @@ const ACOES=[
 const CHAVE="flow-next-favoritos-v1",CHAVE_PERFIS="flow-next-favoritos-perfis-v1",PADRAO=["touchpad","teclado","explorar","play"];
 const ids=new Set(ACOES.map(x=>x.id));
 function normalizar(valor){return Array.isArray(valor)?[...new Set(valor.filter(x=>typeof x==="string"&&ids.has(x)))].slice(0,8):[...PADRAO]}
+function reordenar(lista,origem,destino){const itens=[...lista];if(!Number.isInteger(origem)||!Number.isInteger(destino)||origem<0||destino<0||origem>=itens.length||destino>=itens.length)return itens;const [item]=itens.splice(origem,1);itens.splice(destino,0,item);return itens}
 function carregar(){try{const raw=localStorage.getItem(CHAVE);return raw===null?[...PADRAO]:normalizar(JSON.parse(raw))}catch{return [...PADRAO]}}
 function guardar(v){try{localStorage.setItem(CHAVE,JSON.stringify(v))}catch{}}
-if(typeof module!=="undefined"&&module.exports)module.exports={normalizar,PADRAO,catalogo:ACOES};
+if(typeof module!=="undefined"&&module.exports)module.exports={normalizar,reordenar,PADRAO,catalogo:ACOES};
 if(typeof document==="undefined")return;
 const app=window.FlowTutumNext,ancora=document.querySelector(".dock");if(!app||!ancora)return;
 const PERFIS=["Pessoal","Trabalho","Mídia"];
@@ -23,12 +24,14 @@ let perfis=carregarPerfis(),favoritos=[...perfis.listas[perfis.ativo]],editando=
 function salvar(){perfis.listas[perfis.ativo]=[...favoritos];try{localStorage.setItem(CHAVE_PERFIS,JSON.stringify(perfis));if(perfis.ativo==="Pessoal")guardar(favoritos)}catch{mensagem("Não foi possível salvar neste navegador")}}
 function selecionarPerfil(nome){if(!PERFIS.includes(nome))return;salvar();perfis.ativo=nome;favoritos=[...perfis.listas[nome]];salvar();renderizar();mensagem("Perfil "+nome+" selecionado")}
 const painel=document.createElement("section");painel.className="favoritos";painel.setAttribute("aria-label","Ações favoritas");
-painel.innerHTML='<div class="favoritos-topo"><strong>Favoritos</strong><label class="favoritos-perfil-rotulo">Perfil <select id="favoritos-perfil" aria-label="Perfil de favoritos"><option>Pessoal</option><option>Trabalho</option><option>Mídia</option></select></label><button type="button" id="favoritos-editar" aria-pressed="false">Organizar</button></div><div class="favoritos-acoes" id="favoritos-acoes"></div><p id="favoritos-retorno" role="status" aria-live="polite"></p><div id="favoritos-catalogo" class="favoritos-catalogo" hidden></div>';
+painel.innerHTML='<div class="favoritos-topo"><strong>Favoritos</strong><label class="favoritos-perfil-rotulo">Perfil <select id="favoritos-perfil" aria-label="Perfil de favoritos"><option>Pessoal</option><option>Trabalho</option><option>Mídia</option></select></label><button type="button" id="favoritos-editar" aria-pressed="false">Organizar</button></div><div class="favoritos-acoes" id="favoritos-acoes"></div><p id="favoritos-retorno" role="status" aria-live="polite"></p><label id="favoritos-busca-rotulo" class="favoritos-busca-rotulo" hidden>Buscar ação<input id="favoritos-busca" type="search" autocomplete="off" placeholder="Ex.: volume, teclado"></label><div id="favoritos-catalogo" class="favoritos-catalogo" hidden></div>';
 ancora.insertAdjacentElement("beforebegin",painel);
 const seletor=painel.querySelector("#favoritos-perfil");seletor.value=perfis.ativo;seletor.addEventListener("change",()=>selecionarPerfil(seletor.value));
 const lista=painel.querySelector("#favoritos-acoes"),catalogo=painel.querySelector("#favoritos-catalogo"),retorno=painel.querySelector("#favoritos-retorno"),editar=painel.querySelector("#favoritos-editar");
 function mensagem(t){retorno.textContent=t}
-function mover(id,delta){const pos=favoritos.indexOf(id),dest=pos+delta;if(pos<0||dest<0||dest>=favoritos.length)return;[favoritos[pos],favoritos[dest]]=[favoritos[dest],favoritos[pos]];salvar();renderizar()}
+const busca=painel.querySelector("#favoritos-busca"),rotuloBusca=painel.querySelector("#favoritos-busca-rotulo");
+busca.addEventListener("input",()=>renderizar());
+function mover(id,delta){const pos=favoritos.indexOf(id),dest=pos+delta;if(pos<0||dest<0||dest>=favoritos.length)return;favoritos=reordenar(favoritos,pos,dest);salvar();renderizar()}
 function acionar(item){
  if(item.tipo==="remoto"){
   if(!app.state.approved||!app.state.authenticated||app.state.somenteVisualizacao){mensagem("Controle remoto não autorizado");return}
@@ -43,15 +46,35 @@ function renderizar(){
  lista.replaceChildren();catalogo.replaceChildren();
  for(const id of favoritos){
   const item=ACOES.find(x=>x.id===id);if(!item)continue;
-  const grupo=document.createElement("div");grupo.className="favoritos-item";
+  const grupo=document.createElement("div");grupo.className="favoritos-item";grupo.dataset.favorito=id;
   grupo.append(botao(item.nome,()=>acionar(item)));
   if(editando){grupo.append(botao("←",()=>mover(id,-1),"Mover "+item.nome+" para esquerda"),botao("→",()=>mover(id,1),"Mover "+item.nome+" para direita"),botao("×",()=>{favoritos=favoritos.filter(x=>x!==id);salvar();renderizar()},"Remover "+item.nome))}
   lista.append(grupo);
  }
  if(!favoritos.length)lista.append("Nenhum favorito. Toque em Organizar para adicionar.");
- for(const item of ACOES.filter(x=>!favoritos.includes(x.id)))catalogo.append(botao("+ "+item.nome,()=>{favoritos.push(item.id);salvar();renderizar()},"Adicionar "+item.nome));
- catalogo.hidden=!editando;editar.setAttribute("aria-pressed",String(editando));editar.textContent=editando?"Concluir":"Organizar";
+ for(const item of ACOES.filter(x=>!favoritos.includes(x.id)&&x.nome.toLocaleLowerCase("pt-BR").includes(busca.value.trim().toLocaleLowerCase("pt-BR"))))catalogo.append(botao("+ "+item.nome,()=>{favoritos.push(item.id);salvar();renderizar()},"Adicionar "+item.nome));
+ catalogo.hidden=!editando;rotuloBusca.hidden=!editando;editar.setAttribute("aria-pressed",String(editando));editar.textContent=editando?"Concluir":"Organizar";
 }
 editar.addEventListener("click",()=>{editando=!editando;renderizar()});
+// Arrastar no modo organizar altera apenas a ordem local; nunca envia comando ao Windows.
+let arraste=null;
+lista.addEventListener("pointerdown",e=>{
+ if(!editando||(e.pointerType==="mouse"&&e.button!==0))return;
+ const alvo=e.target.closest(".favoritos-item");if(!alvo||!lista.contains(alvo))return;
+ arraste={id:alvo.dataset.favorito,x:e.clientX,y:e.clientY,ativo:false,pointer:e.pointerId};
+});
+lista.addEventListener("pointermove",e=>{
+ if(!arraste||e.pointerId!==arraste.pointer)return;
+ if(Math.hypot(e.clientX-arraste.x,e.clientY-arraste.y)>12)arraste.ativo=true;
+ if(!arraste.ativo)return;
+ const alvo=document.elementFromPoint(e.clientX,e.clientY)?.closest(".favoritos-item");
+ if(!alvo||!lista.contains(alvo)||alvo.dataset.favorito===arraste.id)return;
+ const origem=favoritos.indexOf(arraste.id),destino=favoritos.indexOf(alvo.dataset.favorito);
+ if(origem<0||destino<0)return;
+ favoritos=reordenar(favoritos,origem,destino);salvar();renderizar();
+ mensagem("Ordem salva no perfil "+perfis.ativo);
+});
+lista.addEventListener("pointerup",()=>arraste=null);
+lista.addEventListener("pointercancel",()=>arraste=null);
 renderizar();
 })();
