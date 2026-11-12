@@ -8,3 +8,9 @@
 .diagnostico-painel dt{color:#d2e2df}.diagnostico-painel dd{margin:0;text-align:right;max-width:170px;overflow-wrap:anywhere}
 .diagnostico-painel p{font-size:.8rem;color:#d2e2df}
 @media(prefers-reduced-motion:reduce){.diagnostico-painel *{animation:none!important;transition:none!important}}
+
+.diagnostico-historico{display:flex;align-items:end;gap:3px;height:84px;padding:8px 4px;border:1px solid #688b8b;border-radius:10px;background:#21363b;overflow:hidden}
+.diagnostico-barra{flex:1;min-width:3px;background:#e6ac78;border-radius:3px 3px 0 0}
+.diagnostico-barra-falha{background:#fa8e87}
+#diagnostico-limpar{padding:8px 14px;min-height:44px}
+#diagnostico-alerta{line-height:1.5}
