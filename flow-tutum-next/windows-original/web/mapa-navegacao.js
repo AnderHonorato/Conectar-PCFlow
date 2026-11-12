@@ -4,7 +4,7 @@ const flow=window.FlowTutumNext;if(!flow)return;
 const {state,paint}=flow,viewer=document.getElementById("viewer"),tela=document.getElementById("screen");
 const acao=document.createElement("button");acao.type="button";acao.className="mapa-acao";acao.textContent="Mapa da tela";acao.hidden=true;acao.setAttribute("aria-expanded","false");
 const painel=document.createElement("section");painel.className="mapa-navegacao";painel.hidden=true;painel.setAttribute("aria-label","Navegação pela imagem ampliada");
-painel.innerHTML='<div class="mapa-titulo"><span>Visão geral</span><button type="button" aria-label="Fechar mapa">×</button></div><canvas width="320" height="188" aria-label="Arraste para navegar pela tela ampliada" tabindex="0"></canvas>';
+painel.innerHTML='<div class="mapa-titulo"><span>Visão geral</span><button type="button" aria-label="Fechar mapa">×</button></div><canvas width="320" height="188" aria-label="Arraste para navegar pela tela ampliada" tabindex="0"></canvas><div class="mapa-comandos" aria-label="Deslocar visualização"><button type="button" data-direcao="esquerda" aria-label="Mover visão para esquerda">←</button><button type="button" data-direcao="cima" aria-label="Mover visão para cima">↑</button><button type="button" data-direcao="centro" aria-label="Centralizar visão">◎</button><button type="button" data-direcao="baixo" aria-label="Mover visão para baixo">↓</button><button type="button" data-direcao="direita" aria-label="Mover visão para direita">→</button></div><p class="mapa-ajuda" role="status" aria-live="polite">Modo Explorar: não envia cliques ao PC</p>';
 viewer.append(acao,painel);
 const mini=painel.querySelector("canvas"),ctx=mini.getContext("2d"),fechar=painel.querySelector("button");
 let geometria=null,arrastando=false,modulo=null;
@@ -46,7 +46,24 @@ mini.addEventListener("pointerdown",e=>{e.preventDefault();arrastando=true;mini.
 mini.addEventListener("pointermove",e=>{if(arrastando){e.preventDefault();navegar(e)}});
 mini.addEventListener("pointerup",e=>{arrastando=false;if(mini.hasPointerCapture(e.pointerId))mini.releasePointerCapture(e.pointerId)});
 mini.addEventListener("pointercancel",()=>arrastando=false);
-mini.addEventListener("keydown",e=>{if(!["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"].includes(e.key))return;e.preventDefault();const passo=24;state.panX+=e.key==="ArrowLeft"?passo:e.key==="ArrowRight"?-passo:0;state.panY+=e.key==="ArrowUp"?passo:e.key==="ArrowDown"?-passo:0;const d=dimensoes();if(d&&modulo){const s=Math.min(tela.width/d.w,tela.height/d.h)*state.zoom;const pan=modulo.limitarPan(state.panX*tela.width/tela.clientWidth,state.panY*tela.height/tela.clientHeight,d.w*s,d.h*s,tela.width,tela.height);if(pan){state.panX=pan.x*tela.clientWidth/tela.width;state.panY=pan.y*tela.clientHeight/tela.height}}paint();atualizar()});
+function deslocar(direcao){
+ if(!modulo||!state.exploring){document.getElementById("explore-toggle")?.click();if(!state.exploring)return}
+ const d=dimensoes();if(!d)return;
+ const escala=Math.min(tela.width/d.w,tela.height/d.h)*state.zoom;
+ const passo=Math.max(24,Math.round(Math.min(tela.clientWidth,tela.clientHeight)*.16));
+ const delta={esquerda:[passo,0],direita:[-passo,0],cima:[0,passo],baixo:[0,-passo],centro:[-state.panX,-state.panY]}[direcao];
+ if(!delta)return;
+ const x=state.panX+delta[0],y=state.panY+delta[1];
+ const pan=modulo.limitarPan(x*tela.width/Math.max(1,tela.clientWidth),y*tela.height/Math.max(1,tela.clientHeight),d.w*escala,d.h*escala,tela.width,tela.height);
+ if(!pan)return;
+ state.panX=pan.x*tela.clientWidth/tela.width;state.panY=pan.y*tela.clientHeight/tela.height;
+ paint();atualizar();
+}
+painel.querySelector(".mapa-comandos").addEventListener("click",e=>{const botao=e.target.closest("[data-direcao]");if(botao)deslocar(botao.dataset.direcao)});
+mini.addEventListener("keydown",e=>{
+ const direcao={ArrowLeft:"esquerda",ArrowRight:"direita",ArrowUp:"cima",ArrowDown:"baixo",Home:"centro"}[e.key];
+ if(!direcao)return;e.preventDefault();deslocar(direcao);
+});
 window.addEventListener("flow-zoom-alterado",atualizar);
 document.getElementById("zoom-in")?.addEventListener("click",()=>requestAnimationFrame(atualizar));
 document.getElementById("zoom-out")?.addEventListener("click",()=>requestAnimationFrame(atualizar));
