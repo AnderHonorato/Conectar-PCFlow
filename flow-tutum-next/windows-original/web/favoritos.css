@@ -4,3 +4,10 @@
 .favoritos-perfil-rotulo select{min-height:44px;max-width:128px;border-radius:10px;padding:6px 8px;border:1px solid #a99172;background:#f5e9d5;color:#28231f;font:inherit}
 .favoritos-perfil-rotulo select:focus-visible{outline:3px solid #b77826;outline-offset:2px}
 @media(max-width:390px){.favoritos-topo{flex-wrap:wrap}.favoritos-perfil-rotulo{order:3;width:100%}.favoritos-perfil-rotulo select{flex:1;max-width:none}}
+
+/* Busca acessível no catálogo, preservando a identidade editorial. */
+.favoritos-busca-rotulo{display:grid;gap:5px;margin-top:10px;font-size:.85rem;font-weight:600}
+.favoritos-busca-rotulo[hidden]{display:none}
+.favoritos-busca-rotulo input{width:100%;min-height:44px;border:1px solid #a99172;border-radius:12px;padding:9px 12px;background:#fff9f0;color:#28231f;font:inherit}
+.favoritos-busca-rotulo input:focus-visible{outline:3px solid #b77826;outline-offset:2px}
+.favoritos-item{touch-action:pan-x}
