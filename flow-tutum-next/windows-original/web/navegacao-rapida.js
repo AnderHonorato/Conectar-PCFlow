@@ -17,11 +17,17 @@ const estado=painel.querySelector("#navegacao-estado");
 const autorizados=new Set(["alt+left","alt+right","ctrl+r","ctrl+l","ctrl+t","ctrl+w","ctrl+f","ctrl+a","ctrl+z","ctrl+shift+z","alt+tab","escape"]);
 const conectado=()=>Boolean(state.approved&&state.authenticated&&state.sessionReady&&state.ws?.readyState===WebSocket.OPEN);
 // Favoritos locais: não alteram autorização, sessão ou comandos no Windows.
-const favoritos=new Set(JSON.parse(localStorage.getItem("flow-atalhos-favoritos")||"[]").filter(chave=>autorizados.has(chave)));
+function carregarFavoritos(){try{const salvos=JSON.parse(localStorage.getItem("flow-atalhos-favoritos")||"[]");return Array.isArray(salvos)?salvos.filter(chave=>autorizados.has(chave)):[]}catch{return []}}
+const favoritos=new Set(carregarFavoritos());
 const ferramentas=document.createElement("div");
 ferramentas.className="navegacao-ferramentas";
 ferramentas.innerHTML='<label for="buscar-atalho">Buscar atalho</label><input id="buscar-atalho" type="search" placeholder="Ex.: localizar, nova aba" autocomplete="off"><button type="button" id="limpar-busca">Limpar</button>';
 painel.querySelector(".navegacao-grupos").before(ferramentas);
+const areaFavoritos=document.createElement("section");
+areaFavoritos.className="navegacao-favoritos";
+areaFavoritos.setAttribute("aria-label","Meus atalhos favoritos");
+areaFavoritos.innerHTML='<h3>Meus favoritos</h3><p class="favoritos-vazio">Toque na estrela de um atalho para fixá-lo aqui.</p><div class="favoritos-lista"></div>';
+painel.querySelector(".navegacao-grupos").before(areaFavoritos);
 painel.querySelectorAll("[data-comando]").forEach(botao=>{
  const comando=botao.dataset.comando;
  const favorito=document.createElement("button");
@@ -31,6 +37,22 @@ painel.querySelectorAll("[data-comando]").forEach(botao=>{
  botao.after(favorito);
 });
 const busca=ferramentas.querySelector("input");
+function atualizarFavoritos(){
+ const lista=areaFavoritos.querySelector(".favoritos-lista");
+ lista.replaceChildren();
+ const atalhos=[...painel.querySelectorAll(".navegacao-grupos button[data-comando]")];
+ for(const chave of favoritos){
+  const original=atalhos.find(botao=>botao.dataset.comando===chave);
+  if(!original)continue;
+  const botao=document.createElement("button");
+  botao.type="button";botao.dataset.comando=chave;
+  botao.textContent=original.textContent.trim();
+  botao.setAttribute("aria-label","Executar favorito: "+botao.textContent);
+  lista.append(botao);
+ }
+ areaFavoritos.querySelector(".favoritos-vazio").hidden=lista.childElementCount>0;
+ areaFavoritos.classList.toggle("sem-favoritos",lista.childElementCount===0);
+}
 function atualizarLista(){
  const termo=busca.value.trim().toLocaleLowerCase("pt-BR");
  painel.querySelectorAll("[data-comando]").forEach(botao=>{
@@ -40,11 +62,13 @@ function atualizarLista(){
   botao.hidden=!visivel;favorito.hidden=!visivel;
   favorito.textContent=favoritos.has(chave)?"★":"☆";
   favorito.setAttribute("aria-pressed",String(favoritos.has(chave)));
+  favorito.setAttribute("aria-label",(favoritos.has(chave)?"Remover dos favoritos: ":"Adicionar aos favoritos: ")+botao.textContent.trim());
  });
  painel.querySelectorAll(".navegacao-botoes").forEach(grupo=>{
   const secao=grupo.parentElement;
   secao.hidden=![...grupo.querySelectorAll("[data-comando]")].some(b=>!b.hidden);
  });
+ atualizarFavoritos();
 }
 busca.addEventListener("input",atualizarLista);
 ferramentas.querySelector("#limpar-busca").addEventListener("click",()=>{busca.value="";atualizarLista();busca.focus()});
