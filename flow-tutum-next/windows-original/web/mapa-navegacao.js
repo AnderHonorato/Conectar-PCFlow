@@ -1,10 +1,10 @@
 (()=>{
 "use strict";
 const flow=window.FlowTutumNext;if(!flow)return;
-const {state,paint}=flow,viewer=document.getElementById("viewer"),tela=document.getElementById("screen");
+const {state,paint,zoomNoPonto}=flow,viewer=document.getElementById("viewer"),tela=document.getElementById("screen");
 const acao=document.createElement("button");acao.type="button";acao.className="mapa-acao";acao.textContent="Mapa da tela";acao.hidden=true;acao.setAttribute("aria-expanded","false");
 const painel=document.createElement("section");painel.className="mapa-navegacao";painel.hidden=true;painel.setAttribute("aria-label","Navegação pela imagem ampliada");
-painel.innerHTML='<div class="mapa-titulo"><span>Visão geral</span><button type="button" aria-label="Fechar mapa">×</button></div><canvas width="320" height="188" aria-label="Arraste para navegar pela tela ampliada" tabindex="0"></canvas><div class="mapa-comandos" aria-label="Deslocar visualização"><button type="button" data-direcao="esquerda" aria-label="Mover visão para esquerda">←</button><button type="button" data-direcao="cima" aria-label="Mover visão para cima">↑</button><button type="button" data-direcao="centro" aria-label="Centralizar visão">◎</button><button type="button" data-direcao="baixo" aria-label="Mover visão para baixo">↓</button><button type="button" data-direcao="direita" aria-label="Mover visão para direita">→</button></div><p class="mapa-ajuda" role="status" aria-live="polite">Modo Explorar: não envia cliques ao PC</p>';
+painel.innerHTML='<div class="mapa-titulo"><span>Visão geral</span><button type="button" aria-label="Fechar mapa">×</button></div><canvas width="320" height="188" aria-label="Arraste para navegar pela tela ampliada" tabindex="0"></canvas><div class="mapa-comandos" aria-label="Deslocar visualização"><button type="button" data-direcao="esquerda" aria-label="Mover visão para esquerda">←</button><button type="button" data-direcao="cima" aria-label="Mover visão para cima">↑</button><button type="button" data-direcao="centro" aria-label="Centralizar visão">◎</button><button type="button" data-direcao="baixo" aria-label="Mover visão para baixo">↓</button><button type="button" data-direcao="direita" aria-label="Mover visão para direita">→</button></div><p class="mapa-ajuda" role="status" aria-live="polite">Arraste para mover • pinça para ampliar • sem cliques no PC</p>';
 viewer.append(acao,painel);
 const mini=painel.querySelector("canvas"),ctx=mini.getContext("2d"),fechar=painel.querySelector("button");
 let geometria=null,arrastando=false,modulo=null;
@@ -42,10 +42,35 @@ function navegar(evento){
 }
 acao.addEventListener("click",()=>{painel.hidden=!painel.hidden;acao.setAttribute("aria-expanded",String(!painel.hidden));atualizar()});
 fechar.addEventListener("click",()=>{painel.hidden=true;acao.setAttribute("aria-expanded","false");acao.focus()});
-mini.addEventListener("pointerdown",e=>{e.preventDefault();arrastando=true;mini.setPointerCapture(e.pointerId);navegar(e)});
-mini.addEventListener("pointermove",e=>{if(arrastando){e.preventDefault();navegar(e)}});
-mini.addEventListener("pointerup",e=>{arrastando=false;if(mini.hasPointerCapture(e.pointerId))mini.releasePointerCapture(e.pointerId)});
-mini.addEventListener("pointercancel",()=>arrastando=false);
+// Dois dedos ampliam a tela remota sem disparar qualquer entrada no Windows.
+const dedos=new Map();let pinca=null;
+function distancia(){const a=[...dedos.values()];return a.length<2?0:Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)}
+function centro(){const a=[...dedos.values()];return {clientX:(a[0].x+a[1].x)/2,clientY:(a[0].y+a[1].y)/2}}
+mini.addEventListener("pointerdown",e=>{
+ e.preventDefault();dedos.set(e.pointerId,{x:e.clientX,y:e.clientY});
+ try{mini.setPointerCapture(e.pointerId)}catch{}
+ if(dedos.size===2){arrastando=false;pinca={distancia:distancia(),zoom:state.zoom};return}
+ if(dedos.size===1){arrastando=true;navegar(e)}
+});
+mini.addEventListener("pointermove",e=>{
+ if(!dedos.has(e.pointerId))return;e.preventDefault();
+ dedos.set(e.pointerId,{x:e.clientX,y:e.clientY});
+ if(dedos.size>=2){
+  if(!pinca)pinca={distancia:distancia(),zoom:state.zoom};
+  const zoom=modulo?.escalaPinca(pinca.distancia,distancia(),pinca.zoom);
+  if(zoom!==null&&zoom!==undefined&&state.exploring){
+   const p=centro();zoomNoPonto(zoom,tela.clientWidth/2,tela.clientHeight/2);
+   navegar(p);
+  }
+ }else if(arrastando&&!pinca)navegar(e);
+});
+function encerrarDedo(e){
+ dedos.delete(e.pointerId);arrastando=false;
+ if(dedos.size<2)pinca=null;
+ try{if(mini.hasPointerCapture(e.pointerId))mini.releasePointerCapture(e.pointerId)}catch{}
+}
+mini.addEventListener("pointerup",encerrarDedo);
+mini.addEventListener("pointercancel",encerrarDedo);
 function deslocar(direcao){
  if(!modulo||!state.exploring){document.getElementById("explore-toggle")?.click();if(!state.exploring)return}
  const d=dimensoes();if(!d)return;
