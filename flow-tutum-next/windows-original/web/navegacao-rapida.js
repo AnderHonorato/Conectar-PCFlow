@@ -19,6 +19,10 @@ const conectado=()=>Boolean(state.approved&&state.authenticated&&state.sessionRe
 // Favoritos locais: não alteram autorização, sessão ou comandos no Windows.
 function carregarFavoritos(){try{const salvos=JSON.parse(localStorage.getItem("flow-atalhos-favoritos")||"[]");return Array.isArray(salvos)?salvos.filter(chave=>autorizados.has(chave)):[]}catch{return []}}
 const favoritos=new Set(carregarFavoritos());
+// A ordem é preservada pelo Set e persistida no armazenamento local.
+function salvarFavoritos(){try{localStorage.setItem("flow-atalhos-favoritos",JSON.stringify([...favoritos]));return true}catch{estado.textContent="Não foi possível salvar os favoritos";return false}}
+function moverFavorito(chave,direcao){const ordem=[...favoritos],indice=ordem.indexOf(chave),destino=indice+direcao;if(indice<0||destino<0||destino>=ordem.length)return false;[ordem[indice],ordem[destino]]=[ordem[destino],ordem[indice]];favoritos.clear();ordem.forEach(item=>favoritos.add(item));salvarFavoritos();atualizarLista();return true}
+
 const ferramentas=document.createElement("div");
 ferramentas.className="navegacao-ferramentas";
 ferramentas.innerHTML='<label for="buscar-atalho">Buscar atalho</label><input id="buscar-atalho" type="search" placeholder="Ex.: localizar, nova aba" autocomplete="off"><button type="button" id="limpar-busca">Limpar</button>';
@@ -48,7 +52,11 @@ function atualizarFavoritos(){
   botao.type="button";botao.dataset.comando=chave;
   botao.textContent=original.textContent.trim();
   botao.setAttribute("aria-label","Executar favorito: "+botao.textContent);
-  lista.append(botao);
+  const linha=document.createElement("div");linha.className="favorito-item";linha.append(botao);
+  for(const [direcao,rotulo,simbolo] of [[-1,"Mover para cima","↑"],[1,"Mover para baixo","↓"]]){
+   const mover=document.createElement("button");mover.type="button";mover.className="favorito-mover";mover.dataset.mover=String(direcao);mover.dataset.chave=chave;mover.textContent=simbolo;mover.setAttribute("aria-label",rotulo+": "+botao.textContent);mover.disabled=([ ...favoritos ].indexOf(chave)+direcao<0||[ ...favoritos ].indexOf(chave)+direcao>=favoritos.size);linha.append(mover);
+  }
+  lista.append(linha);
  }
  areaFavoritos.querySelector(".favoritos-vazio").hidden=lista.childElementCount>0;
  areaFavoritos.classList.toggle("sem-favoritos",lista.childElementCount===0);
@@ -77,7 +85,7 @@ painel.addEventListener("click",evento=>{
  if(!favorito)return;
  const chave=favorito.dataset.favorito;
  if(favoritos.has(chave))favoritos.delete(chave);else favoritos.add(chave);
- localStorage.setItem("flow-atalhos-favoritos",JSON.stringify([...favoritos]));
+ salvarFavoritos();
  atualizarLista();
 });
 atualizarLista();
