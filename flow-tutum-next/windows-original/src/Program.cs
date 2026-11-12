@@ -97,7 +97,8 @@ var recursosInterface=new [] {
     "gestos-configuraveis.mjs","gestos-configuraveis.css",
     "mapa-navegacao.js","mapa-navegacao.mjs","mapa-navegacao.css",
     "diagnostico-sessao.js","diagnostico-sessao.css",
-    "controle-midia.js","controle-midia.css"
+    "controle-midia.js","controle-midia.css",
+    "apresentacao.js","apresentacao.css"
 };
 foreach(var recurso in recursosInterface) {
     var arquivo=recurso;
