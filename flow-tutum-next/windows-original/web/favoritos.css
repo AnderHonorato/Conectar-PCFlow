@@ -11,3 +11,5 @@
 .favoritos-busca-rotulo input{width:100%;min-height:44px;border:1px solid #a99172;border-radius:12px;padding:9px 12px;background:#fff9f0;color:#28231f;font:inherit}
 .favoritos-busca-rotulo input:focus-visible{outline:3px solid #b77826;outline-offset:2px}
 .favoritos-item{touch-action:pan-x}
+
+.favoritos-acoes.favoritos-organizando{touch-action:none;scroll-snap-type:none}
