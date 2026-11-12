@@ -92,6 +92,7 @@ app.MapGet("/enhancements.js",()=>Results.File(Path.Combine(appRoot,"enhancement
 var recursosInterface=new [] {
     "navegacao-rapida.js","navegacao-rapida.css",
     "feedback-gestos.js","feedback-gestos.css",
+    "qualidade-inteligente.js","qualidade-inteligente.css",
     "bloqueio-toque.js","bloqueio-toque.css",
     "perfis-uso.js","perfis-uso.css",
     "politica-visualizacao.js","modo-visualizacao.js","modo-visualizacao.css",
