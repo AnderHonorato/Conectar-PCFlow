@@ -1,5 +1,5 @@
 (()=>{"use strict";
-const catalogo=[
+const ACOES=[
 {id:"touchpad",nome:"Touchpad",tipo:"local",executar:a=>a.setMode("trackpad")},
 {id:"tela",nome:"Tela remota",tipo:"local",executar:a=>a.setMode("direct")},
 {id:"teclado",nome:"Teclado",tipo:"local",executar:()=>document.getElementById("open-keyboard")?.click()},
@@ -10,11 +10,11 @@ const catalogo=[
 {id:"desktop",nome:"Área de trabalho",tipo:"remoto",comando:{phase:"key",keys:"win+d"}}
 ];
 const CHAVE="flow-next-favoritos-v1",PADRAO=["touchpad","teclado","explorar","play"];
-const ids=new Set(catalogo.map(x=>x.id));
+const ids=new Set(ACOES.map(x=>x.id));
 function normalizar(valor){return Array.isArray(valor)?[...new Set(valor.filter(x=>typeof x==="string"&&ids.has(x)))].slice(0,8):[...PADRAO]}
 function carregar(){try{const raw=localStorage.getItem(CHAVE);return raw===null?[...PADRAO]:normalizar(JSON.parse(raw))}catch{return [...PADRAO]}}
 function guardar(v){try{localStorage.setItem(CHAVE,JSON.stringify(v))}catch{}}
-if(typeof module!=="undefined"&&module.exports)module.exports={normalizar,PADRAO,catalogo};
+if(typeof module!=="undefined"&&module.exports)module.exports={normalizar,PADRAO,catalogo:ACOES};
 if(typeof document==="undefined")return;
 const app=window.FlowTutumNext,ancora=document.querySelector(".dock");if(!app||!ancora)return;
 let favoritos=carregar(),editando=false;
@@ -36,14 +36,14 @@ function botao(texto,acao,rotulo){const b=document.createElement("button");b.typ
 function renderizar(){
  lista.replaceChildren();catalogo.replaceChildren();
  for(const id of favoritos){
-  const item=catalogo.find(x=>x.id===id);if(!item)continue;
+  const item=ACOES.find(x=>x.id===id);if(!item)continue;
   const grupo=document.createElement("div");grupo.className="favoritos-item";
   grupo.append(botao(item.nome,()=>acionar(item)));
   if(editando){grupo.append(botao("←",()=>mover(id,-1),"Mover "+item.nome+" para esquerda"),botao("→",()=>mover(id,1),"Mover "+item.nome+" para direita"),botao("×",()=>{favoritos=favoritos.filter(x=>x!==id);guardar(favoritos);renderizar()},"Remover "+item.nome))}
   lista.append(grupo);
  }
  if(!favoritos.length)lista.append("Nenhum favorito. Toque em Organizar para adicionar.");
- for(const item of catalogo.filter(x=>!favoritos.includes(x.id)))catalogo.append(botao("+ "+item.nome,()=>{favoritos.push(item.id);guardar(favoritos);renderizar()},"Adicionar "+item.nome));
+ for(const item of ACOES.filter(x=>!favoritos.includes(x.id)))catalogo.append(botao("+ "+item.nome,()=>{favoritos.push(item.id);guardar(favoritos);renderizar()},"Adicionar "+item.nome));
  catalogo.hidden=!editando;editar.setAttribute("aria-pressed",String(editando));editar.textContent=editando?"Concluir":"Organizar";
 }
 editar.addEventListener("click",()=>{editando=!editando;renderizar()});
