@@ -25,3 +25,15 @@
 .navegacao-grupos [hidden]{display:none}
 .navegacao-ferramentas :focus-visible,.favorito-atalho:focus-visible{outline:3px solid #8ce1d5;outline-offset:2px}
 @media(max-width:420px){.navegacao-botoes{grid-template-columns:minmax(0,1fr) 44px}}
+
+/* Favoritos fixados: botões independentes da busca, sem enviar ações sem sessão. */
+.navegacao-favoritos{margin:12px 0;padding:12px;border:1px solid #54767b;border-radius:14px;background:#20343b}
+.navegacao-favoritos h3{font-size:14px;color:#f3d4a7;margin:0 0 8px}
+.navegacao-favoritos .favoritos-lista{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.navegacao-favoritos .favoritos-lista button{min-height:48px;border:1px solid #729397;background:#304d54;color:#fff;border-radius:12px;padding:9px 12px}
+.navegacao-favoritos .favoritos-lista button:disabled{opacity:.45}
+.navegacao-favoritos .favoritos-lista button:focus-visible{outline:3px solid #8ce1d5;outline-offset:2px}
+.navegacao-favoritos .favoritos-vazio{margin:4px 0;font-size:13px}
+.navegacao-botoes{grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch}
+.navegacao-botoes button[data-comando]{min-width:0}
+@media(max-width:420px){.navegacao-botoes{grid-template-columns:minmax(0,1fr) 44px}}
