@@ -17,8 +17,9 @@ const estado=painel.querySelector("#navegacao-estado");
 const autorizados=new Set(["alt+left","alt+right","ctrl+r","ctrl+l","ctrl+t","ctrl+w","ctrl+f","ctrl+a","ctrl+z","ctrl+shift+z","alt+tab","escape"]);
 const conectado=()=>Boolean(state.approved&&state.authenticated&&state.sessionReady&&state.ws?.readyState===WebSocket.OPEN);
 // Favoritos locais: não alteram autorização, sessão ou comandos no Windows.
-function carregarFavoritos(){try{const salvos=JSON.parse(localStorage.getItem("flow-atalhos-favoritos")||"[]");return Array.isArray(salvos)?salvos.filter(chave=>autorizados.has(chave)):[]}catch{return []}}
+function carregarFavoritos(){try{const salvos=JSON.parse(localStorage.getItem("flow-atalhos-favoritos")||"[]");return Array.isArray(salvos)?[...new Set(salvos.filter(chave=>typeof chave==="string"&&autorizados.has(chave)))].slice(0,autorizados.size):[]}catch{return []}}
 const favoritos=new Set(carregarFavoritos());
+let ultimoEnvio=0;
 // A ordem é preservada pelo Set e persistida no armazenamento local.
 function salvarFavoritos(){try{localStorage.setItem("flow-atalhos-favoritos",JSON.stringify([...favoritos]));return true}catch{estado.textContent="Não foi possível salvar os favoritos";return false}}
 function moverFavorito(chave,direcao){const ordem=[...favoritos],indice=ordem.indexOf(chave),destino=indice+direcao;if(indice<0||destino<0||destino>=ordem.length)return false;[ordem[indice],ordem[destino]]=[ordem[destino],ordem[indice]];favoritos.clear();ordem.forEach(item=>favoritos.add(item));salvarFavoritos();atualizarLista();return true}
@@ -63,7 +64,7 @@ function atualizarFavoritos(){
 }
 function atualizarLista(){
  const termo=busca.value.trim().toLocaleLowerCase("pt-BR");
- painel.querySelectorAll("[data-comando]").forEach(botao=>{
+ painel.querySelectorAll(".navegacao-grupos [data-comando]").forEach(botao=>{
   const chave=botao.dataset.comando,grupo=botao.parentElement;
   const favorito=grupo.querySelector('[data-favorito="'+chave+'"]');
   const visivel=!termo||botao.textContent.toLocaleLowerCase("pt-BR").includes(termo)||chave.includes(termo);
@@ -81,6 +82,11 @@ function atualizarLista(){
 busca.addEventListener("input",atualizarLista);
 ferramentas.querySelector("#limpar-busca").addEventListener("click",()=>{busca.value="";atualizarLista();busca.focus()});
 painel.addEventListener("click",evento=>{
+ const mover=evento.target.closest("button[data-mover][data-chave]");
+ if(mover&&painel.contains(mover)){
+  moverFavorito(mover.dataset.chave,Number(mover.dataset.mover));
+  return;
+ }
  const favorito=evento.target.closest("[data-favorito]");
  if(!favorito)return;
  const chave=favorito.dataset.favorito;
@@ -101,7 +107,11 @@ painel.addEventListener("click",evento=>{
  atualizar();
  const comando=botao.dataset.comando;
  if(botao.disabled||!autorizados.has(comando))return;
+ // Evita envios duplicados por toques involuntários consecutivos.
+ const agora=performance.now();
+ if(agora-ultimoEnvio<220){estado.textContent="Aguarde antes de repetir o atalho";return;}
  const enviado=wsSend({phase:"key",keys:comando});
+ if(enviado)ultimoEnvio=agora;
  estado.textContent=enviado?"Atalho enviado: "+botao.textContent.trim():"Falha ao enviar atalho";
  if(enviado){botao.classList.add("enviado");setTimeout(()=>botao.classList.remove("enviado"),180)}
 });
