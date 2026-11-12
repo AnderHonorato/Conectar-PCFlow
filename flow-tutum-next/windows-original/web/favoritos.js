@@ -55,9 +55,10 @@ function renderizar(){
  for(const item of ACOES.filter(x=>!favoritos.includes(x.id)&&x.nome.toLocaleLowerCase("pt-BR").includes(busca.value.trim().toLocaleLowerCase("pt-BR"))))catalogo.append(botao("+ "+item.nome,()=>{favoritos.push(item.id);salvar();renderizar()},"Adicionar "+item.nome));
  catalogo.hidden=!editando;rotuloBusca.hidden=!editando;editar.setAttribute("aria-pressed",String(editando));editar.textContent=editando?"Concluir":"Organizar";
 }
-editar.addEventListener("click",()=>{editando=!editando;renderizar()});
+editar.addEventListener("click",()=>{editando=!editando;lista.classList.toggle("favoritos-organizando",editando);renderizar()});
 // Arrastar no modo organizar altera apenas a ordem local; nunca envia comando ao Windows.
-let arraste=null;
+let arraste=null,ignorarClique=false;
+lista.addEventListener("click",e=>{if(ignorarClique){e.preventDefault();e.stopImmediatePropagation();ignorarClique=false}},true);
 lista.addEventListener("pointerdown",e=>{
  if(!editando||(e.pointerType==="mouse"&&e.button!==0))return;
  const alvo=e.target.closest(".favoritos-item");if(!alvo||!lista.contains(alvo))return;
@@ -67,6 +68,7 @@ lista.addEventListener("pointermove",e=>{
  if(!arraste||e.pointerId!==arraste.pointer)return;
  if(Math.hypot(e.clientX-arraste.x,e.clientY-arraste.y)>12)arraste.ativo=true;
  if(!arraste.ativo)return;
+ ignorarClique=true;
  const alvo=document.elementFromPoint(e.clientX,e.clientY)?.closest(".favoritos-item");
  if(!alvo||!lista.contains(alvo)||alvo.dataset.favorito===arraste.id)return;
  const origem=favoritos.indexOf(arraste.id),destino=favoritos.indexOf(alvo.dataset.favorito);
@@ -75,6 +77,6 @@ lista.addEventListener("pointermove",e=>{
  mensagem("Ordem salva no perfil "+perfis.ativo);
 });
 lista.addEventListener("pointerup",()=>arraste=null);
-lista.addEventListener("pointercancel",()=>arraste=null);
+lista.addEventListener("pointercancel",()=>{arraste=null;ignorarClique=false});
 renderizar();
 })();
