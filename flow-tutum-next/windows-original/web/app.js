@@ -439,7 +439,7 @@ function markNetworkOffline(){
 window.addEventListener("offline",markNetworkOffline);
 window.addEventListener("online",()=>{lastRecovery=0;recoverConnection()});
 setInterval(recoverConnection,5000);
-window.FlowTutumNext={state,wsSend,paint,sizeCanvas,setMode,api,loadInfo,toast,showDialog,closeDialog,recoverConnection};
+window.FlowTutumNext={state,wsSend,paint,sizeCanvas,zoomNoPonto,setMode,api,loadInfo,toast,showDialog,closeDialog,recoverConnection};
 frameLoop();
 recoverConnection();
 })();
