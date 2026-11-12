@@ -91,6 +91,7 @@ app.MapGet("/enhancements.js",()=>Results.File(Path.Combine(appRoot,"enhancement
 // Sem estas rotas, os módulos de toque e suas folhas de estilo retornavam 404.
 var recursosInterface=new [] {
     "navegacao-rapida.js","navegacao-rapida.css",
+    "feedback-gestos.js","feedback-gestos.css",
     "bloqueio-toque.js","bloqueio-toque.css",
     "perfis-uso.js","perfis-uso.css",
     "politica-visualizacao.js","modo-visualizacao.js","modo-visualizacao.css",
