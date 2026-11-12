@@ -1,0 +1,10 @@
+.precisao-ultrawide{display:grid;gap:9px;margin:12px 0;padding:12px;border:1px solid #677e88;border-radius:15px;background:#172633;color:#f8f3e8}
+.precisao-topo{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:14px}
+.precisao-topo output{color:#f5d8a4;font-size:12px}
+.precisao-escalas,.precisao-direcoes{display:flex;flex-wrap:wrap;gap:7px}
+.precisao-ultrawide button{min-width:44px;min-height:44px;flex:1;border:1px solid #8a9ba5;border-radius:11px;background:#253c48;color:#fff;font:inherit;font-weight:600}
+.precisao-ultrawide button[aria-pressed=true]{background:#f5d8a4;color:#172633}
+.precisao-ultrawide button:focus-visible{outline:3px solid #f5bd62;outline-offset:2px}
+.precisao-ultrawide p{margin:0;font-size:12px;line-height:1.5;color:#e4e8e7}
+@media(max-width:390px){.precisao-ultrawide{padding:9px}.precisao-direcoes{display:grid;grid-template-columns:repeat(5,minmax(0,1fr))}.precisao-direcoes button{min-width:0}}
+@media(prefers-reduced-motion:reduce){.precisao-ultrawide button{transition:none}}
