@@ -12,4 +12,8 @@
 .favoritos-busca-rotulo input:focus-visible{outline:3px solid #b77826;outline-offset:2px}
 .favoritos-item{touch-action:pan-x}
 
-.favoritos-acoes.favoritos-organizando{touch-action:none;scroll-snap-type:none}
+.favoritos-acoes.favoritos-organizando{scroll-snap-type:none}
+.favoritos-alca{touch-action:none;cursor:grab;user-select:none;font-weight:800}
+.favoritos-alca:active{cursor:grabbing}
+.favoritos-organizando .favoritos-item{touch-action:pan-x}
+@media(prefers-reduced-motion:reduce){.favoritos-alca{transition:none}}
