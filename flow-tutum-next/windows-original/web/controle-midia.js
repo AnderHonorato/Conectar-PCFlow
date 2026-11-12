@@ -18,7 +18,7 @@ function permitido(){const s=api()?.state;return !!(s?.approved&&s?.authenticate
 function atualizar(){
  const pronto=permitido();
  painel.querySelectorAll("[data-midia]").forEach(b=>b.disabled=!pronto);
- mensagem.textContent=pronto?"Comandos disponíveis. O estado do player não é monitorado.":"Aguardando autorização de controle.";
+ if(!pronto)mensagem.textContent="Aguardando autorização de controle.";
 }
 function alternar(aberto){
  painel.hidden=!aberto;abrir.setAttribute("aria-expanded",String(aberto));
