@@ -5,12 +5,12 @@
 <link rel="stylesheet" href="/bloqueio-toque.css">
 <link rel="stylesheet" href="/perfis-uso.css"><link rel="stylesheet" href="/gestos-configuraveis.css"><link rel="stylesheet" href="/modo-visualizacao.css">
 <link rel="stylesheet" href="/mapa-navegacao.css"><link rel="stylesheet" href="/diagnostico-sessao.css">
-<link rel="stylesheet" href="/controle-midia.css"></head><body>
+<link rel="stylesheet" href="/controle-midia.css"><link rel="stylesheet" href="/apresentacao.css"></head><body>
 <div class="shell">
   <header class="topbar">
     <div class="brand"><span class="brand-icon" aria-hidden="true"><span></span><span></span></span><div><strong>flow tutum</strong><small>NEXT / ACESSO REMOTO</small></div></div>
     <div class="status" id="status"><span class="status-led"></span><span id="status-text">Conectando...</span></div>
-    <button type="button" id="diagnostico-abrir" class="diagnostico-abrir" aria-expanded="false" aria-controls="diagnostico-painel">Diagnóstico</button><button type="button" id="midia-abrir" class="midia-abrir" aria-controls="midia-painel" aria-expanded="false">Mídia</button><button class="icon-button settings-button" id="open-settings" title="Configurações" aria-label="Configurações"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 17h16M8 4v6m8 4v6"/></svg></button>
+    <button type="button" id="diagnostico-abrir" class="diagnostico-abrir" aria-expanded="false" aria-controls="diagnostico-painel">Diagnóstico</button><button type="button" id="apresentacao-abrir" class="apresentacao-abrir" aria-controls="apresentacao-painel" aria-expanded="false">Apresentar</button><button type="button" id="midia-abrir" class="midia-abrir" aria-controls="midia-painel" aria-expanded="false">Mídia</button><button class="icon-button settings-button" id="open-settings" title="Configurações" aria-label="Configurações"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 17h16M8 4v6m8 4v6"/></svg></button>
   </header>
   <main class="main">
     <div class="view-head">
@@ -129,5 +129,5 @@
 <script src="/bloqueio-toque.js" defer></script>
 <script src="/perfis-uso.js" defer></script>
 <script src="/modo-visualizacao.js" defer></script>
-<script src="/mapa-navegacao.js" defer></script><script src="/controle-midia.js" defer></script>
-<aside id="midia-painel" class="midia-painel" role="region" aria-label="Controle de mídia do Windows" hidden><header class="midia-cabecalho"><h2>Controle de mídia</h2><button type="button" id="midia-fechar">Fechar</button></header><div class="midia-grade" aria-label="Comandos de mídia"></div><p id="midia-retorno" class="midia-retorno" role="status" aria-live="polite">Aguardando autorização.</p></aside></body></html>
+<script src="/mapa-navegacao.js" defer></script><script src="/controle-midia.js" defer></script><script src="/apresentacao.js" defer></script>
+<aside id="midia-painel" class="midia-painel" role="region" aria-label="Controle de mídia do Windows" hidden><header class="midia-cabecalho"><h2>Controle de mídia</h2><button type="button" id="midia-fechar">Fechar</button></header><div class="midia-grade" aria-label="Comandos de mídia"></div><p id="midia-retorno" class="midia-retorno" role="status" aria-live="polite">Aguardando autorização.</p></aside><aside id="apresentacao-painel" class="apresentacao-painel" role="region" aria-label="Controle de apresentações" hidden><header><h2>Apresentações</h2><button type="button" id="apresentacao-fechar">Fechar</button></header><p>Comandos para o aplicativo ativo no Windows. Não mostra o estado dos slides.</p><div class="apresentacao-grade" aria-label="Atalhos de apresentação"></div><p id="apresentacao-estado" role="status" aria-live="polite">Aguardando autorização.</p></aside></body></html>
