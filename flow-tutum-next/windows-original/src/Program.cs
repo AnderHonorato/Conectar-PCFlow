@@ -94,7 +94,8 @@ var recursosInterface=new [] {
     "bloqueio-toque.js","bloqueio-toque.css",
     "perfis-uso.js","perfis-uso.css",
     "politica-visualizacao.js","modo-visualizacao.js","modo-visualizacao.css",
-    "gestos-configuraveis.mjs","gestos-configuraveis.css"
+    "gestos-configuraveis.mjs","gestos-configuraveis.css",
+    "mapa-navegacao.js","mapa-navegacao.mjs","mapa-navegacao.css"
 };
 foreach(var recurso in recursosInterface) {
     var arquivo=recurso;
