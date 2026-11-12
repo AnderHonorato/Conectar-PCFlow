@@ -9,7 +9,7 @@ const ACOES=[
 {id:"volume",nome:"Silenciar",tipo:"remoto",comando:{phase:"key",keys:"volume-mudo"}},
 {id:"desktop",nome:"Área de trabalho",tipo:"remoto",comando:{phase:"key",keys:"win+d"}}
 ];
-const CHAVE="flow-next-favoritos-v1",PADRAO=["touchpad","teclado","explorar","play"];
+const CHAVE="flow-next-favoritos-v1",CHAVE_PERFIS="flow-next-favoritos-perfis-v1",PADRAO=["touchpad","teclado","explorar","play"];
 const ids=new Set(ACOES.map(x=>x.id));
 function normalizar(valor){return Array.isArray(valor)?[...new Set(valor.filter(x=>typeof x==="string"&&ids.has(x)))].slice(0,8):[...PADRAO]}
 function carregar(){try{const raw=localStorage.getItem(CHAVE);return raw===null?[...PADRAO]:normalizar(JSON.parse(raw))}catch{return [...PADRAO]}}
@@ -17,13 +17,18 @@ function guardar(v){try{localStorage.setItem(CHAVE,JSON.stringify(v))}catch{}}
 if(typeof module!=="undefined"&&module.exports)module.exports={normalizar,PADRAO,catalogo:ACOES};
 if(typeof document==="undefined")return;
 const app=window.FlowTutumNext,ancora=document.querySelector(".dock");if(!app||!ancora)return;
-let favoritos=carregar(),editando=false;
+const PERFIS=["Pessoal","Trabalho","Mídia"];
+function carregarPerfis(){try{const dados=JSON.parse(localStorage.getItem(CHAVE_PERFIS)||"{}");return {ativo:PERFIS.includes(dados.ativo)?dados.ativo:"Pessoal",listas:Object.fromEntries(PERFIS.map(p=>[p,Array.isArray(dados.listas?.[p])?normalizar(dados.listas[p]):p==="Pessoal"?carregar():p==="Trabalho"?["tela","teclado","desktop","explorar"]:["play","volume","touchpad","tela"]]))}}catch{return {ativo:"Pessoal",listas:{Pessoal:carregar(),Trabalho:["tela","teclado","desktop","explorar"],"Mídia":["play","volume","touchpad","tela"]}}}}
+let perfis=carregarPerfis(),favoritos=[...perfis.listas[perfis.ativo]],editando=false;
+function salvar(){perfis.listas[perfis.ativo]=[...favoritos];try{localStorage.setItem(CHAVE_PERFIS,JSON.stringify(perfis));if(perfis.ativo==="Pessoal")guardar(favoritos)}catch{mensagem("Não foi possível salvar neste navegador")}}
+function selecionarPerfil(nome){if(!PERFIS.includes(nome))return;salvar();perfis.ativo=nome;favoritos=[...perfis.listas[nome]];salvar();renderizar();mensagem("Perfil "+nome+" selecionado")}
 const painel=document.createElement("section");painel.className="favoritos";painel.setAttribute("aria-label","Ações favoritas");
-painel.innerHTML='<div class="favoritos-topo"><strong>Favoritos</strong><button type="button" id="favoritos-editar" aria-pressed="false">Organizar</button></div><div class="favoritos-acoes" id="favoritos-acoes"></div><p id="favoritos-retorno" role="status" aria-live="polite"></p><div id="favoritos-catalogo" class="favoritos-catalogo" hidden></div>';
+painel.innerHTML='<div class="favoritos-topo"><strong>Favoritos</strong><label class="favoritos-perfil-rotulo">Perfil <select id="favoritos-perfil" aria-label="Perfil de favoritos"><option>Pessoal</option><option>Trabalho</option><option>Mídia</option></select></label><button type="button" id="favoritos-editar" aria-pressed="false">Organizar</button></div><div class="favoritos-acoes" id="favoritos-acoes"></div><p id="favoritos-retorno" role="status" aria-live="polite"></p><div id="favoritos-catalogo" class="favoritos-catalogo" hidden></div>';
 ancora.insertAdjacentElement("beforebegin",painel);
+const seletor=painel.querySelector("#favoritos-perfil");seletor.value=perfis.ativo;seletor.addEventListener("change",()=>selecionarPerfil(seletor.value));
 const lista=painel.querySelector("#favoritos-acoes"),catalogo=painel.querySelector("#favoritos-catalogo"),retorno=painel.querySelector("#favoritos-retorno"),editar=painel.querySelector("#favoritos-editar");
 function mensagem(t){retorno.textContent=t}
-function mover(id,delta){const pos=favoritos.indexOf(id),dest=pos+delta;if(pos<0||dest<0||dest>=favoritos.length)return;[favoritos[pos],favoritos[dest]]=[favoritos[dest],favoritos[pos]];guardar(favoritos);renderizar()}
+function mover(id,delta){const pos=favoritos.indexOf(id),dest=pos+delta;if(pos<0||dest<0||dest>=favoritos.length)return;[favoritos[pos],favoritos[dest]]=[favoritos[dest],favoritos[pos]];salvar();renderizar()}
 function acionar(item){
  if(item.tipo==="remoto"){
   if(!app.state.approved||!app.state.authenticated||app.state.somenteVisualizacao){mensagem("Controle remoto não autorizado");return}
@@ -34,16 +39,17 @@ function acionar(item){
 }
 function botao(texto,acao,rotulo){const b=document.createElement("button");b.type="button";b.textContent=texto;b.setAttribute("aria-label",rotulo||texto);b.addEventListener("click",acao);return b}
 function renderizar(){
+ seletor.value=perfis.ativo;
  lista.replaceChildren();catalogo.replaceChildren();
  for(const id of favoritos){
   const item=ACOES.find(x=>x.id===id);if(!item)continue;
   const grupo=document.createElement("div");grupo.className="favoritos-item";
   grupo.append(botao(item.nome,()=>acionar(item)));
-  if(editando){grupo.append(botao("←",()=>mover(id,-1),"Mover "+item.nome+" para esquerda"),botao("→",()=>mover(id,1),"Mover "+item.nome+" para direita"),botao("×",()=>{favoritos=favoritos.filter(x=>x!==id);guardar(favoritos);renderizar()},"Remover "+item.nome))}
+  if(editando){grupo.append(botao("←",()=>mover(id,-1),"Mover "+item.nome+" para esquerda"),botao("→",()=>mover(id,1),"Mover "+item.nome+" para direita"),botao("×",()=>{favoritos=favoritos.filter(x=>x!==id);salvar();renderizar()},"Remover "+item.nome))}
   lista.append(grupo);
  }
  if(!favoritos.length)lista.append("Nenhum favorito. Toque em Organizar para adicionar.");
- for(const item of ACOES.filter(x=>!favoritos.includes(x.id)))catalogo.append(botao("+ "+item.nome,()=>{favoritos.push(item.id);guardar(favoritos);renderizar()},"Adicionar "+item.nome));
+ for(const item of ACOES.filter(x=>!favoritos.includes(x.id)))catalogo.append(botao("+ "+item.nome,()=>{favoritos.push(item.id);salvar();renderizar()},"Adicionar "+item.nome));
  catalogo.hidden=!editando;editar.setAttribute("aria-pressed",String(editando));editar.textContent=editando?"Concluir":"Organizar";
 }
 editar.addEventListener("click",()=>{editando=!editando;renderizar()});
