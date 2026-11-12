@@ -5,6 +5,10 @@ if(!flow)return;
 const {state,wsSend,paint,sizeCanvas,setMode,api,loadInfo,toast,closeDialog}=flow;
 const el=id=>document.getElementById(id);
 const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
+// O módulo puro é carregado sem bloquear o controle existente.
+let motorGestos=null;
+import('./gestos-configuraveis.mjs').then(modulo=>{motorGestos=modulo}).catch(()=>{});
+let fatorRolagem=1;
 const zoomText=()=>{
  const label=el("zoom-label");
  if(label)label.textContent=state.zoom===1&&state.fillMode==="fit"?"Ajustar":Math.round(state.zoom*100)+"%";
@@ -165,6 +169,15 @@ function mostrarGesto(mensagem){retorno.textContent=mensagem;retorno.classList.a
 const pad=el("touchpad-area"),padContacts=new Map();
 let padGestureMulti=false,padMoved=false,padDown=0,padLastCenter=null,padMultiScrolled=false;
 const scrollThreshold=3;
+// Preferência independente para rolagem: acessível no touchpad e persistente.
+const ajusteRolagem=document.createElement('label');
+ajusteRolagem.className='ajuste-rolagem';
+ajusteRolagem.innerHTML='<span>Velocidade da rolagem <output id="valor-rolagem">1×</output></span><input id="velocidade-rolagem" type="range" min="0.5" max="3" step="0.25" value="1" aria-label="Velocidade da rolagem com dois dedos">';
+perfilContainer.append(ajusteRolagem);
+const campoRolagem=ajusteRolagem.querySelector('input'),valorRolagem=ajusteRolagem.querySelector('output');
+try{const salvo=Number(localStorage.getItem('flow-velocidade-rolagem'));if(Number.isFinite(salvo)&&salvo>=0.5&&salvo<=3)fatorRolagem=salvo}catch{}
+campoRolagem.value=String(fatorRolagem);valorRolagem.textContent=fatorRolagem+'×';
+campoRolagem.addEventListener('input',()=>{fatorRolagem=clamp(Number(campoRolagem.value)||1,0.5,3);valorRolagem.textContent=fatorRolagem+'×';try{localStorage.setItem('flow-velocidade-rolagem',String(fatorRolagem))}catch{}});
 function centroContatos(){
  const contatos=[...padContacts.values()];
  return {x:contatos.reduce((s,p)=>s+p.x,0)/contatos.length,
@@ -195,11 +208,11 @@ pad.addEventListener("pointermove",event=>{
   if(padLastCenter){
    const dx=centro.x-padLastCenter.x,dy=centro.y-padLastCenter.y;
    if(Math.abs(dy)>=scrollThreshold){
-    if(wsSend({phase:"wheel",wheel:Math.round(-dy*7)})){padMultiScrolled=true;mostrarGesto("Rolagem vertical")}
+    if(wsSend({phase:"wheel",wheel:(motorGestos?motorGestos.calcularRolagem(dy,fatorRolagem):Math.round(-dy*7*fatorRolagem))})){padMultiScrolled=true;mostrarGesto("Rolagem vertical")}
     padLastCenter.y=centro.y;
    }
    if(Math.abs(dx)>=scrollThreshold){
-    if(wsSend({phase:"hwheel",wheel:Math.round(-dx*7)})){padMultiScrolled=true;mostrarGesto("Rolagem horizontal")}
+    if(wsSend({phase:"hwheel",wheel:(motorGestos?motorGestos.calcularRolagem(dx,fatorRolagem):Math.round(-dx*7*fatorRolagem))})){padMultiScrolled=true;mostrarGesto("Rolagem horizontal")}
     padLastCenter.x=centro.x;
    }
   }else padLastCenter=centro;
@@ -209,8 +222,8 @@ pad.addEventListener("pointermove",event=>{
  if(padGestureMulti)return;
  if(Math.abs(deltaX)+Math.abs(deltaY)<0.75)return;
  const bounds=pad.getBoundingClientRect();
- state.cursor.x=clamp(state.cursor.x+deltaX/Math.max(1,bounds.width)*state.sensitivity,0,1);
- state.cursor.y=clamp(state.cursor.y+deltaY/Math.max(1,bounds.height)*state.sensitivity,0,1);
+ const proximo=motorGestos?motorGestos.deslocarCursor(state.cursor,deltaX,deltaY,bounds.width,bounds.height,state.sensitivity):{x:clamp(state.cursor.x+deltaX/Math.max(1,bounds.width)*state.sensitivity,0,1),y:clamp(state.cursor.y+deltaY/Math.max(1,bounds.height)*state.sensitivity,0,1)};
+ state.cursor.x=proximo.x;state.cursor.y=proximo.y;
  padMoved=padMoved||previous.moved>9;
  wsSend({phase:"move",...mousePosition()});
 });
