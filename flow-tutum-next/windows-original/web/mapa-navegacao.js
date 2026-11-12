@@ -29,21 +29,24 @@ function atualizar(){
  ctx.strokeStyle="#f3bf79";ctx.lineWidth=3;ctx.strokeRect(x,y,w,h);
 }
 function navegar(evento){
- if(!modulo||!geometria)return;
+ if(!modulo||!geometria||!state.exploring){
+  if(!state.exploring)document.getElementById("explore-toggle")?.click();
+  if(!state.exploring)return;
+ }
  const rect=mini.getBoundingClientRect(),x=(evento.clientX-rect.left)*mini.width/rect.width,y=(evento.clientY-rect.top)*mini.height/rect.height;
  const ponto=modulo.normalizarPonto(x,y,geometria),d=dimensoes();if(!ponto||!d)return;
  const escala=Math.min(tela.width/d.w,tela.height/d.h)*state.zoom;
  const pan=modulo.posicaoPan(ponto.x,ponto.y,d.w*escala,d.h*escala,tela.width,tela.height);
- state.panX=pan.x*tela.clientWidth/tela.width;state.panY=pan.y*tela.clientHeight/tela.height;
+ if(!pan)return;state.panX=pan.x*tela.clientWidth/tela.width;state.panY=pan.y*tela.clientHeight/tela.height;
  paint();atualizar();
 }
 acao.addEventListener("click",()=>{painel.hidden=!painel.hidden;acao.setAttribute("aria-expanded",String(!painel.hidden));atualizar()});
 fechar.addEventListener("click",()=>{painel.hidden=true;acao.setAttribute("aria-expanded","false");acao.focus()});
 mini.addEventListener("pointerdown",e=>{e.preventDefault();arrastando=true;mini.setPointerCapture(e.pointerId);navegar(e)});
 mini.addEventListener("pointermove",e=>{if(arrastando){e.preventDefault();navegar(e)}});
-mini.addEventListener("pointerup",()=>arrastando=false);
+mini.addEventListener("pointerup",e=>{arrastando=false;if(mini.hasPointerCapture(e.pointerId))mini.releasePointerCapture(e.pointerId)});
 mini.addEventListener("pointercancel",()=>arrastando=false);
-mini.addEventListener("keydown",e=>{if(!["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"].includes(e.key))return;e.preventDefault();const passo=24;state.panX+=e.key==="ArrowLeft"?passo:e.key==="ArrowRight"?-passo:0;state.panY+=e.key==="ArrowUp"?passo:e.key==="ArrowDown"?-passo:0;paint();atualizar()});
+mini.addEventListener("keydown",e=>{if(!["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"].includes(e.key))return;e.preventDefault();const passo=24;state.panX+=e.key==="ArrowLeft"?passo:e.key==="ArrowRight"?-passo:0;state.panY+=e.key==="ArrowUp"?passo:e.key==="ArrowDown"?-passo:0;const d=dimensoes();if(d&&modulo){const s=Math.min(tela.width/d.w,tela.height/d.h)*state.zoom;const pan=modulo.limitarPan(state.panX*tela.width/tela.clientWidth,state.panY*tela.height/tela.clientHeight,d.w*s,d.h*s,tela.width,tela.height);if(pan){state.panX=pan.x*tela.clientWidth/tela.width;state.panY=pan.y*tela.clientHeight/tela.height}}paint();atualizar()});
 window.addEventListener("flow-zoom-alterado",atualizar);
 document.getElementById("zoom-in")?.addEventListener("click",()=>requestAnimationFrame(atualizar));
 document.getElementById("zoom-out")?.addEventListener("click",()=>requestAnimationFrame(atualizar));
@@ -51,5 +54,5 @@ document.getElementById("zoom-label")?.addEventListener("click",()=>requestAnima
 document.getElementById("fit-toggle")?.addEventListener("click",()=>requestAnimationFrame(atualizar));
 document.getElementById("monitor")?.addEventListener("change",()=>requestAnimationFrame(atualizar));
 new ResizeObserver(atualizar).observe(tela);
-setInterval(()=>{if(!painel.hidden)atualizar();else if(!acao.hidden)atualizar()},700);
+// Atualização sob demanda e somente quando o vídeo muda: evita polling constante.\nwindow.addEventListener("flow-captura-medida",()=>{if(!painel.hidden)atualizar()});\nwindow.addEventListener("flow-exploracao-alterada",atualizar);
 })();
