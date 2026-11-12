@@ -1,0 +1,54 @@
+name: Flow Tutum Next - verificacao de candidato
+on:
+  push:
+    branches: [feat/flow-tutum-next-core-fullstack]
+  pull_request:
+    paths:
+      - 'flow-tutum-next/**'
+      - '.github/workflows/flow-tutum-next-verificacao.yml'
+  workflow_dispatch:
+jobs:
+  interface:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Testes de interface e gestos
+        run: |
+          node --test flow-tutum-next/tests/*.test.mjs
+          node --test flow-tutum-next/windows-original/tests/*.test.mjs
+  servidor-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Compilar servidor Next
+        run: dotnet build flow-tutum-next/windows-original/src/FlowTutum.Next.csproj -c Release
+      - name: Testar geometria
+        run: dotnet run --project flow-tutum-next/windows-original/tests/FlowTutum.Geometry.Tests.csproj -c Release
+      - name: Testar entrada Windows
+        run: dotnet run --project flow-tutum-next/windows-original/tests/FlowTutum.Input.Tests.csproj -c Release
+  android-candidato:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validar identidade e disponibilidade do Android Next
+        shell: bash
+        run: |
+          if [ ! -f flow-tutum-next/android/app/build.gradle.kts ]; then
+            echo 'BLOQUEIO: fonte Android Next ausente. Proibido compilar o PCFlow legado como Next.' >&2
+            exit 1
+          fi
+          grep -q 'applicationId = "br.flowtutum"' flow-tutum-next/android/app/build.gradle.kts
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Compilar candidato Android Next
+        working-directory: flow-tutum-next/android
+        run: ./gradlew assembleDebug --no-daemon
