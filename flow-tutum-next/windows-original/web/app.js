@@ -1,7 +1,7 @@
 (() => {
 "use strict";
 const el=id=>document.getElementById(id);
-const state={token:localStorage.getItem("flow-next-token")||"",info:null,monitor:0,quality:960,mode:"direct",exploring:false,zoom:1,panX:0,panY:0,fillMode:"fit",tapBehavior:"click",sensitivity:1.5,localSupported:false,
+const state={somenteVisualizacao:false,token:localStorage.getItem("flow-next-token")||"",info:null,monitor:0,quality:960,mode:"direct",exploring:false,zoom:1,panX:0,panY:0,fillMode:"fit",tapBehavior:"click",sensitivity:1.5,localSupported:false,
   image:null,ws:null,authenticated:false,approved:false,seq:Math.max(Date.now(),1),pointer:null,contacts:new Map(),
   cursor:{x:.5,y:.5},frameCount:0,at:Date.now(),frameError:null,stopped:false,videoActive:false,video:null,videoAbort:null,
   sessionReady:false,sessionMessage:"Verificando desktop Windows",videoStarting:false,videoLastAttempt:0};
@@ -69,6 +69,7 @@ function pointAt(e) {
  return {x:Math.min(1,Math.max(0,x)),y:Math.min(1,Math.max(0,y)),inside:x>=0&&x<=1&&y>=0&&y<=1};
 }
 function wsSend(cmd){
+ if(!window.FlowPoliticaVisualizacao.permitir(state.somenteVisualizacao,cmd))return false;
  if(!state.approved||!state.authenticated||state.ws?.readyState!==WebSocket.OPEN)return false;
  state.seq=Math.max(Date.now(),state.seq+1);
  try {
