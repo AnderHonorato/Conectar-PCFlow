@@ -22,3 +22,14 @@ test('painel tem semântica e explica a medição',()=>{
  assert.match(html,/tempo HTTP não representa a latência de vídeo/i);
  assert.match(js,/e\.key==="Escape"/);
 });
+
+test('histórico HTTP limitado e métricas honestas',()=>{
+ for(const id of ['diagnostico-amostras','diagnostico-mediana','diagnostico-p95','diagnostico-falhas','diagnostico-historico','diagnostico-limpar','diagnostico-alerta'])assert.ok(html.includes('id="'+id+'"'));
+ assert.match(js,/MAX=24/);
+ assert.match(js,/amostras\.length>MAX/);
+ assert.match(js,/percentil\(validas,\.95\)/);
+ assert.match(js,/resposta\.ok/);
+ assert.match(js,/document\.hidden/);
+ assert.match(js,/clearInterval\(temporizador\)/);
+ assert.doesNotMatch(js,/localStorage|sessionStorage|WebSocket|sendBeacon/);
+});
