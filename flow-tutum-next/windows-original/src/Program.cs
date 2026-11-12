@@ -97,6 +97,7 @@ var recursosInterface=new [] {
     "gestos-configuraveis.mjs","gestos-configuraveis.css",
     "mapa-navegacao.js","mapa-navegacao.mjs","mapa-navegacao.css",
     "diagnostico-sessao.js","diagnostico-sessao.css",
+    "guia-gestos.js","guia-gestos.css",
     "controle-midia.js","controle-midia.css",
     "apresentacao.js","apresentacao.css"
 };
