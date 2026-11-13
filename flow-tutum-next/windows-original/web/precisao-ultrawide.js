@@ -16,11 +16,11 @@ function escala(valor){if(!Number.isFinite(valor)||valor<1||valor>5)return;if(va
 function mover(direcao){if(!explorarSeguro())return;if(direcao==="centro"){state.panX=0;state.panY=0}else{const passo=Math.max(36,Math.min(viewer.clientWidth,viewer.clientHeight)*.22);const vetor={cima:[0,passo],baixo:[0,-passo],esquerda:[passo,0],direita:[-passo,0]}[direcao];if(!vetor)return;state.panX+=vetor[0];state.panY+=vetor[1]}restringir();paint();informar();window.dispatchEvent(new Event("flow-zoom-alterado"))}
 painel.addEventListener("click",e=>{const b=e.target.closest("button");if(!b||!painel.contains(b))return;if(b.dataset.escala)escala(Number(b.dataset.escala));if(b.dataset.pan)mover(b.dataset.pan);if(b.dataset.ajustar){state.zoom=1;state.fillMode="fit";state.panX=0;state.panY=0;paint();informar();window.dispatchEvent(new Event("flow-zoom-alterado"))}});
 // Gestos de exploração são tratados na captura para não disparar comandos do mouse.
-const dedos=new Map();let gesto=null;let toqueInicial=null;let ultimoToque=0;let bloqueioClique=false;
+const dedos=new Map();let gesto=null;let toqueInicial=null;let ultimoToque=0;let bloqueioClique=false;let mudouQuantidade=false;
 function centro(){const pontos=[...dedos.values()];return {x:pontos.reduce((v,p)=>v+p.x,0)/pontos.length,y:pontos.reduce((v,p)=>v+p.y,0)/pontos.length}}
 function distancia(){const p=[...dedos.values()];return p.length===2?Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y):0}
 function coordenadas(e){const r=tela.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top}}
-function limpar(){dedos.clear();gesto=null;toqueInicial=null;bloqueioClique=false}
+function limpar(){dedos.clear();gesto=null;toqueInicial=null;bloqueioClique=false;mudouQuantidade=false}
 function capturar(e){
  if(!state.exploring)return;
  if(!["pointerdown","pointermove","pointerup","pointercancel","lostpointercapture"].includes(e.type))return;
@@ -30,18 +30,18 @@ function capturar(e){
  if(e.type==="pointerdown"){
   try{tela.setPointerCapture(e.pointerId)}catch{}dedos.set(e.pointerId,coordenadas(e));
   if(dedos.size===1)toqueInicial={...coordenadas(e),tempo:Date.now(),movido:false};
-  else {toqueInicial=null;bloqueioClique=true;}
+  else {toqueInicial=null;bloqueioClique=true;mudouQuantidade=true;ultimoToque=0;}
   gesto={centro:centro(),distancia:distancia(),zoom:state.zoom};
   return;
  }
  if(e.type==="pointercancel"||e.type==="lostpointercapture"||e.type==="pointerup"){
-  if(e.type==="pointerup"&&dedos.size===1&&toqueInicial&&!toqueInicial.movido&&!bloqueioClique&&Date.now()-toqueInicial.tempo<350){
+  if(e.type==="pointerup"&&dedos.size===1&&toqueInicial&&!toqueInicial.movido&&!bloqueioClique&&!mudouQuantidade&&Date.now()-toqueInicial.tempo<350){
    const agora=Date.now();if(agora-ultimoToque<330){
     state.zoom=1;state.fillMode="fit";state.panX=0;state.panY=0;paint();informar();window.dispatchEvent(new Event("flow-zoom-alterado"));ultimoToque=0;
    }else ultimoToque=agora;
   }
   dedos.delete(e.pointerId);
-  if(!dedos.size){toqueInicial=null;bloqueioClique=false;}
+  if(!dedos.size){toqueInicial=null;bloqueioClique=false;mudouQuantidade=false;}
   gesto=dedos.size?{centro:centro(),distancia:distancia(),zoom:state.zoom}:null;
   return;
  }
@@ -53,7 +53,7 @@ function capturar(e){
  if(dedos.size===2&&gesto.distancia>0){
   const novaDistancia=distancia();
   const novoZoom=Math.max(1,Math.min(5,state.zoom*novaDistancia/gesto.distancia));
-  zoomNoPonto(novoZoom,atual.x,atual.y);
+  zoomNoPonto(novoZoom,gesto.centro.x,gesto.centro.y);
  }
  state.panX+=dx;state.panY+=dy;restringir();paint();
  gesto={centro:atual,distancia:distancia(),zoom:state.zoom};
