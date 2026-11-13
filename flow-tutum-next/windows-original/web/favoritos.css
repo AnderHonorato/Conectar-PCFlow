@@ -17,3 +17,8 @@
 .favoritos-alca:active{cursor:grabbing}
 .favoritos-organizando .favoritos-item{touch-action:pan-x}
 @media(prefers-reduced-motion:reduce){.favoritos-alca{transition:none}}
+
+/* Estado contextual: comandos indisponíveis nunca parecem executáveis. */
+.favoritos button:disabled{opacity:.48;cursor:not-allowed;filter:grayscale(.55)}
+#favoritos-contexto[aria-pressed="true"]{border-color:#b77826;box-shadow:inset 0 0 0 1px #b77826}
+@media(max-width:480px){.favoritos-topo{flex-wrap:wrap;gap:6px}#favoritos-contexto{order:3;flex:1 1 100%}}
