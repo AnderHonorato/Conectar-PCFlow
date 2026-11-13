@@ -107,6 +107,7 @@ lista.addEventListener("pointermove",e=>{
 function finalizarArraste(){if(arraste){try{lista.releasePointerCapture(arraste.pointer)}catch{}}arraste=null}
 lista.addEventListener("pointerup",()=>{const alterou=arraste?.alterou;finalizarArraste();if(alterou)renderizar()});
 lista.addEventListener("pointercancel",()=>{const alterou=arraste?.alterou;finalizarArraste();ignorarClique=false;if(alterou)renderizar()});
+window.addEventListener("flow-favorito-fixar",evento=>{const id=evento.detail?.id;if(!ids.has(id))return;if(favoritos.includes(id)){mensagem("Esta ação já está nos favoritos de "+perfis.ativo);return}if(favoritos.length>=12){mensagem("Limite de 12 favoritos. Remova um para fixar.");return}registrarDesfazer();favoritos.push(id);salvar();renderizar();mensagem("Ação fixada em "+perfis.ativo);window.dispatchEvent(new CustomEvent("flow-favorito-fixado",{detail:{id,perfil:perfis.ativo}}))});
 window.addEventListener("flow-favoritos-alterados",()=>{const novos=carregarPerfis();perfis=novos;favoritos=[...novos.listas[novos.ativo]];renderizar();mensagem("Favoritos atualizados pela busca de ações.")});
 let ultimoEstado="";setInterval(()=>{if(document.hidden||editando)return;const atual=String(app.state.approved)+"|"+String(app.state.authenticated)+"|"+String(app.state.somenteVisualizacao)+"|"+String(app.state.stopped);if(atual!==ultimoEstado){ultimoEstado=atual;renderizar()}},1200);
 renderizar();
