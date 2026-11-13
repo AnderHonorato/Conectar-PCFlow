@@ -20,12 +20,22 @@ function moverPorTeclado(lista,id,direcao){const pos=lista.indexOf(id);return re
 function reordenar(lista,origem,destino){const itens=[...lista];if(!Number.isInteger(origem)||!Number.isInteger(destino)||origem<0||destino<0||origem>=itens.length||destino>=itens.length)return itens;const [item]=itens.splice(origem,1);itens.splice(destino,0,item);return itens}
 function carregar(){try{const raw=localStorage.getItem(CHAVE);return raw===null?[...PADRAO]:normalizar(JSON.parse(raw))}catch{return [...PADRAO]}}
 function guardar(v){try{localStorage.setItem(CHAVE,JSON.stringify(v))}catch{}}
-if(typeof module!=="undefined"&&module.exports)module.exports={normalizar,reordenar,moverPorTeclado,PADRAO,catalogo:ACOES};
+if(typeof module!=="undefined"&&module.exports)module.exports={normalizar,reordenar,moverPorTeclado,PADRAO,catalogo:ACOES,autorizado,tentarComando};
 if(typeof document==="undefined")return;
 const app=window.FlowTutumNext,ancora=document.querySelector(".dock");if(!app||!ancora)return;
 const PERFIS=["Pessoal","Trabalho","Mídia"];
 function carregarPerfis(){try{const dados=JSON.parse(localStorage.getItem(CHAVE_PERFIS)||"{}");return {ativo:PERFIS.includes(dados.ativo)?dados.ativo:"Pessoal",listas:Object.fromEntries(PERFIS.map(p=>[p,Array.isArray(dados.listas?.[p])?normalizar(dados.listas[p]):p==="Pessoal"?carregar():p==="Trabalho"?["tela","teclado","desktop","explorar"]:["play","volume","touchpad","tela"]]))}}catch{return {ativo:"Pessoal",listas:{Pessoal:carregar(),Trabalho:["tela","teclado","desktop","explorar"],"Mídia":["play","volume","touchpad","tela"]}}}}
 let perfis=carregarPerfis(),favoritos=[...perfis.listas[perfis.ativo]],editando=false,mostrarTodos=false,desfazer=null;
+const EM_ESPERA_MS=650,enviosRecentes=new Map();
+function autorizado(state){return !!(state.approved&&state.authenticated&&!state.somenteVisualizacao&&!state.stopped&&!state.pausaLocal)}
+function tentarComando(item,state,enviar,agora=Date.now()){
+ if(!autorizado(state))return {ok:false,motivo:"Controle remoto indisponível ou pausado"};
+ const ultimo=enviosRecentes.get(item.id);
+ if(ultimo!==undefined&&agora-ultimo<EM_ESPERA_MS)return {ok:false,motivo:"Aguarde antes de repetir esta ação"};
+ if(!enviar(item.comando))return {ok:false,motivo:"Comando não enviado. Confira a conexão"};
+ enviosRecentes.set(item.id,agora);
+ return {ok:true,motivo:"Comando enviado (sem confirmação de execução no Windows): "+item.nome};
+}
 function registrarDesfazer(){desfazer={perfil:perfis.ativo,lista:[...favoritos]}}
 function desfazerAlteracao(){if(!desfazer)return;const anterior=desfazer;desfazer=null;perfis.listas[anterior.perfil]=[...anterior.lista];if(perfis.ativo===anterior.perfil)favoritos=[...anterior.lista];salvar();renderizar();mensagem("Alteração desfeita")}
 
@@ -39,14 +49,14 @@ const lista=painel.querySelector("#favoritos-acoes"),catalogo=painel.querySelect
 function mensagem(t){retorno.textContent=t}
 const desfazerBotao=botao("Desfazer última alteração",desfazerAlteracao,"Desfazer mudança nos favoritos");desfazerBotao.id="favoritos-desfazer";painel.querySelector(".favoritos-topo").append(desfazerBotao);
 const busca=painel.querySelector("#favoritos-busca"),rotuloBusca=painel.querySelector("#favoritos-busca-rotulo"),contexto=painel.querySelector("#favoritos-contexto");
-function disponivel(item){if(item.tipo==="remoto")return !!(app.state.approved&&app.state.authenticated&&!app.state.somenteVisualizacao&&!app.state.stopped);if(item.id==="teclado")return !!app.state.approved;return true}
+function disponivel(item){if(item.tipo==="remoto")return autorizado(app.state);if(item.id==="teclado")return !!app.state.approved;return true}
 contexto.addEventListener("click",()=>{mostrarTodos=!mostrarTodos;contexto.setAttribute("aria-pressed",String(!mostrarTodos));contexto.textContent=mostrarTodos?"Contexto: desligado":"Contexto: ligado";renderizar()});
 busca.addEventListener("input",()=>renderizar());
 function mover(id,delta){const pos=favoritos.indexOf(id),dest=pos+delta;if(pos<0||dest<0||dest>=favoritos.length)return;registrarDesfazer();favoritos=reordenar(favoritos,pos,dest);salvar();renderizar()}
 function acionar(item){
  if(item.tipo==="remoto"){
-  if(!app.state.approved||!app.state.authenticated||app.state.somenteVisualizacao||app.state.stopped){mensagem("Controle remoto não autorizado");return}
-  mensagem(app.wsSend(item.comando)?"Comando enviado: "+item.nome:"Comando não enviado");return;
+  const resultado=tentarComando(item,app.state,comando=>app.wsSend(comando));
+  mensagem(resultado.motivo);return;
  }
  if(item.id==="teclado"&&!app.state.approved){mensagem("Teclado exige autorização do Windows");return}
  item.executar(app);mensagem("Ação: "+item.nome);
