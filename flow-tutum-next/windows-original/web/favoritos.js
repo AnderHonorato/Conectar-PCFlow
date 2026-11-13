@@ -56,10 +56,10 @@ function mover(id,delta){const pos=favoritos.indexOf(id),dest=pos+delta;if(pos<0
 function acionar(item){
  if(item.tipo==="remoto"){
   const resultado=tentarComando(item,app.state,comando=>app.wsSend(comando));
-  mensagem(resultado.motivo);return;
+  mensagem(resultado.motivo);if(resultado.ok)window.dispatchEvent(new CustomEvent("flow-acao-executada",{detail:{id:item.id}}));return;
  }
  if(item.id==="teclado"&&!app.state.approved){mensagem("Teclado exige autorização do Windows");return}
- item.executar(app);mensagem("Ação: "+item.nome);
+ item.executar(app);window.dispatchEvent(new CustomEvent("flow-acao-executada",{detail:{id:item.id}}));mensagem("Ação: "+item.nome);
 }
 function botao(texto,acao,rotulo){const b=document.createElement("button");b.type="button";b.textContent=texto;b.setAttribute("aria-label",rotulo||texto);b.addEventListener("click",acao);return b}
 function renderizar(){
