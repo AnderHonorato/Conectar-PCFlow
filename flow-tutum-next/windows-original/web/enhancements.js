@@ -167,7 +167,7 @@ el("touchpad-area").append(retorno);
 let retornoTimer=0;
 function mostrarGesto(mensagem){retorno.textContent=mensagem;retorno.classList.add("ativo");clearTimeout(retornoTimer);retornoTimer=setTimeout(()=>retorno.classList.remove("ativo"),850)}
 const pad=el("touchpad-area"),padContacts=new Map();
-let padGestureMulti=false,padMoved=false,padDown=0,padLastCenter=null,padMultiScrolled=false;
+let padGestureMulti=false,padMoved=false,padDown=0,padLastCenter=null,padMultiScrolled=false,padEixo=null,padAcumulado={x:0,y:0};
 const scrollThreshold=3;
 // Preferência independente para rolagem: acessível no touchpad e persistente.
 const ajusteRolagem=document.createElement('label');
@@ -184,14 +184,14 @@ function centroContatos(){
          y:contatos.reduce((s,p)=>s+p.y,0)/contatos.length};
 }
 function encerrarGesto(){
- padContacts.clear();padLastCenter=null;padGestureMulti=false;padMultiScrolled=false;padMoved=false;
+ padContacts.clear();padLastCenter=null;padGestureMulti=false;padMultiScrolled=false;padMoved=false;padEixo=null;padAcumulado={x:0,y:0};
 }
 pad.addEventListener("pointerdown",event=>{
  if(!state.approved)return;
  event.preventDefault();pad.setPointerCapture(event.pointerId);
  padContacts.set(event.pointerId,{x:event.clientX,y:event.clientY,moved:0});
  if(padContacts.size===1){padMoved=false;padGestureMulti=false;padMultiScrolled=false;padDown=Date.now();padLastCenter=null;mostrarGesto(hold?"Arrastando":"Mover ponteiro")}
- if(padContacts.size===2){padGestureMulti=true;padLastCenter=centroContatos();mostrarGesto("Dois dedos · rolar")}
+ if(padContacts.size===2){padGestureMulti=true;padLastCenter=centroContatos();padEixo=null;padAcumulado={x:0,y:0};mostrarGesto("Dois dedos · rolar")}
  if(padContacts.size>2){padGestureMulti=true;padLastCenter=null}
 });
 pad.addEventListener("pointermove",event=>{
@@ -207,11 +207,14 @@ pad.addEventListener("pointermove",event=>{
   const centro=centroContatos();
   if(padLastCenter){
    const dx=centro.x-padLastCenter.x,dy=centro.y-padLastCenter.y;
-   if(Math.abs(dy)>=scrollThreshold){
+   padAcumulado.x+=dx;padAcumulado.y+=dy;
+   // Trava a direção após o movimento inicial, evitando tremor diagonal.
+   if(!padEixo&&Math.hypot(padAcumulado.x,padAcumulado.y)>=12){padEixo=Math.abs(padAcumulado.x)>Math.abs(padAcumulado.y)*1.25?"horizontal":Math.abs(padAcumulado.y)>Math.abs(padAcumulado.x)*1.25?"vertical":"livre";mostrarGesto(padEixo==="horizontal"?"Rolagem horizontal":padEixo==="vertical"?"Rolagem vertical":"Rolagem livre")}
+   if(padEixo!=="horizontal"&&padEixo&&Math.abs(dy)>=scrollThreshold){
     if(wsSend({phase:"wheel",wheel:(motorGestos?motorGestos.calcularRolagem(dy,fatorRolagem):Math.round(-dy*7*fatorRolagem))})){padMultiScrolled=true;mostrarGesto("Rolagem vertical")}
     padLastCenter.y=centro.y;
    }
-   if(Math.abs(dx)>=scrollThreshold){
+   if(padEixo!=="vertical"&&padEixo&&Math.abs(dx)>=scrollThreshold){
     if(wsSend({phase:"hwheel",wheel:(motorGestos?motorGestos.calcularRolagem(dx,fatorRolagem):Math.round(-dx*7*fatorRolagem))})){padMultiScrolled=true;mostrarGesto("Rolagem horizontal")}
     padLastCenter.x=centro.x;
    }
