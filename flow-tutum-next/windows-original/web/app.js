@@ -187,6 +187,7 @@ async function frameLoop() {
     if(state.videoActive){bitmap.close();continue;}
     if(state.image?.close)state.image.close();
     state.image=bitmap;state.frameCount++;
+    window.dispatchEvent(new CustomEvent("flow-quadro-apresentado",{detail:{origem:"jpeg",tempo:performance.now()}}));
     sizeCanvas();el("empty").hidden=true;
     const elapsed=Math.round(performance.now()-before);
     el("latency").textContent=elapsed+" ms";
@@ -237,7 +238,14 @@ async function startVideo(){
    state.videoActive=true;state.image=video;el("empty").hidden=true;
    el("stream-state").textContent="H.264 · 12 FPS";el("latency").textContent="Vídeo";
    video.play().catch(()=>{});
-   const animate=()=>{if(state.videoActive&&!abort.signal.aborted){paint();requestAnimationFrame(animate)}};animate();
+   const desenhar=()=>{if(state.videoActive&&!abort.signal.aborted){paint();requestAnimationFrame(desenhar)}};
+   if(typeof video.requestVideoFrameCallback==="function"){
+    const observar=(agora,meta)=>{if(!state.videoActive||abort.signal.aborted)return;
+     window.dispatchEvent(new CustomEvent("flow-quadro-apresentado",{detail:{origem:"h264",tempo:agora,quadros:meta.presentedFrames}}));
+     video.requestVideoFrameCallback(observar);
+    };video.requestVideoFrameCallback(observar);
+   }
+   desenhar();
   },{once:true});
   const reader=response.body.getReader();
   while(!abort.signal.aborted){
