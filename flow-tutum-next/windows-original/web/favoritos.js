@@ -12,10 +12,11 @@ const ACOES=[
 const CHAVE="flow-next-favoritos-v1",CHAVE_PERFIS="flow-next-favoritos-perfis-v1",PADRAO=["touchpad","teclado","explorar","play"];
 const ids=new Set(ACOES.map(x=>x.id));
 function normalizar(valor){return Array.isArray(valor)?[...new Set(valor.filter(x=>typeof x==="string"&&ids.has(x)))].slice(0,8):[...PADRAO]}
+function moverPorTeclado(lista,id,direcao){const pos=lista.indexOf(id);return reordenar(lista,pos,pos+direcao)}
 function reordenar(lista,origem,destino){const itens=[...lista];if(!Number.isInteger(origem)||!Number.isInteger(destino)||origem<0||destino<0||origem>=itens.length||destino>=itens.length)return itens;const [item]=itens.splice(origem,1);itens.splice(destino,0,item);return itens}
 function carregar(){try{const raw=localStorage.getItem(CHAVE);return raw===null?[...PADRAO]:normalizar(JSON.parse(raw))}catch{return [...PADRAO]}}
 function guardar(v){try{localStorage.setItem(CHAVE,JSON.stringify(v))}catch{}}
-if(typeof module!=="undefined"&&module.exports)module.exports={normalizar,reordenar,PADRAO,catalogo:ACOES};
+if(typeof module!=="undefined"&&module.exports)module.exports={normalizar,reordenar,moverPorTeclado,PADRAO,catalogo:ACOES};
 if(typeof document==="undefined")return;
 const app=window.FlowTutumNext,ancora=document.querySelector(".dock");if(!app||!ancora)return;
 const PERFIS=["Pessoal","Trabalho","Mídia"];
@@ -56,7 +57,7 @@ function renderizar(){
   const item=ACOES.find(x=>x.id===id);if(!item)continue;
   const grupo=document.createElement("div");grupo.className="favoritos-item";grupo.dataset.favorito=id;
   const acao=botao(item.nome,()=>acionar(item));acao.disabled=!disponivel(item);if(acao.disabled)acao.title="Aguardando autorização do Windows";grupo.append(acao);
-  if(editando){grupo.append(botao("↕",()=>{},"Arrastar "+item.nome+" para reorganizar"));grupo.lastElementChild.className="favoritos-alca";grupo.append(botao("←",()=>mover(id,-1),"Mover "+item.nome+" para esquerda"),botao("→",()=>mover(id,1),"Mover "+item.nome+" para direita"),botao("×",()=>{registrarDesfazer();favoritos=favoritos.filter(x=>x!==id);salvar();renderizar()},"Remover "+item.nome))}
+  if(editando){grupo.append(botao("↕",()=>{},"Arrastar "+item.nome+" para reorganizar"));grupo.lastElementChild.className="favoritos-alca";grupo.lastElementChild.title="Arraste ou use as setas para reorganizar";grupo.lastElementChild.addEventListener("keydown",evento=>{if(!["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"].includes(evento.key))return;evento.preventDefault();const direcao=["ArrowLeft","ArrowUp"].includes(evento.key)?-1:1;const indice=favoritos.indexOf(id);if(indice+direcao<0||indice+direcao>=favoritos.length){mensagem("Limite da lista");return}mover(id,direcao);const novaAlca=lista.querySelector(`[data-favorito="${id}"] .favoritos-alca`);novaAlca?.focus();mensagem(item.nome+" movido para posição "+(indice+direcao+1))});grupo.append(botao("←",()=>mover(id,-1),"Mover "+item.nome+" para esquerda"),botao("→",()=>mover(id,1),"Mover "+item.nome+" para direita"),botao("×",()=>{registrarDesfazer();favoritos=favoritos.filter(x=>x!==id);salvar();renderizar()},"Remover "+item.nome))}
   lista.append(grupo);
  }
  if(!lista.children.length)lista.append("Sem ações disponíveis neste momento. Autorize o Windows ou desative o filtro de contexto.");
