@@ -119,28 +119,30 @@ el("connect-local").onclick=async()=>{
 };
 let hold=false;
 const mousePosition=()=>({x:state.cursor.x,y:state.cursor.y});
+const botaoPrimario=()=>window.FlowTutumErgonomia?.primario()||"left";
+const botaoSecundario=()=>window.FlowTutumErgonomia?.secundario()||"right";
 function releaseHold(){
  if(!hold)return;
- wsSend({phase:"up",button:"left",...mousePosition()});
+ wsSend({phase:"up",button:botaoPrimario(),...mousePosition()});
  hold=false;el("pad-hold").setAttribute("aria-pressed","false");
  el("pad-hold").classList.remove("holding");
 }
 el("pad-hold").onclick=()=>{
  if(hold){releaseHold();return}
  if(!state.approved)return;
- hold=wsSend({phase:"down",button:"left",...mousePosition()});
+ hold=wsSend({phase:"down",button:botaoPrimario(),...mousePosition()});
  if(hold){el("pad-hold").setAttribute("aria-pressed","true");el("pad-hold").classList.add("holding")}
 };
 document.querySelectorAll("[data-mouse]").forEach(button=>{
  button.addEventListener("click",()=>{
   if(hold)releaseHold();
-  wsSend({phase:"tap",button:button.dataset.mouse,...mousePosition()});
+  wsSend({phase:"tap",button:(button.dataset.mouse==="left"?botaoPrimario():button.dataset.mouse==="right"?botaoSecundario():"middle"),...mousePosition()});
  });
 });
 el("pad-double").onclick=()=>{
  if(hold)releaseHold();
- if(wsSend({phase:"tap",button:"left",...mousePosition()}))
-  setTimeout(()=>wsSend({phase:"tap",button:"left",...mousePosition()}),85);
+ if(wsSend({phase:"tap",button:botaoPrimario(),...mousePosition()}))
+  setTimeout(()=>wsSend({phase:"tap",button:botaoPrimario(),...mousePosition()}),85);
 };
 el("pad-horizontal-left").onclick=()=>wsSend({phase:"hwheel",wheel:-240});
 el("pad-horizontal-right").onclick=()=>wsSend({phase:"hwheel",wheel:240});
@@ -250,9 +252,9 @@ pad.addEventListener("pointerup",event=>{
  const duracao=Date.now()-padDown;
  // Dois dedos sem rolagem = clique direito; rolagem nunca vira clique.
  if(padGestureMulti){
-  if(!padMultiScrolled&&distanciaDoisDedos<8&&duracao<550&&state.approved&&wsSend({phase:"tap",button:"right",...mousePosition()})){mostrarGesto("Clique direito");pulsar()}
+  if(!padMultiScrolled&&distanciaDoisDedos<8&&duracao<550&&state.approved&&wsSend({phase:"tap",button:botaoSecundario(),...mousePosition()})){mostrarGesto("Clique direito");pulsar()}
  }else if(!padMoved&&contact.moved<9&&!hold){
-  if(wsSend({phase:"tap",button:duracao>700?"right":"left",...mousePosition()})){mostrarGesto(duracao>700?"Clique direito":"Clique esquerdo");pulsar()}
+  if(wsSend({phase:"tap",button:duracao>700?botaoSecundario():botaoPrimario(),...mousePosition()})){mostrarGesto(duracao>700?"Clique direito":"Clique esquerdo");pulsar()}
  }
  encerrarGesto();
 });
