@@ -7,11 +7,15 @@ const ACOES=[
 {id:"zoom",nome:"Ampliar",tipo:"local",executar:()=>document.getElementById("zoom-in")?.click()},
 {id:"play",nome:"Reproduzir / pausar",tipo:"remoto",comando:{phase:"key",keys:"midia-reproduzir"}},
 {id:"volume",nome:"Silenciar",tipo:"remoto",comando:{phase:"key",keys:"volume-mudo"}},
+{id:"anterior",nome:"Faixa anterior",tipo:"remoto",comando:{phase:"key",keys:"midia-anterior"}},
+{id:"proxima",nome:"Próxima faixa",tipo:"remoto",comando:{phase:"key",keys:"midia-proxima"}},
+{id:"volumeMais",nome:"Aumentar volume",tipo:"remoto",comando:{phase:"key",keys:"volume-mais"}},
+{id:"volumeMenos",nome:"Diminuir volume",tipo:"remoto",comando:{phase:"key",keys:"volume-menos"}},
 {id:"desktop",nome:"Área de trabalho",tipo:"remoto",comando:{phase:"key",keys:"win+d"}}
 ];
 const CHAVE="flow-next-favoritos-v1",CHAVE_PERFIS="flow-next-favoritos-perfis-v1",PADRAO=["touchpad","teclado","explorar","play"];
 const ids=new Set(ACOES.map(x=>x.id));
-function normalizar(valor){return Array.isArray(valor)?[...new Set(valor.filter(x=>typeof x==="string"&&ids.has(x)))].slice(0,8):[...PADRAO]}
+function normalizar(valor){return Array.isArray(valor)?[...new Set(valor.filter(x=>typeof x==="string"&&ids.has(x)))].slice(0,12):[...PADRAO]}
 function moverPorTeclado(lista,id,direcao){const pos=lista.indexOf(id);return reordenar(lista,pos,pos+direcao)}
 function reordenar(lista,origem,destino){const itens=[...lista];if(!Number.isInteger(origem)||!Number.isInteger(destino)||origem<0||destino<0||origem>=itens.length||destino>=itens.length)return itens;const [item]=itens.splice(origem,1);itens.splice(destino,0,item);return itens}
 function carregar(){try{const raw=localStorage.getItem(CHAVE);return raw===null?[...PADRAO]:normalizar(JSON.parse(raw))}catch{return [...PADRAO]}}
@@ -35,13 +39,13 @@ const lista=painel.querySelector("#favoritos-acoes"),catalogo=painel.querySelect
 function mensagem(t){retorno.textContent=t}
 const desfazerBotao=botao("Desfazer última alteração",desfazerAlteracao,"Desfazer mudança nos favoritos");desfazerBotao.id="favoritos-desfazer";painel.querySelector(".favoritos-topo").append(desfazerBotao);
 const busca=painel.querySelector("#favoritos-busca"),rotuloBusca=painel.querySelector("#favoritos-busca-rotulo"),contexto=painel.querySelector("#favoritos-contexto");
-function disponivel(item){if(item.tipo==="remoto")return !!(app.state.approved&&app.state.authenticated&&!app.state.somenteVisualizacao);if(item.id==="teclado")return !!app.state.approved;return true}
+function disponivel(item){if(item.tipo==="remoto")return !!(app.state.approved&&app.state.authenticated&&!app.state.somenteVisualizacao&&!app.state.stopped);if(item.id==="teclado")return !!app.state.approved;return true}
 contexto.addEventListener("click",()=>{mostrarTodos=!mostrarTodos;contexto.setAttribute("aria-pressed",String(!mostrarTodos));contexto.textContent=mostrarTodos?"Contexto: desligado":"Contexto: ligado";renderizar()});
 busca.addEventListener("input",()=>renderizar());
 function mover(id,delta){const pos=favoritos.indexOf(id),dest=pos+delta;if(pos<0||dest<0||dest>=favoritos.length)return;registrarDesfazer();favoritos=reordenar(favoritos,pos,dest);salvar();renderizar()}
 function acionar(item){
  if(item.tipo==="remoto"){
-  if(!app.state.approved||!app.state.authenticated||app.state.somenteVisualizacao){mensagem("Controle remoto não autorizado");return}
+  if(!app.state.approved||!app.state.authenticated||app.state.somenteVisualizacao||app.state.stopped){mensagem("Controle remoto não autorizado");return}
   mensagem(app.wsSend(item.comando)?"Comando enviado: "+item.nome:"Comando não enviado");return;
  }
  if(item.id==="teclado"&&!app.state.approved){mensagem("Teclado exige autorização do Windows");return}
@@ -94,6 +98,6 @@ function finalizarArraste(){if(arraste){try{lista.releasePointerCapture(arraste.
 lista.addEventListener("pointerup",()=>{const alterou=arraste?.alterou;finalizarArraste();if(alterou)renderizar()});
 lista.addEventListener("pointercancel",()=>{const alterou=arraste?.alterou;finalizarArraste();ignorarClique=false;if(alterou)renderizar()});
 window.addEventListener("flow-favoritos-alterados",()=>{const novos=carregarPerfis();perfis=novos;favoritos=[...novos.listas[novos.ativo]];renderizar();mensagem("Favoritos atualizados pela busca de ações.")});
-let ultimoEstado="";setInterval(()=>{if(document.hidden||editando)return;const atual=String(app.state.approved)+"|"+String(app.state.authenticated)+"|"+String(app.state.somenteVisualizacao);if(atual!==ultimoEstado){ultimoEstado=atual;renderizar()}},1200);
+let ultimoEstado="";setInterval(()=>{if(document.hidden||editando)return;const atual=String(app.state.approved)+"|"+String(app.state.authenticated)+"|"+String(app.state.somenteVisualizacao)+"|"+String(app.state.stopped);if(atual!==ultimoEstado){ultimoEstado=atual;renderizar()}},1200);
 renderizar();
 })();
