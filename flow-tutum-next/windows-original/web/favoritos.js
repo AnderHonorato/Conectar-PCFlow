@@ -84,6 +84,6 @@ function finalizarArraste(){if(arraste){try{lista.releasePointerCapture(arraste.
 lista.addEventListener("pointerup",finalizarArraste);
 lista.addEventListener("pointercancel",()=>{finalizarArraste();ignorarClique=false});
 window.addEventListener("flow-favoritos-alterados",()=>{const novos=carregarPerfis();perfis=novos;favoritos=[...novos.listas[novos.ativo]];renderizar();mensagem("Favoritos atualizados pela busca de ações.")});
-setInterval(()=>{if(!document.hidden&&!editando)renderizar()},2500);
+let ultimoEstado="";setInterval(()=>{if(document.hidden||editando)return;const atual=String(app.state.approved)+"|"+String(app.state.authenticated)+"|"+String(app.state.somenteVisualizacao);if(atual!==ultimoEstado){ultimoEstado=atual;renderizar()}},1200);
 renderizar();
 })();
