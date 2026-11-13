@@ -15,5 +15,42 @@ function explorarSeguro(){if(!state.exploring)document.getElementById("explore-t
 function escala(valor){if(!Number.isFinite(valor)||valor<1||valor>5)return;if(valor>1&&!explorarSeguro())return;state.fillMode="fit";zoomNoPonto(valor,tela.clientWidth/2,tela.clientHeight/2);restringir();paint();informar()}
 function mover(direcao){if(!explorarSeguro())return;if(direcao==="centro"){state.panX=0;state.panY=0}else{const passo=Math.max(36,Math.min(viewer.clientWidth,viewer.clientHeight)*.22);const vetor={cima:[0,passo],baixo:[0,-passo],esquerda:[passo,0],direita:[-passo,0]}[direcao];if(!vetor)return;state.panX+=vetor[0];state.panY+=vetor[1]}restringir();paint();informar();window.dispatchEvent(new Event("flow-zoom-alterado"))}
 painel.addEventListener("click",e=>{const b=e.target.closest("button");if(!b||!painel.contains(b))return;if(b.dataset.escala)escala(Number(b.dataset.escala));if(b.dataset.pan)mover(b.dataset.pan)});
+// Gestos de exploração são tratados na captura para não disparar comandos do mouse.
+const dedos=new Map();let gesto=null;
+function centro(){const pontos=[...dedos.values()];return {x:pontos.reduce((v,p)=>v+p.x,0)/pontos.length,y:pontos.reduce((v,p)=>v+p.y,0)/pontos.length}}
+function distancia(){const p=[...dedos.values()];return p.length===2?Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y):0}
+function coordenadas(e){const r=tela.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top}}
+function limpar(){dedos.clear();gesto=null}
+function capturar(e){
+ if(!state.exploring)return;
+ if(!["pointerdown","pointermove","pointerup","pointercancel","lostpointercapture"].includes(e.type))return;
+ // Não interferir com mouse físico nem caneta; somente gestos de toque.
+ if(e.pointerType!=="touch")return;
+ e.preventDefault();e.stopImmediatePropagation();
+ if(e.type==="pointerdown"){
+  tela.setPointerCapture(e.pointerId);dedos.set(e.pointerId,coordenadas(e));
+  gesto={centro:centro(),distancia:distancia(),zoom:state.zoom};
+  return;
+ }
+ if(e.type==="pointercancel"||e.type==="lostpointercapture"||e.type==="pointerup"){
+  dedos.delete(e.pointerId);
+  gesto=dedos.size?{centro:centro(),distancia:distancia(),zoom:state.zoom}:null;
+  return;
+ }
+ if(!dedos.has(e.pointerId))return;
+ dedos.set(e.pointerId,coordenadas(e));
+ const atual=centro();if(!gesto){gesto={centro:atual,distancia:distancia(),zoom:state.zoom};return}
+ const dx=atual.x-gesto.centro.x,dy=atual.y-gesto.centro.y;
+ if(dedos.size===2&&gesto.distancia>0){
+  const novaDistancia=distancia();
+  const novoZoom=Math.max(1,Math.min(5,state.zoom*novaDistancia/gesto.distancia));
+  zoomNoPonto(novoZoom,atual.x,atual.y);
+ }
+ state.panX+=dx;state.panY+=dy;restringir();paint();
+ gesto={centro:atual,distancia:distancia(),zoom:state.zoom};
+ informar();
+}
+["pointerdown","pointermove","pointerup","pointercancel","lostpointercapture"].forEach(tipo=>tela.addEventListener(tipo,capturar,true));
+window.addEventListener("flow-exploracao-alterada",()=>{if(!state.exploring)limpar()});
 window.addEventListener("flow-zoom-alterado",informar);window.addEventListener("flow-exploracao-alterada",informar);informar();
 })();
