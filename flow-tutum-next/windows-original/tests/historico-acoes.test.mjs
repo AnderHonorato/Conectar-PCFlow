@@ -1,0 +1,5 @@
+import {createRequire} from "node:module";import test from "node:test";import assert from "node:assert/strict";const require=createRequire(import.meta.url);const {normalizar,adicionar,autorizado}=require("../web/historico-acoes.js");
+test("reordena o último comando sem duplicar",()=>assert.deepEqual(adicionar(["play","zoom"],"zoom"),["zoom","play"]));
+test("descarta comandos desconhecidos sem armazenar conteúdo",()=>assert.deepEqual(normalizar(["play","token-privado","zoom"]),["play","zoom"]));
+test("limita o histórico",()=>{let l=[];for(const id of ["play","zoom","volume","tela","touchpad","teclado","explorar","desktop","proxima"])l=adicionar(l,id);assert.equal(l.length,8)});
+test("bloqueia sessão não autenticada, pausada ou somente leitura",()=>{const base={approved:true,authenticated:true};assert.equal(autorizado(base),true);assert.equal(autorizado({...base,pausaLocal:true}),false);assert.equal(autorizado({...base,somenteVisualizacao:true}),false);assert.equal(autorizado({...base,authenticated:false}),false)});
