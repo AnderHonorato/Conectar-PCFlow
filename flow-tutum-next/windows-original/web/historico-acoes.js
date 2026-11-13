@@ -11,8 +11,9 @@ volumeMais:{nome:"Aumentar volume",tecla:"volume-mais"},volumeMenos:{nome:"Dimin
 desktop:{nome:"Área de trabalho",tecla:"win+d"}};
 function normalizar(lista){return Array.isArray(lista)?lista.filter(x=>typeof x==="string"&&Object.hasOwn(ACOES,x)).slice(0,LIMITE):[]}
 function adicionar(lista,id){return Object.hasOwn(ACOES,id)?[id,...normalizar(lista).filter(x=>x!==id)].slice(0,LIMITE):normalizar(lista)}
+function podeFixar(id,lista){return Object.hasOwn(ACOES,id)&&Array.isArray(lista)&&!lista.includes(id)&&lista.length<12}
 function autorizado(s){return !!(s?.approved&&s?.authenticated&&!s?.somenteVisualizacao&&!s?.stopped&&!s?.pausaLocal)}
-if(typeof module!=="undefined"&&module.exports)module.exports={normalizar,adicionar,autorizado,ACOES};
+if(typeof module!=="undefined"&&module.exports)module.exports={normalizar,adicionar,podeFixar,autorizado,ACOES};
 if(typeof document==="undefined")return;
 const app=window.FlowTutumNext,ancora=document.querySelector(".favoritos");if(!app||!ancora)return;
 let recentes=[];try{recentes=normalizar(JSON.parse(localStorage.getItem(CHAVE)||"[]"))}catch{}
@@ -21,6 +22,7 @@ painel.innerHTML='<div class="historico-topo"><strong>Ações recentes</strong><
 ancora.insertAdjacentElement("afterend",painel);
 const lista=painel.querySelector("#historico-lista"),estado=painel.querySelector("#historico-estado");
 let ultimoEnvio=0;
+const fixados=new Set();
 function salvar(){try{localStorage.setItem(CHAVE,JSON.stringify(recentes))}catch{estado.textContent="Não foi possível guardar o histórico."}}
 function registrar(id){recentes=adicionar(recentes,id);salvar();renderizar()}
 function repetir(id){
@@ -41,11 +43,12 @@ function repetir(id){
 function renderizar(){
  lista.replaceChildren();
  if(!recentes.length){lista.textContent="Nenhuma ação registrada neste aparelho.";return}
- for(const id of recentes){const item=ACOES[id],b=document.createElement("button");b.type="button";b.textContent=item.nome;b.disabled=!!item.tecla&&!autorizado(app.state);b.title=b.disabled?"Controle remoto não autorizado":"Repetir "+item.nome;b.addEventListener("click",()=>repetir(id));lista.append(b)}
+ for(const id of recentes){const item=ACOES[id],b=document.createElement("button");b.type="button";b.textContent=item.nome;b.disabled=!!item.tecla&&!autorizado(app.state);b.title=b.disabled?"Controle remoto não autorizado":"Repetir "+item.nome;b.addEventListener("click",()=>repetir(id));const grupo=document.createElement("div");grupo.className="historico-item";grupo.append(b);const fixar=document.createElement("button");fixar.type="button";fixar.className="historico-fixar";fixar.textContent=fixados.has(id)?"Fixado":"☆ Fixar";fixar.disabled=fixados.has(id);fixar.setAttribute("aria-label","Fixar "+item.nome+" no perfil atual de favoritos");fixar.addEventListener("click",()=>window.dispatchEvent(new CustomEvent("flow-favorito-fixar",{detail:{id}})));grupo.append(fixar);lista.append(grupo)}
 }
 painel.querySelector("#historico-limpar").addEventListener("click",()=>{recentes=[];salvar();renderizar();estado.textContent="Histórico local apagado."});
 window.addEventListener("flow-acao-executada",e=>{const id=e.detail?.id;if(Object.hasOwn(ACOES,id))registrar(id)});
 window.addEventListener("flow-favoritos-alterados",renderizar);
+window.addEventListener("flow-favorito-fixado",e=>{if(Object.hasOwn(ACOES,e.detail?.id)){fixados.add(e.detail.id);renderizar();estado.textContent="Fixado no perfil "+e.detail.perfil+"."}});
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)renderizar()});
 renderizar();
 })();
