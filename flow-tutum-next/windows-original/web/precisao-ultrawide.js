@@ -4,7 +4,7 @@ if(!app||!viewer||!tools||!tela)return;
 const {state,paint,zoomNoPonto}=app;
 const painel=document.createElement("section");
 painel.className="precisao-ultrawide";painel.setAttribute("aria-label","Navegação de precisão na tela");
-painel.innerHTML='<div class="precisao-topo"><strong>Precisão ultrawide</strong><output id="precisao-estado" role="status" aria-live="polite">Enquadrado</output></div><div class="precisao-escalas" role="group" aria-label="Ampliação da tela"><button type="button" data-escala="1">100%</button><button type="button" data-escala="2">200%</button><button type="button" data-escala="3">300%</button></div><div class="precisao-direcoes" role="group" aria-label="Mover imagem ampliada"><button type="button" data-pan="cima" aria-label="Mover imagem para cima">↑</button><button type="button" data-pan="esquerda" aria-label="Mover imagem para esquerda">←</button><button type="button" data-pan="centro" aria-label="Centralizar imagem">◎</button><button type="button" data-pan="direita" aria-label="Mover imagem para direita">→</button><button type="button" data-pan="baixo" aria-label="Mover imagem para baixo">↓</button></div><p>Ampliação centrada no ponto visível. O modo Explorar impede cliques no Windows.</p>';
+painel.innerHTML='<div class="precisao-topo"><strong>Precisão ultrawide</strong><output id="precisao-estado" role="status" aria-live="polite">Enquadrado</output></div><div class="precisao-escalas" role="group" aria-label="Ampliação da tela"><button type="button" data-escala="1">100%</button><button type="button" data-escala="2">200%</button><button type="button" data-escala="3">300%</button><button type="button" data-ajustar="true" aria-label="Restaurar enquadramento e centralizar">Ajustar tela</button></div><div class="precisao-direcoes" role="group" aria-label="Mover imagem ampliada"><button type="button" data-pan="cima" aria-label="Mover imagem para cima">↑</button><button type="button" data-pan="esquerda" aria-label="Mover imagem para esquerda">←</button><button type="button" data-pan="centro" aria-label="Centralizar imagem">◎</button><button type="button" data-pan="direita" aria-label="Mover imagem para direita">→</button><button type="button" data-pan="baixo" aria-label="Mover imagem para baixo">↓</button></div><p>Ampliação centrada no ponto visível. No modo Explorar, arraste para navegar, use pinça para ampliar e dê dois toques para ajustar. Nenhum gesto envia clique ao Windows.</p>';
 tools.insertAdjacentElement("afterend",painel);
 const saida=painel.querySelector("#precisao-estado");
 function dimensoes(){const im=state.image;if(!im)return null;const w=state.videoActive?im.videoWidth:im.width,h=state.videoActive?im.videoHeight:im.height;return w&&h?{w,h}:null}
@@ -14,13 +14,13 @@ function informar(){saida.textContent=Math.round(state.zoom*100)+"% · "+(state.
 function explorarSeguro(){if(!state.exploring)document.getElementById("explore-toggle")?.click();return state.exploring}
 function escala(valor){if(!Number.isFinite(valor)||valor<1||valor>5)return;if(valor>1&&!explorarSeguro())return;state.fillMode="fit";zoomNoPonto(valor,tela.clientWidth/2,tela.clientHeight/2);restringir();paint();informar()}
 function mover(direcao){if(!explorarSeguro())return;if(direcao==="centro"){state.panX=0;state.panY=0}else{const passo=Math.max(36,Math.min(viewer.clientWidth,viewer.clientHeight)*.22);const vetor={cima:[0,passo],baixo:[0,-passo],esquerda:[passo,0],direita:[-passo,0]}[direcao];if(!vetor)return;state.panX+=vetor[0];state.panY+=vetor[1]}restringir();paint();informar();window.dispatchEvent(new Event("flow-zoom-alterado"))}
-painel.addEventListener("click",e=>{const b=e.target.closest("button");if(!b||!painel.contains(b))return;if(b.dataset.escala)escala(Number(b.dataset.escala));if(b.dataset.pan)mover(b.dataset.pan)});
+painel.addEventListener("click",e=>{const b=e.target.closest("button");if(!b||!painel.contains(b))return;if(b.dataset.escala)escala(Number(b.dataset.escala));if(b.dataset.pan)mover(b.dataset.pan);if(b.dataset.ajustar){state.zoom=1;state.fillMode="fit";state.panX=0;state.panY=0;paint();informar();window.dispatchEvent(new Event("flow-zoom-alterado"))}});
 // Gestos de exploração são tratados na captura para não disparar comandos do mouse.
-const dedos=new Map();let gesto=null;
+const dedos=new Map();let gesto=null;let toqueInicial=null;let ultimoToque=0;let bloqueioClique=false;
 function centro(){const pontos=[...dedos.values()];return {x:pontos.reduce((v,p)=>v+p.x,0)/pontos.length,y:pontos.reduce((v,p)=>v+p.y,0)/pontos.length}}
 function distancia(){const p=[...dedos.values()];return p.length===2?Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y):0}
 function coordenadas(e){const r=tela.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top}}
-function limpar(){dedos.clear();gesto=null}
+function limpar(){dedos.clear();gesto=null;toqueInicial=null;bloqueioClique=false}
 function capturar(e){
  if(!state.exploring)return;
  if(!["pointerdown","pointermove","pointerup","pointercancel","lostpointercapture"].includes(e.type))return;
@@ -28,12 +28,20 @@ function capturar(e){
  if(e.pointerType!=="touch")return;
  e.preventDefault();e.stopImmediatePropagation();
  if(e.type==="pointerdown"){
-  tela.setPointerCapture(e.pointerId);dedos.set(e.pointerId,coordenadas(e));
+  try{tela.setPointerCapture(e.pointerId)}catch{}dedos.set(e.pointerId,coordenadas(e));
+  if(dedos.size===1)toqueInicial={...coordenadas(e),tempo:Date.now(),movido:false};
+  else {toqueInicial=null;bloqueioClique=true;}
   gesto={centro:centro(),distancia:distancia(),zoom:state.zoom};
   return;
  }
  if(e.type==="pointercancel"||e.type==="lostpointercapture"||e.type==="pointerup"){
+  if(e.type==="pointerup"&&dedos.size===1&&toqueInicial&&!toqueInicial.movido&&!bloqueioClique&&Date.now()-toqueInicial.tempo<350){
+   const agora=Date.now();if(agora-ultimoToque<330){
+    state.zoom=1;state.fillMode="fit";state.panX=0;state.panY=0;paint();informar();window.dispatchEvent(new Event("flow-zoom-alterado"));ultimoToque=0;
+   }else ultimoToque=agora;
+  }
   dedos.delete(e.pointerId);
+  if(!dedos.size){toqueInicial=null;bloqueioClique=false;}
   gesto=dedos.size?{centro:centro(),distancia:distancia(),zoom:state.zoom}:null;
   return;
  }
@@ -41,6 +49,7 @@ function capturar(e){
  dedos.set(e.pointerId,coordenadas(e));
  const atual=centro();if(!gesto){gesto={centro:atual,distancia:distancia(),zoom:state.zoom};return}
  const dx=atual.x-gesto.centro.x,dy=atual.y-gesto.centro.y;
+ if(toqueInicial&&Math.hypot(atual.x-toqueInicial.x,atual.y-toqueInicial.y)>10)toqueInicial.movido=true;
  if(dedos.size===2&&gesto.distancia>0){
   const novaDistancia=distancia();
   const novoZoom=Math.max(1,Math.min(5,state.zoom*novaDistancia/gesto.distancia));
