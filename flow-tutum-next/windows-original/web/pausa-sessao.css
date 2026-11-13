@@ -1,0 +1,7 @@
+#pausa-sessao{display:block;align-self:center;min-height:44px;margin:8px auto;padding:10px 22px;border-radius:12px;border:1px solid #c98f70;background:#382921;color:#ffe6d3;font-weight:750}
+#pausa-sessao[aria-pressed="true"]{background:#f4ad85;color:#24180f;border-color:#f4ad85}
+#pausa-aviso{padding:12px 16px;margin:8px 0;border:1px solid #c98f70;border-radius:12px;background:#33271f;color:#ffe6d3;font-size:13px}
+.sessao-pausada #screen{filter:brightness(.35);pointer-events:none}
+.sessao-pausada .touchpad-area{pointer-events:none;opacity:.45}
+@media(max-width:620px){#pausa-sessao{width:100%;margin:5px 0}}
+@media(prefers-reduced-motion:reduce){#screen{transition:none}}
