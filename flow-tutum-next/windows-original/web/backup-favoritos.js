@@ -3,8 +3,8 @@
 "use strict";
 const CHAVE="flow-next-favoritos-perfis-v1";
 const PERFIS=["Pessoal","Trabalho","Mídia"];
-const IDS=new Set(["touchpad","tela","teclado","explorar","zoom","play","volume","desktop"]);
-function limpar(lista){return Array.isArray(lista)?[...new Set(lista.filter(x=>typeof x==="string"&&IDS.has(x)))].slice(0,8):[]}
+const IDS=new Set(["touchpad","tela","teclado","explorar","zoom","play","volume","anterior","proxima","volumeMais","volumeMenos","desktop"]);
+function limpar(lista){return Array.isArray(lista)?[...new Set(lista.filter(x=>typeof x==="string"&&IDS.has(x)))].slice(0,12):[]}
 function validar(dados){
  if(!dados||typeof dados!=="object"||Array.isArray(dados)||dados.formato!=="flow-tutum-favoritos"||dados.versao!==1)throw Error("Arquivo incompatível.");
  if(!dados.listas||typeof dados.listas!=="object"||Array.isArray(dados.listas))throw Error("Perfis ausentes.");
