@@ -289,9 +289,10 @@ canvas.addEventListener("pointerdown",e=>{
  if(!state.exploring&&(!state.approved||!state.authenticated))return;
  e.preventDefault();canvas.setPointerCapture(e.pointerId);
  state.contacts.set(e.pointerId,{x:e.clientX,y:e.clientY});
- if(state.contacts.size>1){if(state.pointer?.drag)wsSend({phase:"cancel"});state.pointer=null;return;}
+ if(state.contacts.size>1){if(state.pointer?.drag)wsSend({phase:"cancel"});state.pointer=null;window.dispatchEvent(new CustomEvent("flow-toque-estado",{detail:{tipo:"cancelado"}}));return;}
  const at=pointAt(e);if(!at||(!at.inside&&state.mode==="direct"))return;
- state.pointer={id:e.pointerId,startX:e.clientX,startY:e.clientY,lastX:e.clientX,lastY:e.clientY,at:Date.now(),point:at,drag:false};
+ state.pointer={id:e.pointerId,startX:e.clientX,startY:e.clientY,lastX:e.clientX,lastY:e.clientY,at:Date.now(),point:at,drag:false,moved:false,hold:false};
+ if(state.mode==="direct"&&!state.exploring)window.dispatchEvent(new CustomEvent("flow-toque-estado",{detail:{tipo:"pressionando",x:e.clientX,y:e.clientY}}));
  if(state.mode==="trackpad")state.cursor={...state.cursor};
 });
 canvas.addEventListener("pointermove",e=>{
@@ -336,7 +337,12 @@ canvas.addEventListener("pointermove",e=>{
  }else{
   const at=pointAt(e);
   if(at&&distance>7){
-    if(!p.drag && state.tapBehavior==="click"){p.drag=wsSend({phase:"down",x:p.point.x,y:p.point.y});}
+    p.moved=true;
+    // Arrastar exige pressão longa deliberada; deslizar nunca segura o botão por acidente.
+    if(!p.drag&&Date.now()-p.at>=420&&state.tapBehavior==="click"&&!p.hold){
+      p.hold=true;p.drag=wsSend({phase:"down",x:p.point.x,y:p.point.y});
+      if(p.drag)window.dispatchEvent(new CustomEvent("flow-toque-estado",{detail:{tipo:"arrastando",x:e.clientX,y:e.clientY}}));
+    }
     state.cursor={x:at.x,y:at.y};
     if(p.drag||state.tapBehavior==="move")wsSend({phase:"move",x:at.x,y:at.y});
   }
@@ -350,11 +356,13 @@ canvas.addEventListener("pointerup",e=>{
  state.gesture=null;
  const p=state.pointer;state.pointer=null;
  if(!p||p.id!==e.pointerId)return;
+ window.dispatchEvent(new CustomEvent("flow-toque-estado",{detail:{tipo:"finalizado"}}));
  if(state.exploring)return;
  if(p.drag&&state.mode==="direct"){
    const at=pointAt(e)||p.point;wsSend({phase:"up",x:at.x,y:at.y});return;
  }
  if(p.drag&&state.mode==="trackpad")return;
+ if(p.moved&&state.mode==="direct"&&state.tapBehavior==="click")return;
  const at=state.mode==="trackpad"?state.cursor:pointAt(e)||p.point;
  if(at) {state.cursor={x:at.x,y:at.y};
    const button=Date.now()-p.at>650?"right":"left";
@@ -363,7 +371,7 @@ canvas.addEventListener("pointerup",e=>{
    else wsSend({phase:"move",x:at.x,y:at.y});
  }
 });
-const cancel=e=>{state.contacts.delete(e.pointerId);state.pointer=null;state.gesture=null;if(!state.exploring)wsSend({phase:"cancel"});};
+const cancel=e=>{state.contacts.delete(e.pointerId);state.pointer=null;state.gesture=null;window.dispatchEvent(new CustomEvent("flow-toque-estado",{detail:{tipo:"cancelado"}}));if(!state.exploring)wsSend({phase:"cancel"});};
 canvas.addEventListener("pointercancel",cancel);canvas.addEventListener("lostpointercapture",e=>{if(state.contacts.has(e.pointerId))cancel(e)});
 canvas.addEventListener("contextmenu",e=>e.preventDefault());
 canvas.addEventListener("wheel",e=>{e.preventDefault();if(e.ctrlKey||state.exploring){zoomNoPonto(state.zoom-e.deltaY*.003,e.clientX-canvas.getBoundingClientRect().left,e.clientY-canvas.getBoundingClientRect().top)}else wsSend({phase:"wheel",wheel:Math.round(-e.deltaY*2)});},{passive:false});
