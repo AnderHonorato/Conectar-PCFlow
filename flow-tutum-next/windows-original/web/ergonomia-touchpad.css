@@ -1,0 +1,11 @@
+.ergonomia-painel{display:grid;gap:10px;padding:14px;margin:10px 0;border:1px solid var(--line,#46434a);border-radius:16px;background:rgba(187,120,55,.08)}
+.ergonomia-cabecalho{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px}
+.ergonomia-cabecalho small,.ergonomia-painel p{font-size:13px;opacity:.82;margin:0}
+.ergonomia-opcoes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ergonomia-opcoes button{min-height:48px;border:1px solid var(--line,#555);border-radius:12px;background:transparent;color:inherit;font:inherit}
+.ergonomia-opcoes button[aria-pressed=true]{background:#aa6637;color:#fff;border-color:#e5a46c}
+.ergonomia-opcoes button:focus-visible{outline:3px solid #e5a46c;outline-offset:2px}
+#touchpad-layout[data-mao=esquerda] .pad-buttons{direction:rtl}
+#touchpad-layout[data-mao=esquerda] .pad-buttons button{direction:ltr}
+@media(max-width:380px){.ergonomia-painel{padding:10px}.ergonomia-cabecalho{display:grid}}
+@media(prefers-reduced-motion:reduce){.ergonomia-opcoes button{transition:none}}

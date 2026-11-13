@@ -1,0 +1,17 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const base=new URL('../web/',import.meta.url);
+test('guia apresenta três modos sem transmitir comandos',()=>{
+ const js=readFileSync(new URL('guia-gestos.js',base),'utf8');
+ for(const modo of ['direct','trackpad','explore'])assert.ok(js.includes(modo+':['));
+ assert.ok(!js.includes('wsSend('));assert.ok(!js.includes('fetch('));
+});
+test('guia possui controles acessíveis e persistência opt-in',()=>{
+ const js=readFileSync(new URL('guia-gestos.js',base),'utf8');
+ for(const trecho of ['aria-expanded','aria-live','Escape','localStorage.setItem','lembrar.checked'])assert.ok(js.includes(trecho));
+});
+test('estilos suportam toque, paisagem e movimento reduzido',()=>{
+ const css=readFileSync(new URL('guia-gestos.css',base),'utf8');
+ for(const trecho of ['min-height:44px','orientation:landscape','prefers-reduced-motion'])assert.ok(css.includes(trecho));
+});

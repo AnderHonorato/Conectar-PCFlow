@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const raiz=new URL('../web/',import.meta.url);
+const js=readFileSync(new URL('feedback-gestos.js',raiz),'utf8');
+const css=readFileSync(new URL('feedback-gestos.css',raiz),'utf8');
+const html=readFileSync(new URL('index.html',raiz),'utf8');
+test('feedback usa gestos reais do canvas e distingue cancelamento',()=>{for(const evento of ['pointerdown','pointermove','pointerup','pointercancel','lostpointercapture'])assert.ok(js.includes('"'+evento+'"'));assert.match(js,/Gesto cancelado/)});
+test('sem autorizacao nao apresenta controle ativo nem vibra',()=>{assert.match(js,/approved&&s\?\.authenticated&&s\?\.sessionReady/);assert.match(js,/if\(!liberado\(\)\)/);assert.match(js,/navigator\.vibrate/)});
+test('modo explorar nao afirma envio de clique',()=>{assert.match(js,/nenhum clique enviado/);assert.match(js,/flow-exploracao-alterada/)});
+test('interface responsiva e acessivel',()=>{assert.match(css,/max-width:420px/);assert.match(css,/prefers-reduced-motion/);assert.match(js,/aria-live/);assert.match(html,/feedback-gestos\.js/);assert.match(html,/feedback-gestos\.css/)});

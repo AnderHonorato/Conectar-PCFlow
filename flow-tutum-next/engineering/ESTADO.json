@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "product": "Flow Tutum Next",
+  "scope": {
+    "windows_user": "AS",
+    "android_application_id": "br.flowtutum",
+    "forbidden_windows_users": [
+      "Lil"
+    ],
+    "single_app": true
+  },
+  "canonical_work": {
+    "repository": "AnderHonorato/Conectar-PCFlow",
+    "issue": 3,
+    "pull_request": 4,
+    "branch": "feat/flow-tutum-next-core-fullstack"
+  },
+  "installed_baseline": {
+    "version": "2.0.0-alpha.10-AS",
+    "verified_at": "2026-11-09",
+    "integrated_with_new_branch": false
+  },
+  "work_status": {
+    "P0-01": {
+      "status": "in_progress",
+      "reason": "Dispositivo Ander-PC esteve online e fontes originais da conta AS foram inspecionados em 2026-11-10. Conexão caiu antes de concluir execução de testes e integração.",
+      "evidence": "Inventário local: src/Program.cs, Coordinates.cs, InputEngine.cs, KeyboardEngine.cs, LocalAccessSettings.cs, SessionStatus.cs, TrayHost.cs; web/app.js, enhancements.js, app.css, index.html; testes .NET e Node; bin-alpha10."
+    },
+    "P0-02": {
+      "status": "not_started"
+    },
+    "P0-03": {
+      "status": "prepared_only",
+      "reason": "Correção real aplicada ao Coordinates.cs local para rejeitar larguras/alturas NaN, ±Infinity e <=0; 10 regressões novas; 17/17 testes .NET Release passaram. Integração com APK ainda pendente."
+    },
+    "P0-04": {
+      "status": "prepared_only",
+      "reason": "Comandos e touchpad em branch; testes físicos pendentes"
+    },
+    "P0-05": {
+      "status": "prepared_only",
+      "reason": "IME/Unicode em branch; Galaxy A35 não testado"
+    },
+    "P0-06": {
+      "status": "integration_tested_locally",
+      "reason": "Endpoint /api/pair original da conta AS recebeu validação explícita de Content-Type JSON; build Release passou (0 erros/avisos); teste HTTP isolado retornou 415 para text/plain, 400 para JSON malformado, 401 para PIN inválido. Testes anteriores 413/429 permanecem como evidência histórica, mas não foram reexecutados neste ciclo. Integração Android pendente.",
+      "evidence": "2026-11-10: compilação .NET Release exit 0, 0 avisos/erros; 10/10 testes HTTP PASS na porta temporária 54937; servidor encerrado, arquivo de teste temporário removido, instalação 49900 preservada."
+    },
+    "P0-07": {
+      "status": "not_verified"
+    },
+    "P0-08": {
+      "status": "blocked",
+      "reason": "Depende da integração com o código original e dos testes"
+    }
+  },
+  "release_rules": {
+    "require_real_windows_build": true,
+    "require_signed_android_apk": true,
+    "require_same_android_signer": true,
+    "require_compatibility_tests": true,
+    "require_github_release": true,
+    "require_drive_hash_match": true,
+    "require_public_https_check": true
+  },
+  "verification": {
+    "last_next_ci": "passed_on_previous_head",
+    "next_ci_reference": "https://github.com/AnderHonorato/Conectar-PCFlow/actions/runs/42782087224",
+    "windows_pcflow_build_is_not_next_release": true,
+    "local_device": "Ander-PC / dc7a13ee-58a4-4dce-8cee-288fed5d35f2",
+    "local_geometry_patch": "applied_and_tested_2026-11-10",
+    "local_geometry_tests": "17/17 passed; .NET Release exit 0 on Ander-PC",
+    "pair_hardening_local": "2026-11-10: Release isolada .NET build exit 0, 0 avisos/erros; testes HTTP 10/10 PASS (400, 413 Content-Length/chunked, 401, 429); servidor porta 54937 encerrado; nenhuma mudança na instalação.",
+    "geometry_retest": "17/17 testes .NET passaram (exit 0); node --check pair-hardening.mjs exit 0",
+    "pair_content_type_20261110": "Ander-PC, AS, porta temporária 54939: build .NET Release exit 0, 0 avisos/erros; HTTP 415/400/401 PASS; porta fechada após teste. Alteração aplicada somente em src/Program.cs local; teste de regressão versionado em flow-tutum-next/tests/pareamento-http.mjs (ainda não executado no CI).",
+    "security_module_private_ip_guard_20261110": {
+      "status": "committed_pending_ci",
+      "description": "SessoesRedeLocal recusa emissão de tokens para IP público, loopback e IPv6 não mapeado; IPv4 privado mapeado segue aceito",
+      "code_commit": "d297d9d342f01c2c685b6427b556d271edb330ad",
+      "test_commit": "c8523167a1b4389300192044ac003ee898672243",
+      "scope": "GitHub modular; não integrado ao servidor original AS nem ao APK"
+    },
+    "revogacao_individual_20261110": {
+      "status": "committed_pending_ci",
+      "implementation_commit": "ead22df5e1a33f3f90eb225a9637b390a81d6e23",
+      "tests_commit": "1918412b403454cafc86f61d9236fc244307892e",
+      "scope": "módulo C# GitHub; não integrado ao servidor original nem ao APK",
+      "test_cases": [
+        "revogar um dispositivo preserva outro",
+        "token inválido não revoga",
+        "IP IPv4 mapeado em IPv6",
+        "revogação idempotente"
+      ],
+      "ci": "pending"
+    }
+  },
+  "next_priority": "Validar CI do módulo de revogação individual; integrar com endpoint /api/unpair do Windows AS sem regressões e sem mudar a instalação atual.",
+  "state_policy": "Modificar somente com evidências. Nunca converter prepared_only em complete por commit isolado."
+}

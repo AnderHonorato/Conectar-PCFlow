@@ -1,0 +1,6 @@
+.ajuste-rolagem{display:grid;gap:8px;padding:12px 14px;margin-top:12px;border:1px solid var(--line,#343d49);border-radius:12px;background:rgba(255,255,255,.035);color:var(--white,#edf1f4)}
+.ajuste-rolagem>span{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px;font-weight:650}
+.ajuste-rolagem output{color:var(--accent,#63d5c8);font-variant-numeric:tabular-nums}
+.ajuste-rolagem input{width:100%;min-height:44px;accent-color:var(--accent,#63d5c8);touch-action:pan-x}
+.ajuste-rolagem input:focus-visible{outline:3px solid var(--accent,#63d5c8);outline-offset:3px}
+@media(max-width:400px){.ajuste-rolagem{padding:10px}}
