@@ -44,14 +44,7 @@ function renderizar(){
  for(const id of recentes){const item=ACOES[id],b=document.createElement("button");b.type="button";b.textContent=item.nome;b.disabled=!!item.tecla&&!autorizado(app.state);b.title=b.disabled?"Controle remoto não autorizado":"Repetir "+item.nome;b.addEventListener("click",()=>repetir(id));lista.append(b)}
 }
 painel.querySelector("#historico-limpar").addEventListener("click",()=>{recentes=[];salvar();renderizar();estado.textContent="Histórico local apagado."});
-document.addEventListener("click",e=>{
- const alvo=e.target.closest(".favoritos-item > button:first-child");if(!alvo)return;
- const id=alvo.parentElement?.dataset.favorito;
- if(!id||alvo.disabled||!Object.hasOwn(ACOES,id))return;
- // Registrar somente ações disparadas explicitamente; envio remoto requer autorização.
- if(ACOES[id].tecla&&!autorizado(app.state))return;
- registrar(id);
-});
+window.addEventListener("flow-acao-executada",e=>{const id=e.detail?.id;if(Object.hasOwn(ACOES,id))registrar(id)});
 window.addEventListener("flow-favoritos-alterados",renderizar);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)renderizar()});
 renderizar();
