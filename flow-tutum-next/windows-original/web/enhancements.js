@@ -9,6 +9,8 @@ const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
 let motorGestos=null;
 import('./gestos-configuraveis.mjs').then(modulo=>{motorGestos=modulo}).catch(()=>{});
 let fatorRolagem=1;
+let direcaoRolagem="automatica";
+let distanciaDoisDedos=0;
 const zoomText=()=>{
  const label=el("zoom-label");
  if(label)label.textContent=state.zoom===1&&state.fillMode==="fit"?"Ajustar":Math.round(state.zoom*100)+"%";
@@ -174,6 +176,14 @@ const ajusteRolagem=document.createElement('label');
 ajusteRolagem.className='ajuste-rolagem';
 ajusteRolagem.innerHTML='<span>Velocidade da rolagem <output id="valor-rolagem">1×</output></span><input id="velocidade-rolagem" type="range" min="0.5" max="3" step="0.25" value="1" aria-label="Velocidade da rolagem com dois dedos">';
 perfilContainer.append(ajusteRolagem);
+const escolhaEixo=document.createElement('label');
+escolhaEixo.className='ajuste-rolagem';
+escolhaEixo.innerHTML='<span>Direção com dois dedos</span><select id="direcao-rolagem" aria-label="Direção da rolagem com dois dedos"><option value="automatica">Automática · trava o eixo</option><option value="livre">Livre · horizontal e vertical</option><option value="vertical">Somente vertical</option><option value="horizontal">Somente horizontal</option></select><small>Evita rolagens acidentais ao deslizar na diagonal.</small>';
+perfilContainer.append(escolhaEixo);
+const seletorEixo=escolhaEixo.querySelector('select');
+try{const salvo=localStorage.getItem('flow-direcao-rolagem');if(['automatica','livre','vertical','horizontal'].includes(salvo))direcaoRolagem=salvo}catch{}
+seletorEixo.value=direcaoRolagem;
+seletorEixo.addEventListener('change',()=>{direcaoRolagem=seletorEixo.value;try{localStorage.setItem('flow-direcao-rolagem',direcaoRolagem)}catch{};padEixo=null;padAcumulado={x:0,y:0};mostrarGesto('Direção: '+seletorEixo.selectedOptions[0].textContent)});
 const campoRolagem=ajusteRolagem.querySelector('input'),valorRolagem=ajusteRolagem.querySelector('output');
 try{const salvo=Number(localStorage.getItem('flow-velocidade-rolagem'));if(Number.isFinite(salvo)&&salvo>=0.5&&salvo<=3)fatorRolagem=salvo}catch{}
 campoRolagem.value=String(fatorRolagem);valorRolagem.textContent=fatorRolagem+'×';
@@ -184,14 +194,14 @@ function centroContatos(){
          y:contatos.reduce((s,p)=>s+p.y,0)/contatos.length};
 }
 function encerrarGesto(){
- padContacts.clear();padLastCenter=null;padGestureMulti=false;padMultiScrolled=false;padMoved=false;padEixo=null;padAcumulado={x:0,y:0};
+ padContacts.clear();padLastCenter=null;padGestureMulti=false;padMultiScrolled=false;padMoved=false;padEixo=null;padAcumulado={x:0,y:0};distanciaDoisDedos=0;
 }
 pad.addEventListener("pointerdown",event=>{
  if(!state.approved)return;
  event.preventDefault();pad.setPointerCapture(event.pointerId);
  padContacts.set(event.pointerId,{x:event.clientX,y:event.clientY,moved:0});
  if(padContacts.size===1){padMoved=false;padGestureMulti=false;padMultiScrolled=false;padDown=Date.now();padLastCenter=null;mostrarGesto(hold?"Arrastando":"Mover ponteiro")}
- if(padContacts.size===2){padGestureMulti=true;padLastCenter=centroContatos();padEixo=null;padAcumulado={x:0,y:0};mostrarGesto("Dois dedos · rolar")}
+ if(padContacts.size===2){padGestureMulti=true;padLastCenter=centroContatos();padEixo=null;padAcumulado={x:0,y:0};distanciaDoisDedos=0;mostrarGesto("Dois dedos · rolar")}
  if(padContacts.size>2){padGestureMulti=true;padLastCenter=null}
 });
 pad.addEventListener("pointermove",event=>{
@@ -208,8 +218,9 @@ pad.addEventListener("pointermove",event=>{
   if(padLastCenter){
    const dx=centro.x-padLastCenter.x,dy=centro.y-padLastCenter.y;
    padAcumulado.x+=dx;padAcumulado.y+=dy;
+   distanciaDoisDedos+=Math.hypot(dx,dy);
    // Trava a direção após o movimento inicial, evitando tremor diagonal.
-   if(!padEixo&&Math.hypot(padAcumulado.x,padAcumulado.y)>=12){padEixo=Math.abs(padAcumulado.x)>Math.abs(padAcumulado.y)*1.25?"horizontal":Math.abs(padAcumulado.y)>Math.abs(padAcumulado.x)*1.25?"vertical":"livre";mostrarGesto(padEixo==="horizontal"?"Rolagem horizontal":padEixo==="vertical"?"Rolagem vertical":"Rolagem livre")}
+   if(!padEixo&&Math.hypot(padAcumulado.x,padAcumulado.y)>=12){padEixo=direcaoRolagem==="automatica"?(Math.abs(padAcumulado.x)>Math.abs(padAcumulado.y)*1.25?"horizontal":Math.abs(padAcumulado.y)>Math.abs(padAcumulado.x)*1.25?"vertical":"livre"):direcaoRolagem;mostrarGesto(padEixo==="horizontal"?"Rolagem horizontal":padEixo==="vertical"?"Rolagem vertical":"Rolagem livre")}
    if(padEixo!=="horizontal"&&padEixo&&Math.abs(dy)>=scrollThreshold){
     if(wsSend({phase:"wheel",wheel:(motorGestos?motorGestos.calcularRolagem(dy,fatorRolagem):Math.round(-dy*7*fatorRolagem))})){padMultiScrolled=true;mostrarGesto("Rolagem vertical")}
     padLastCenter.y=centro.y;
@@ -239,7 +250,7 @@ pad.addEventListener("pointerup",event=>{
  const duracao=Date.now()-padDown;
  // Dois dedos sem rolagem = clique direito; rolagem nunca vira clique.
  if(padGestureMulti){
-  if(!padMultiScrolled&&duracao<550&&wsSend({phase:"tap",button:"right",...mousePosition()})){mostrarGesto("Clique direito");pulsar()}
+  if(!padMultiScrolled&&distanciaDoisDedos<8&&duracao<550&&state.approved&&wsSend({phase:"tap",button:"right",...mousePosition()})){mostrarGesto("Clique direito");pulsar()}
  }else if(!padMoved&&contact.moved<9&&!hold){
   if(wsSend({phase:"tap",button:duracao>700?"right":"left",...mousePosition()})){mostrarGesto(duracao>700?"Clique direito":"Clique esquerdo");pulsar()}
  }
